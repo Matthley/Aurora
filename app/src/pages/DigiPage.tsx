@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { bearingDeg } from '../lib/geo';
 import { gridToLatLon } from '../lib/maidenhead';
-import { addLogQso, rotatorGoto, ApiError, digiAbort, digiCat, digiTextFile, getLogQsos, digiRx, digiRxPage, postFrequency, digiTransmit, digiTxClose, digiTxOpen, getDigi, getExtraRx, putExtraRx, type ExtraRx, getDigiNotches, importMacros, putDigi, putDigiNotches, type ClusterSpot, type DigiNotch, type DigiMacro, type DigiSettings, type DigiSnapshot } from '../api/client';
+import { addLogQso, rotatorGoto, ApiError, digiAbort, digiCat, digiTextFile, getLogQsos, digiRx, digiRxPage, postFrequency, digiTransmit, digiTransmitRestart, digiTxClose, digiTxOpen, getDigi, getExtraRx, putExtraRx, type ExtraRx, getDigiNotches, importMacros, putDigi, putDigiNotches, type ClusterSpot, type DigiNotch, type DigiMacro, type DigiSettings, type DigiSnapshot } from '../api/client';
 import { ControlBar } from '../components/digi/ControlBar';
 import { FreqPicker } from '../components/FreqPicker';
 import { bandPlanRows } from '../lib/bandplan';
@@ -42,6 +42,7 @@ import { txeStep } from '../lib/txeWait';
 import { DigiTxBox } from '../components/DigiTxBox';
 import { RttySettingsDialog } from '../components/digi/RttySettingsDialog';
 import { useDigiTxLive } from '../lib/digiTxLive';
+import { createLatestSequencer, restartBox } from '../lib/macroRestart';
 import { RowAverager, seekSignal, snapToPair, snapToPeak, type SpectrumRow } from '../lib/digiSpectrum';
 import { bandOf } from '../lib/format';
 import { effectiveMacros, macroNameForKey, runMacro, type Macro, type MacroAction, type MacroContext } from '../lib/macroLang';
@@ -283,12 +284,14 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const sending = snap.tx.state === 'sending';
   // <RXANDCLEAR>: pulizia della finestra di trasmissione rimandata alla fine della trasmissione
   const clearAfterTx = useRef(false);
+  // macro ripremute ancora in viaggio verso il motore: finche' ce n'e' una, la fine della trasmissione di prima non pulisce
+  const macroInflight = useRef(0);
   const wasSending = useRef(false);
   useEffect(() => {
     if (sending) wasSending.current = true;
     else if (wasSending.current) {
       wasSending.current = false;
-      if (clearAfterTx.current) {
+      if (clearAfterTx.current && macroInflight.current === 0) {
         clearAfterTx.current = false;
         // il testo appena partito passa nello storico a fine trasmissione: si pulisce subito dopo, cosi' non ricompare
         clearTxWindow();
@@ -562,11 +565,11 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
 
   // il testo parte e resta nella finestra di trasmissione, dove si vede a che punto e' arrivato (l'eco nella ricezione arriva dal motore)
   const send = useCallback(
-    (body: string): Promise<boolean> => {
-      const { tx: box, txLive: tl } = txLiveRef.current;
+    (body: string, fromBox = false): Promise<boolean> => {
+      const { txLive: tl } = txLiveRef.current;
       const queued = tl.progress.queued;
-      // dalla finestra parte solo quello che non e' gia' in coda; una macro si mette in coda dopo
-      const fromBox = body === box;
+      // dalla finestra parte solo quello che non e' gia' in coda (prima si capiva confrontando il testo con la casella: una macro
+      // uguale al testo gia' nella casella, come la stessa macro ripremuta, risultava «dalla casella» e non partiva niente)
       const upper = caps.current ? body.toUpperCase() : body;
       const message = fromBox ? upper.slice(queued) : upper.trim();
       if (message.trim() === '') return Promise.resolve(false);
@@ -582,6 +585,38 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           const code = e instanceof ApiError ? e.code : '';
           setProblem(code === 'tx_disabled' ? t('digi.tx.disabled') : code === 'busy' ? t('digi.tx.busy') : code === 'no_transmitter' ? t('digi.tx.notReady') : t('digi.tx.error'));
           return false;
+        },
+      );
+    },
+    [onChanged, t],
+  );
+
+  // le macro premute mentre si trasmette: in fila verso il motore, l'ultima vince (vedi macroRestart)
+  const macroSeq = useRef(createLatestSequencer());
+  const restartTx = useCallback(
+    (body: string, open: boolean): Promise<{ ok: boolean; latest: boolean }> => {
+      const message = (caps.current ? body.toUpperCase() : body).trim();
+      setProblem('');
+      macroInflight.current++;
+      const r = macroSeq.current.run(() => digiTransmitRestart(message, open));
+      void r.done.then(
+        () => macroInflight.current--,
+        () => macroInflight.current--,
+      );
+      return r.done.then(
+        (kept) => {
+          const { txLive: tl } = txLiveRef.current;
+          // nessuna trasmissione prima: quello che era scritto nella casella resta dopo la macro, come prima
+          const fresh = tl.progress.queued === 0 && kept === 0;
+          setTx((v) => (fresh ? message + v : restartBox(v, kept, message)));
+          tl.restart(kept, message.length);
+          onChanged();
+          return { ok: true, latest: macroSeq.current.isLatest(r.gen) };
+        },
+        (e: unknown) => {
+          const code = e instanceof ApiError ? e.code : '';
+          setProblem(code === 'tx_disabled' ? t('digi.tx.disabled') : code === 'busy' ? t('digi.tx.busy') : code === 'no_transmitter' ? t('digi.tx.notReady') : t('digi.tx.error'));
+          return { ok: false, latest: macroSeq.current.isLatest(r.gen) };
         },
       );
     },
@@ -976,26 +1011,30 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       if (plan.after !== '') setTx((v) => (v.trim() === '' ? plan.after : `${v.replace(/\s+$/, '')} ${plan.after}`));
     };
     const toTx = plan.tx === 'start';
-    if (plan.tx === 'stop') {
-      // <TXTOGGLE> mentre si trasmette: parte il testo della macro e poi si torna in ricezione
-      const close = () => {
-        void digiTxClose().then(onChanged, onChanged);
-        keepAfter();
-      };
-      if (body !== '') void send(body).then(close);
-      else close();
-    } else if (toTx) {
-      // un comando <TX> da solo trasmette quello che c'e' nella casella (se non e' stata appena pulita)
-      // senza <RX> la trasmissione resta aperta finito il testo (si continua a scrivere), con <RX> si torna in ricezione;
-      // si apre solo dopo che il testo e' partito davvero, mai una trasmissione vuota
-      const what = body !== '' ? body : plan.clearBox ? '' : l.tx;
-      const fire = () =>
-        void send(what).then((ok) => {
+    // una macro che trasmette, o premuta mentre si trasmette, ricomincia da capo: il testo non ancora partito si butta e parte questa
+    // dall'inizio senza togliere il PTT; vince l'ultima pressione, e solo lei decide <RX> e la pulizia (vedi macroRestart)
+    const transmitting = toTx || busy || plan.tx === 'stop';
+    if (transmitting) {
+      // un comando <TX> da solo trasmette quello che c'e' nella casella (se non e' stata appena pulita); mai una trasmissione vuota
+      const what = body !== '' ? body : toTx && !plan.clearBox ? l.tx : '';
+      // senza <RX> finito il testo si resta in trasmissione (si continua a scrivere); <TXTOGGLE> mentre si trasmette chiude
+      const open = plan.tx !== 'stop' && !plan.rxAfter;
+      clearAfterTx.current = plan.clearAfter;
+      const fire = () => {
+        if (what.trim() === '') {
+          if (busy && !open) {
+            const r = macroSeq.current.run(() => digiTxClose());
+            void r.done.then(onChanged, onChanged);
+          }
+          keepAfter();
+          return;
+        }
+        void restartTx(what, open).then(({ ok, latest }) => {
+          if (!latest) return;
           if (!ok) clearAfterTx.current = false;
-          else if (!plan.rxAfter) void digiTxOpen('').then(onChanged, () => undefined);
-          else if (busy) void digiTxClose().then(onChanged, onChanged);
           keepAfter();
         });
+      };
       // <TXE>: si aspetta che cada il segnale sulla frequenza di ricezione (al massimo 30 s, poi si trasmette comunque)
       stopTxe();
       if (plan.waitCarrier && txeStep(l.snap.rx.carrier, 0, 0) === 'wait') {
@@ -1008,22 +1047,13 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           }
         }, 200);
       } else fire();
-    } else if (busy) {
-      // durante una trasmissione il testo della macro si accoda a quello che sta partendo; con <RX> poi si torna in ricezione
-      const after = () => {
-        if (plan.rxAfter) void digiTxClose().then(onChanged, onChanged);
-        keepAfter();
-      };
-      if (body !== '') void send(body).then(after);
-      else after();
     } else {
       if (body !== '') setTx((v) => (plan.clearBox || v.trim() === '' ? body : `${v.replace(/\s+$/, '')} ${body}`));
       keepAfter();
     }
     // <RXC>: la finestra di trasmissione si pulisce quando il testo e' partito e si e' tornati in ricezione
     if (plan.clearAfter) {
-      if (toTx || busy) {
-        clearAfterTx.current = true;
+      if (transmitting) {
         // riserva: se la pagina non vede mai «in trasmissione» (trasmissione cortissima), pulisce appena il core dice che non trasmette piu'
         const t0 = Date.now();
         const id = window.setInterval(() => {
@@ -1031,7 +1061,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             window.clearInterval(id);
             return;
           }
-          if (txeTimer.current !== null || wasSending.current || Date.now() - t0 < 2000) return;
+          if (txeTimer.current !== null || macroInflight.current > 0 || wasSending.current || Date.now() - t0 < 2000) return;
           if (live.current.snap.tx.state !== 'sending') {
             clearAfterTx.current = false;
             window.clearInterval(id);
@@ -1080,6 +1110,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           toast(t('digi.run.autoCqPaused'), 'info');
         }
         if (stopTxe()) toast(t('digi.run.txeCancel'), 'info');
+        macroSeq.current.cancel();
         if (live.current.snap.tx.state === 'sending') void digiAbort().then(onChanged, onChanged);
         return;
       }
@@ -1511,7 +1542,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
                 else setTx(next);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !sending) send(tx);
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !sending) send(tx, true);
                 else if (e.key === 'Enter' && !e.shiftKey && !e.altKey) runEventSoon('OnCR');
               }}
             />
@@ -1627,6 +1658,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
           onToggleTx={() => {
             // il tasto RX/TX della barra in basso premuto mentre si trasmette ferma subito la trasmissione (come Esc); da fermi la apre
+            macroSeq.current.cancel();
             if (live.current.snap.tx.state === 'sending') void digiAbort().then(onChanged, onChanged);
             else toggleTx();
           }}

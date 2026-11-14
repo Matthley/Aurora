@@ -2061,6 +2061,12 @@ export async function digiTransmit(text: string): Promise<void> {
   await request('/digi/tx', jsonInit({ text }));
 }
 
+/** Una macro ripremuta: il testo non ancora partito si butta e `text` ricomincia da capo senza togliere il PTT; `open`: finito il
+ * testo si resta in trasmissione. Restituisce quanti caratteri della trasmissione restano (gia' modulati). */
+export async function digiTransmitRestart(text: string, open: boolean): Promise<number> {
+  return ((await (await request('/digi/tx', jsonInit({ text, restart: true, open }))).json()) as { kept?: number }).kept ?? 0;
+}
+
 export interface DigiImported {
   folder: string;
   default_count: number;

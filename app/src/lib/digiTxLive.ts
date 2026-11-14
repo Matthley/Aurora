@@ -100,5 +100,8 @@ export function useDigiTxLive(box: string, setBox: (next: string | ((prev: strin
     void digiTxReplace(plan.from, plan.text).then((ok) => (ok ? undefined : undo()), undo);
   };
 
-  return { progress, queue, edit, reset: () => setProgress(TX_NONE) };
+  /** Una macro ripremuta: restano i primi `kept` caratteri (gia' modulati) e in coda c'e' solo la macro nuova, lunga `count`. */
+  const restart = (kept: number, count: number) => setProgress((p) => ({ queued: kept + count, sent: Math.min(p.sent, kept) }));
+
+  return { progress, queue, edit, restart, reset: () => setProgress(TX_NONE) };
 }
