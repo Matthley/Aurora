@@ -137,7 +137,7 @@ pub enum Kind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RbnLine {
     /// Il ricevitore, senza `-#`.
-    pub skimmer: String,
+    pub receiver: String,
     pub freq_khz: f64,
     pub call: String,
     pub mode: String,
@@ -168,7 +168,7 @@ pub fn parse_line(line: &str) -> Option<RbnLine> {
         Kind::Dx
     };
     Some(RbnLine {
-        skimmer: p.spotter.split('-').next().unwrap_or(&p.spotter).to_uppercase(),
+        receiver: p.spotter.split('-').next().unwrap_or(&p.spotter).to_uppercase(),
         freq_khz: p.freq_khz,
         call: p.dx_call,
         mode,
@@ -188,9 +188,9 @@ pub struct RbnSpot {
     pub band: &'static str,
     pub mode: String,
     /// Quanti ricevitori l'hanno sentita (negli ultimi 10 minuti).
-    pub skimmers: usize,
+    pub receivers: usize,
     /// Il ricevitore con il S/N migliore.
-    pub best_skimmer: String,
+    pub best_receiver: String,
     pub best_snr_db: Option<i32>,
     pub speed: Option<u32>,
     pub kind: Kind,
@@ -337,11 +337,11 @@ impl RbnService {
             .filter(|e| e.spot.freq_khz >= lo_khz && e.spot.freq_khz <= hi_khz)
             .map(|e| {
                 e.heard.retain(|_, at| now.saturating_sub(*at) <= MAX_AGE_MS);
-                e.spot.skimmers = e.heard.len().max(1);
+                e.spot.receivers = e.heard.len().max(1);
                 e.spot.clone()
             })
             .collect();
-        out.sort_by(|a, b| b.skimmers.cmp(&a.skimmers).then(b.last_ms.cmp(&a.last_ms)));
+        out.sort_by(|a, b| b.receivers.cmp(&a.receivers).then(b.last_ms.cmp(&a.last_ms)));
         out
     }
 
@@ -355,7 +355,7 @@ impl RbnService {
             return false;
         }
         if !config.continents.is_empty() {
-            let continent = lock(&self.enricher).as_ref().and_then(|e| e(&line.skimmer)).map(|(_, k)| k);
+            let continent = lock(&self.enricher).as_ref().and_then(|e| e(&line.receiver)).map(|(_, k)| k);
             if !continent.is_some_and(|k| config.continents.contains(&k)) {
                 return false;
             }
@@ -369,8 +369,8 @@ impl RbnService {
                 freq_khz: line.freq_khz,
                 band,
                 mode: line.mode.clone(),
-                skimmers: 0,
-                best_skimmer: line.skimmer.clone(),
+                receivers: 0,
+                best_receiver: line.receiver.clone(),
                 best_snr_db: line.snr_db,
                 speed: line.speed,
                 kind: line.kind,
@@ -379,7 +379,7 @@ impl RbnService {
             },
             heard: BTreeMap::new(),
         });
-        entry.heard.insert(line.skimmer.clone(), now);
+        entry.heard.insert(line.receiver.clone(), now);
         if entry.heard.len() > 200
             && let Some(oldest) = entry.heard.iter().min_by_key(|(_, at)| **at).map(|(k, _)| k.clone())
         {
@@ -387,16 +387,16 @@ impl RbnService {
         }
         let s = &mut entry.spot;
         let stale = now.saturating_sub(s.last_ms) > MAX_AGE_MS;
-        if stale || line.snr_db > s.best_snr_db || s.best_skimmer == line.skimmer {
+        if stale || line.snr_db > s.best_snr_db || s.best_receiver == line.receiver {
             s.freq_khz = line.freq_khz;
             s.best_snr_db = line.snr_db;
-            s.best_skimmer = line.skimmer.clone();
+            s.best_receiver = line.receiver.clone();
         }
         s.speed = line.speed.or(s.speed);
         s.kind = line.kind;
         s.time_utc = line.time_utc.clone();
         s.last_ms = now;
-        s.skimmers = entry.heard.len();
+        s.receivers = entry.heard.len();
         if entries.len() > MAX_ENTRIES {
             let oldest: BTreeSet<_> = {
                 let mut all: Vec<_> = entries.iter().map(|(k, e)| (e.spot.last_ms, k.clone())).collect();
@@ -544,7 +544,7 @@ async fn serve(listener: TcpListener, svc: Arc<RbnService>) {
 
 async fn client(stream: TcpStream, mut rx: broadcast::Receiver<String>) -> Result<(), std::io::Error> {
     let (mut reader, mut writer) = stream.into_split();
-    writer.write_all(b"Aurora skimmer spot server\r\nPlease enter your call: ").await?;
+    writer.write_all(b"Aurora spot server\r\nPlease enter your call: ").await?;
     let mut buf = [0u8; 512];
     let mut typed = Vec::new();
     let call = loop {
@@ -592,7 +592,7 @@ mod tests {
     #[test]
     fn reads_a_cw_spot() {
         let l = parse_line("DX de EA5WU-#:   14025.0  K1ABC          CW    12 dB  25 WPM  CQ      1200Z").unwrap();
-        assert_eq!((l.skimmer.as_str(), l.call.as_str(), l.mode.as_str()), ("EA5WU", "K1ABC", "CW"));
+        assert_eq!((l.receiver.as_str(), l.call.as_str(), l.mode.as_str()), ("EA5WU", "K1ABC", "CW"));
         assert_eq!(l.freq_khz, 14025.0);
         assert_eq!((l.snr_db, l.speed, l.kind), (Some(12), Some(25), Kind::Cq));
         assert_eq!(l.time_utc, "1200");
@@ -622,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn groups_the_skimmers_of_a_station_and_keeps_the_best_snr() {
+    fn groups_the_receivers_of_a_station_and_keeps_the_best_snr() {
         let s = svc("groups");
         for line in [
             "DX de EA5WU-#:   14025.0  K1ABC   CW  12 dB  25 WPM  CQ  1200Z",
@@ -634,7 +634,7 @@ mod tests {
         }
         let all = s.spots(Some("20m"), Some("CW"), 14000.0, 14100.0);
         assert_eq!(all.len(), 1);
-        assert_eq!((all[0].skimmers, all[0].best_snr_db, all[0].freq_khz), (2, Some(20), 14025.1));
+        assert_eq!((all[0].receivers, all[0].best_snr_db, all[0].freq_khz), (2, Some(20), 14025.1));
         assert!(s.spots(Some("20m"), Some("CW"), 14030.0, 14100.0).is_empty(), "fuori dalla cascata");
         assert_eq!(s.spots(None, None, 0.0, 1e9).len(), 2);
     }
@@ -663,7 +663,7 @@ mod tests {
     fn the_local_line_reads_back_as_an_rbn_spot() {
         let line = format_local_line("IU3ABC", 14025.04, "K1ABC", "CW", 14.2, Some(22.0), true, "1200");
         let l = parse_line(&line).unwrap();
-        assert_eq!((l.skimmer.as_str(), l.call.as_str(), l.mode.as_str()), ("IU3ABC", "K1ABC", "CW"));
+        assert_eq!((l.receiver.as_str(), l.call.as_str(), l.mode.as_str()), ("IU3ABC", "K1ABC", "CW"));
         assert_eq!((l.snr_db, l.speed, l.kind, l.freq_khz), (Some(14), Some(22), Kind::Cq, 14025.0));
     }
 
@@ -696,7 +696,7 @@ mod tests {
         let mut spot = String::new();
         tokio::time::timeout(Duration::from_secs(5), r.read_line(&mut spot)).await.unwrap().unwrap();
         let l = parse_line(spot.trim_end()).unwrap();
-        assert_eq!((l.skimmer.as_str(), l.call.as_str(), l.kind), ("IU3ABC", "K1ABC", Kind::Cq));
+        assert_eq!((l.receiver.as_str(), l.call.as_str(), l.kind), ("IU3ABC", "K1ABC", Kind::Cq));
     }
 
     #[tokio::test]

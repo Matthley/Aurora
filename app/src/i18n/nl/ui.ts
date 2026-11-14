@@ -3249,7 +3249,7 @@ export const NL_UI: Record<string, string> = {
   "rbn.server.port": "Poort",
   "rbn.server.title": "Lokale spotserver",
   "rbn.show": "RBN tonen",
-  "rbn.spotTip": "{call} · {freq} kHz · {n} RBN-ontvangers, beste S/R {snr} dB ({skimmer}) om {time}Z. Klik: hier ontvangen",
+  "rbn.spotTip": "{call} · {freq} kHz · {n} RBN-ontvangers, beste S/R {snr} dB ({receiver}) om {time}Z. Klik: hier ontvangen",
   "rbn.st.connected": "verbonden",
   "rbn.st.connecting": "verbinden",
   "rbn.st.error": "niet verbonden",

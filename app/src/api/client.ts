@@ -679,8 +679,8 @@ export interface RbnSpot {
   freq_khz: number;
   band: string;
   mode: string;
-  skimmers: number;
-  best_skimmer: string;
+  receivers: number;
+  best_receiver: string;
   best_snr_db: number | null;
   speed: number | null;
   kind: 'cq' | 'beacon' | 'ncdxf' | 'dx';

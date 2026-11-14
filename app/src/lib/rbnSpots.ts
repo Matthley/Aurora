@@ -29,5 +29,5 @@ export function useRbnSpots(on: boolean, dialHz: number, mode: string, minHz: nu
 /** Le etichette RBN sulla cascata (tono audio = frequenza dello spot meno la radio, in USB). */
 export function rbnLabels(spots: RbnSpot[], dialHz: number): WaterfallLabel[] {
   if (dialHz <= 0) return [];
-  return spots.map((s) => ({ hz: s.freq_khz * 1000 - dialHz, text: s.call, cq: s.kind === 'cq', sure: true, rbn: true, history: `RBN · ${s.skimmers} · ${s.best_snr_db ?? '?'} dB (${s.best_skimmer})` }));
+  return spots.map((s) => ({ hz: s.freq_khz * 1000 - dialHz, text: s.call, cq: s.kind === 'cq', sure: true, rbn: true, history: `RBN · ${s.receivers} · ${s.best_snr_db ?? '?'} dB (${s.best_receiver})` }));
 }

@@ -1869,7 +1869,7 @@ rbn.show,Show RBN,RBN tonen
 rbn.badge,RBN,RBN
 rbn.listTitle,Heard by the RBN,Gehoord door het RBN
 rbn.listTip,Stations heard by RBN receivers in this part of the band that Aurora has not decoded. Click: receive there.,Stations die RBN-ontvangers in dit deel van de band horen en die Aurora niet heeft gedecodeerd. Klik: daar ontvangen.
-rbn.spotTip,"{call} · {freq} kHz · {n} RBN receivers, best S/N {snr} dB ({skimmer}) at {time}Z. Click: receive here","{call} · {freq} kHz · {n} RBN-ontvangers, beste S/R {snr} dB ({skimmer}) om {time}Z. Klik: hier ontvangen"
+rbn.spotTip,"{call} · {freq} kHz · {n} RBN receivers, best S/N {snr} dB ({receiver}) at {time}Z. Click: receive here","{call} · {freq} kHz · {n} RBN-ontvangers, beste S/R {snr} dB ({receiver}) om {time}Z. Klik: hier ontvangen"
 nav.dxmap,DX Map,DX-kaart
 dxmap.brightness,Brightness,Helderheid
 dxmap.greyline,Greyline,Greyline

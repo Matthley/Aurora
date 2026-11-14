@@ -85,11 +85,11 @@ export const rbnStrings = {
     'Estações ouvidas pelos recetores RBN neste troço de banda que o Aurora não descodificou. Clique: a receção vai para lá.',
   ],
   'rbn.spotTip': [
-    '{call} · {freq} kHz · {n} ricevitori RBN, S/N migliore {snr} dB ({skimmer}) alle {time}Z. Clic: ricezione qui',
-    '{call} · {freq} kHz · {n} RBN receivers, best S/N {snr} dB ({skimmer}) at {time}Z. Click: receive here',
-    '{call} · {freq} kHz · {n} RBN-Empfänger, bestes S/N {snr} dB ({skimmer}) um {time}Z. Klick: hier empfangen',
-    '{call} · {freq} kHz · {n} récepteurs RBN, meilleur S/B {snr} dB ({skimmer}) à {time}Z. Clic : réception ici',
-    '{call} · {freq} kHz · {n} receptores RBN, mejor S/R {snr} dB ({skimmer}) a las {time}Z. Clic: recepción aquí',
-    '{call} · {freq} kHz · {n} recetores RBN, melhor S/R {snr} dB ({skimmer}) às {time}Z. Clique: receção aqui',
+    '{call} · {freq} kHz · {n} ricevitori RBN, S/N migliore {snr} dB ({receiver}) alle {time}Z. Clic: ricezione qui',
+    '{call} · {freq} kHz · {n} RBN receivers, best S/N {snr} dB ({receiver}) at {time}Z. Click: receive here',
+    '{call} · {freq} kHz · {n} RBN-Empfänger, bestes S/N {snr} dB ({receiver}) um {time}Z. Klick: hier empfangen',
+    '{call} · {freq} kHz · {n} récepteurs RBN, meilleur S/B {snr} dB ({receiver}) à {time}Z. Clic : réception ici',
+    '{call} · {freq} kHz · {n} receptores RBN, mejor S/R {snr} dB ({receiver}) a las {time}Z. Clic: recepción aquí',
+    '{call} · {freq} kHz · {n} recetores RBN, melhor S/R {snr} dB ({receiver}) às {time}Z. Clique: receção aqui',
   ],
 } as const satisfies Record<string, Entry>;
