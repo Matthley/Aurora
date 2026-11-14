@@ -437,7 +437,9 @@ impl Inner {
         let dx_tx = self.dx_split_tx.load(Ordering::SeqCst);
         if self.dx_split.load(Ordering::SeqCst) && dx_tx != 0 && let Ok(link) = self.connected_link() {
             let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
-            match link.client().set_split_frequency(dx_tx).and_then(|()| link.client().set_split(true, tx_vfo)) {
+            self.write_split_mode(&link);
+            let set = link.client().set_split_frequency(dx_tx).and_then(|()| link.client().set_split(true, tx_vfo));
+            match set {
                 Ok(()) => self.update(|s| s.split = Some(true)),
                 Err(e) => {
                     tracing::warn!("split DX non rimesso dopo la riconnessione: {}", friendly_error(&e.0));
@@ -753,11 +755,31 @@ impl Inner {
             self.vfo_reversed.store(vfo_is_b(&active), Ordering::SeqCst);
         }
         let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
+        self.write_split_mode(link);
         link.client().set_split_frequency(split_tx_dial_hz(dial, audio))?;
         link.client().set_split(true, tx_vfo)?;
         self.xit_split.store(true, Ordering::SeqCst);
         self.update(|s| s.split = Some(true));
         Ok(())
+    }
+
+    /// Il VFO di trasmissione prende lo stesso modo della ricezione: quello di «Modo scritto nella radio» (USB, PKTUSB) o, senza scelta,
+    /// quello letto dalla radio. Prima si spostava solo la frequenza e il VFO B teneva il suo modo: dopo un cambio di banda la radio
+    /// trasmetteva in LSB (segnalazione del 2026-11-14, Hamlib con «Split: Radio»). Un errore non ferma lo split: si scrive nel registro.
+    fn write_split_mode(&self, link: &Link) {
+        let (current, passband) = self.status.lock().map(|s| (s.mode.clone(), s.passband_hz.unwrap_or(0))).unwrap_or((None, 0));
+        // modo scelto: banda normale del modo (0); modo copiato dalla ricezione: anche la sua banda passante
+        let Some((mode, passband)) = self.config.cat_mode.hamlib_name().map(|m| (m.to_string(), 0)).or(current.map(|m| (m, passband))) else {
+            return;
+        };
+        if let Err(e) = link.client().set_split_mode(&mode, passband) {
+            // radio o modello di Hamlib senza `X`: si copia il VFO di ricezione in quello di trasmissione (A=B, modo compreso); la frequenza
+            // di trasmissione si riscrive subito dopo da chi chiama
+            tracing::warn!("modo {mode} non scritto nel VFO di trasmissione ({}): copia A=B", friendly_error(&e.0));
+            if let Err(e) = link.client().vfo_op("CPY") {
+                tracing::warn!("copia A=B non riuscita: {}", friendly_error(&e.0));
+            }
+        }
     }
 
     /// PTT spento con `tries` tentativi. `Ok` se la radio ha confermato.
@@ -1073,6 +1095,7 @@ impl HamlibRig {
         }
         let tx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
         let fr = |e: RigError| RigError(friendly_error(&e.0));
+        inner.write_split_mode(&link);
         link.client().set_split_frequency(tx_hz).map_err(fr)?;
         link.client().set_split(true, tx_vfo).map_err(fr)?;
         inner.dx_split_tx.store(tx_hz, Ordering::SeqCst);
@@ -1571,8 +1594,8 @@ mod tests {
         let rig = start(&fake, RigConfig { split: SplitMode::Rig, ..RigConfig::default() });
         fake.clear_commands();
         rig.set_tx_audio_frequency(2200).expect("split");
-        let split_commands = |fake: &FakeRigctld| fake.commands().into_iter().filter(|c| c.starts_with("I ") || c.starts_with("S ")).collect::<Vec<_>>();
-        assert_eq!(split_commands(&fake), ["I 14074500", "S 1 VFOB"]);
+        let split_commands = |fake: &FakeRigctld| fake.commands().into_iter().filter(|c| c.starts_with("I ") || c.starts_with("S ") || c.starts_with("X ")).collect::<Vec<_>>();
+        assert_eq!(split_commands(&fake), ["X PKTUSB 2400", "I 14074500", "S 1 VFOB"]);
         assert!(fake.split() && rig.status().split == Some(true));
         // al cambio di banda la radio esce dallo split (niente VFO B lasciato sulla banda vecchia)...
         rig.set_frequency(7_074_000).expect("QSY");
@@ -1580,11 +1603,25 @@ mod tests {
         // ...e prima della trasmissione il VFO di trasmissione va sulla banda nuova e lo split si riaccende
         fake.clear_commands();
         rig.set_tx_audio_frequency(2200).expect("split prima del PTT");
-        assert_eq!(split_commands(&fake), ["I 7074500", "S 1 VFOB"]);
+        assert_eq!(split_commands(&fake), ["X PKTUSB 2400", "I 7074500", "S 1 VFOB"]);
         assert!(fake.split());
         // alla chiusura lo split si toglie
         rig.shutdown();
         assert!(!fake.split());
+    }
+
+    #[test]
+    fn the_tx_vfo_gets_the_configured_mode_before_every_split_even_after_a_qsy_in_the_same_band() {
+        let fake = FakeRigctld::start(21_074_000);
+        let rig = start(&fake, RigConfig { split: SplitMode::Rig, cat_mode: CatMode::Usb, ..RigConfig::default() });
+        let seq = |fake: &FakeRigctld| fake.commands().into_iter().filter(|c| ["X ", "I ", "S ", "G "].iter().any(|p| c.starts_with(p))).collect::<Vec<_>>();
+        for dial in [21_074_000, 21_076_000] {
+            rig.set_frequency(dial).expect("QSY");
+            fake.clear_commands();
+            rig.set_tx_audio_frequency(1000).expect("split");
+            assert_eq!(seq(&fake), ["X USB 0".to_string(), format!("I {}", split_tx_dial_hz(dial, 1000)), "S 1 VFOB".to_string()]);
+            assert!(!seq(&fake).iter().any(|c| c.contains("LSB")));
+        }
     }
 
     fn split_commands(fake: &FakeRigctld) -> Vec<String> {
@@ -1599,6 +1636,7 @@ mod tests {
         fake.clear_commands();
         rig.set_dx_split(14_025_000, 14_030_000).expect("split DX");
         assert_eq!(split_commands(&fake), ["F 14025000", "S 0 VFOA", "I 14030000", "S 1 VFOB"]);
+        assert!(fake.commands().iter().any(|c| c.starts_with("X ")), "{:?}", fake.commands());
         assert!(fake.split() && rig.dx_split_on() && rig.status().split == Some(true));
         assert_eq!(fake.frequency(), 14_025_000);
         // lo split di FT8 non sposta il VFO di trasmissione scelto dallo spot

@@ -280,7 +280,7 @@ fn serve(stream: TcpStream, state: &FakeState) {
                     state.split.store(arg == "1", Ordering::SeqCst);
                     "RPRT 0\n".into()
                 }
-                "I" => "RPRT 0\n".into(),
+                "I" | "X" => "RPRT 0\n".into(),
                 "l" => {
                     let value = state.levels.lock().ok().and_then(|l| l.iter().find(|(n, _)| n == arg).map(|(_, v)| v.clone()));
                     value.map_or_else(|| "RPRT -11\n".to_string(), |v| format!("{v}\n"))

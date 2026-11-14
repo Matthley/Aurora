@@ -415,6 +415,13 @@ impl RigctldClient {
         self.ask(&format!("I {hz}"), 0).map(|_| ())
     }
 
+    /// Modo e banda passante del VFO di trasmissione in split (`X`; 0 = banda normale del modo). Senza questo il VFO B resta nel modo che
+    /// aveva (LSB di una banda bassa, per esempio) e la radio trasmette li'.
+    pub fn set_split_mode(&self, mode: &str, passband: u32) -> Result<(), RigError> {
+        check_token(mode, "modo")?;
+        self.ask(&format!("X {mode} {passband}"), 0).map(|_| ())
+    }
+
     /// Manda alla radio una stringa CAT cosi' com'e' (comando `w` di rigctld; per esempio `AN1;` sulle Yaesu e Kenwood). Le macro la usano con `<CATCMD:...>`.
     pub fn send_raw(&self, text: &str) -> Result<(), RigError> {
         self.ask(&format!("w {text}"), 0).map(|_| ())
