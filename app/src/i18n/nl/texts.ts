@@ -1823,6 +1823,7 @@ export const NL_TEXTS: Record<string, string> = {
   "t.j6pvv3dir9": "[[sw.pg.alerts]]",
   "t.jalszt5fa9": "[[sstv.set.grpSave]] · [[sstv.set.saveTx]] (standaard aan): de beelden die je zendt worden ook opgeslagen in de beeldenmap, zodat je terugvindt wat je hebt verstuurd. Zet het uit om te voorkomen dat de schijf vol raakt.",
   "t.jba2d6esut": "Aurora zelf CQ laten roepen",
+  "t.jemzl1h1ce": "Als je Aurora opnieuw opent, ben je terug waar je was: dezelfde pagina (FT8, VHF, PSK·RTTY·CW, SSTV, Satellieten...), dezelfde tekstmodus met zijn instellingen en, zodra de radio op CAT antwoordt, dezelfde frequentie en dezelfde mode van de radio (USB, LSB, data). Staat de radio er al, dan krijgt hij geen opdracht. De frequentie wordt onthouden als ze ongeveer tien seconden stilstaat; de mode van de radio wordt alleen met Hamlib teruggezet (OmniRig meldt hem niet).",
   "t.jfubj1ok0m": "Als er geen berichten in de buurt van de Rx-frequentie zijn, zegt het venster “[[rxw.empty]]”.",
   "t.jl8kri6815": "De pagina’s in de bovenbalk",
   "t.jlzjxdm1u3": "Kies, nog steeds in “Fast QSO”, in het menu onder “Auto-Save” “UDP 12” (dat krijgt alle QSO-gegevens) en vink “Auto-Save” aan als je wilt dat het QSO aan het eind vanzelf wordt gelogd.",
