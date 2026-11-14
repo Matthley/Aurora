@@ -24,6 +24,7 @@ const props = {
   width: 400,
   serial: 1,
   onSerial: () => {},
+  contestOn: true,
   onWidth: () => {},
 };
 

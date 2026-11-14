@@ -1693,6 +1693,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             onSave={saveQso}
             serial={qsoSerial}
             onSerial={setSerial}
+            contestOn={inContest || textContest !== null}
             onClear={() => {
               setQso(EMPTY_QSO);
               setStartAt(null);

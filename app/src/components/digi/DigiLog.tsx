@@ -43,6 +43,8 @@ interface Props {
   /** Il numero progressivo del contest (<QSONR>) e come correggerlo. */
   serial: number;
   onSerial(n: number): void;
+  /** C'e' un contest attivo (gara o contest dei modi testuali): solo allora si vedono progressivo, NRS e NRR. */
+  contestOn: boolean;
   /** Larghezza del log in px e come cambiarla (barra di trascinamento sul bordo sinistro). */
   width: number;
   onWidth(px: number): void;
@@ -133,7 +135,7 @@ function cell(q: Log4omQso, nr: number, c: LogCol): React.ReactNode {
  * Il log di lato: la riga azzurra del QSO in corso (si scrive sul posto) e sotto i QSO del log, il piu' recente in testa.
  * Nell'altra linguetta c'e' il DX Cluster, con il QSO in corso in un riquadro sotto.
  */
-export function DigiLog({ qso, rsts, rstr, modeName, dialHz, audioHz, onSpot, onQso, onRst, onSave, onClear, serial, onSerial, width, onWidth }: Props) {
+export function DigiLog({ qso, rsts, rstr, modeName, dialHz, audioHz, onSpot, onQso, onRst, onSave, onClear, serial, onSerial, contestOn, width, onWidth }: Props) {
   const t = useT();
   const [filter, setFilter] = useState('');
   const [cols, setCols] = useState<LogCol[]>(savedCols);
@@ -348,6 +350,8 @@ export function DigiLog({ qso, rsts, rstr, modeName, dialHz, audioHz, onSpot, on
             {rows.length === 0 ? <p className="digi-log-empty">{t('digi.log.empty')}</p> : null}
           </div>
           <div className="digi-log-bar">
+            {contestOn ? (
+              <>
             <label className="digi-log-ex" title={t('digi.log.serialTip')}>
               {t('digi.log.serial')}
               <input className="digi-cur-in" type="number" min={1} max={99999} style={{ width: '5em' }} value={serial} onChange={(e) => onSerial(Number(e.target.value))} />
@@ -363,6 +367,8 @@ export function DigiLog({ qso, rsts, rstr, modeName, dialHz, audioHz, onSpot, on
               NRR
               <input className="digi-cur-in" style={{ width: '5em' }} maxLength={12} value={qso.nrr ?? ''} onChange={(e) => onQso({ nrr: e.target.value.toUpperCase() })} />
             </label>
+              </>
+            ) : null}
             <button type="button" className="digi-tool" title={t('digi.log.save')} aria-label={t('digi.log.save')} onClick={onSave}>
               💾
             </button>
