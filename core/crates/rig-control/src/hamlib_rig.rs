@@ -821,7 +821,9 @@ impl Inner {
     fn write_split_mode(&self, link: &Link) {
         let (current, passband) = self.status.lock().map(|s| (s.mode.clone(), s.passband_hz.unwrap_or(0))).unwrap_or((None, 0));
         // modo scelto: banda normale del modo (0); modo copiato dalla ricezione: anche la sua banda passante
-        let Some((mode, passband)) = self.config.cat_mode.hamlib_name().map(|m| (m.to_string(), 0)).or(current.map(|m| (m, passband))) else {
+        // la radio senza modo dati (ripiego su USB, vedi `set_cat_mode`): anche il VFO di trasmissione va in USB
+        let chosen = if self.pktusb_fallback.load(Ordering::SeqCst) { Some("USB") } else { self.config.cat_mode.hamlib_name() };
+        let Some((mode, passband)) = chosen.map(|m| (m.to_string(), 0)).or(current.map(|m| (m, passband))) else {
             return;
         };
         if let Err(e) = link.client().set_split_mode(&mode, passband) {

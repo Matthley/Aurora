@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Aurora usa il microfono (ingresso audio) per decodificare e trasmettere i modi digitali (FT8, FT4, JT65, ...).</string>
+	<string>Aurora uses the audio input to decode and transmit digital modes (FT8, FT4, CW, RTTY, PSK...).</string>
 </dict>
 </plist>
