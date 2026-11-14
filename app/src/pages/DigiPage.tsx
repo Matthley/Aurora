@@ -164,6 +164,11 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     if (line !== '') setTxSent((h) => (h === '' ? line : `${h}\n${line}`).slice(-4000));
   }, []);
   const txLive = useDigiTxLive(tx, setTx, addSent);
+  // pulire la finestra di trasmissione (menu e macro <CLEARTXWINDOW>, <CLEARWINDOW>, <RXANDCLEAR>): la casella e lo storico di quello gia' partito
+  const clearTxWindow = useCallback(() => {
+    setTx('');
+    setTxSent('');
+  }, []);
   useEffect(() => {
     if (txSentBox.current) txSentBox.current.scrollTop = txSentBox.current.scrollHeight;
   }, [txSent]);
@@ -272,7 +277,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       wasSending.current = false;
       if (clearAfterTx.current) {
         clearAfterTx.current = false;
-        setTx('');
+        // il testo appena partito passa nello storico a fine trasmissione: si pulisce subito dopo, cosi' non ricompare
+        clearTxWindow();
+        window.setTimeout(clearTxWindow, 600);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -955,14 +962,30 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     } else if (body !== '') {
       setTx((v) => (clearTx || v === '' ? body : `${v} ${body}`));
     } else if (clearTx) {
-      setTx('');
+      clearTxWindow();
     }
-    if (clearTx && toTx) setTx('');
+    if (clearTx && toTx) clearTxWindow();
     if (wantSave) saveQso();
     // <RXANDCLEAR>: la finestra di trasmissione si pulisce quando il testo e' partito e si e' tornati in ricezione
     if (rxClear) {
-      if (toTx || busy) clearAfterTx.current = true;
-      else setTx('');
+      if (toTx || busy) {
+        clearAfterTx.current = true;
+        // riserva: se la pagina non vede mai «in trasmissione» (trasmissione cortissima), pulisce appena il core dice che non trasmette piu'
+        const t0 = Date.now();
+        const id = window.setInterval(() => {
+          if (!clearAfterTx.current || Date.now() - t0 > 600_000) {
+            window.clearInterval(id);
+            return;
+          }
+          if (txeTimer.current !== null || wasSending.current || Date.now() - t0 < 2000) return;
+          if (live.current.snap.tx.state !== 'sending') {
+            clearAfterTx.current = false;
+            window.clearInterval(id);
+            clearTxWindow();
+            window.setTimeout(clearTxWindow, 600);
+          }
+        }, 500);
+      } else clearTxWindow();
     }
   };
 
@@ -1105,7 +1128,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       label: t('digi.menu.edit'),
       items: [
         { label: t('digi.mi.clearRx'), onSelect: () => clearDigiText() },
-        { label: t('digi.mi.clearTx'), onSelect: () => { setTx(''); setTxSent(''); } },
+        { label: t('digi.mi.clearTx'), onSelect: clearTxWindow },
         'sep',
         { label: t('digi.mi.copyRx'), onSelect: copyRx },
       ],
