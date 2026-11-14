@@ -15,6 +15,7 @@ pub mod audio_control;
 pub mod backup;
 pub mod band_hop;
 pub mod history;
+pub mod last_dial;
 pub mod online;
 pub mod rapporti;
 pub mod support;
@@ -1355,13 +1356,14 @@ fn wire_fox_verifier(controls: &Arc<engine_native::NativeControls>, bus: &Bus) {
 /// L'ultima banda scelta (si ricorda tra un avvio e l'altro).
 const LAST_BAND_FILE: &str = "ultima-banda.txt";
 
-/// All'avvio, appena la radio risponde (controllo ogni 0,3 s, non piu' ogni 2): la radio va sull'ultima banda scelta e li' sulla frequenza
-/// principale del modo in uso. Poi si tiene a mente la banda in uso, cosi' al prossimo avvio si riparte da quella (richiesta del proprietario
+/// All'avvio, appena la radio risponde (controllo ogni 0,3 s, non piu' ogni 2): la radio torna sulla frequenza e nel modo dell'ultima volta
+/// (`ultima-frequenza.json`); solo senza quel file (prima installazione) va sull'ultima banda scelta e li' sulla frequenza principale del modo in uso. Poi si tiene a mente la banda in uso, cosi' al prossimo avvio si riparte da quella (richiesta del proprietario
 /// 2026-11-08: la banda e' l'ultima scelta, la frequenza sempre la principale della banda).
 fn spawn_start_on_main_frequency(state: AppState, data_dir: std::path::PathBuf) {
     let band_file = data_dir.join(LAST_BAND_FILE);
     tokio::spawn(async move {
         let saved = std::fs::read_to_string(&band_file).ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+        let last_dial = last_dial::LastDial::load(&data_dir);
         let deadline = std::time::Instant::now() + Duration::from_secs(180);
         while std::time::Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(300)).await;
@@ -1372,6 +1374,29 @@ fn spawn_start_on_main_frequency(state: AppState, data_dir: std::path::PathBuf) 
                 continue;
             }
             if state.is_transmitting() {
+                break;
+            }
+            // la frequenza e il modo esatti dell'ultima volta (qualunque pagina: FT8, modi testuali, SSTV...): la radio torna li', non sulla
+            // frequenza FT8 principale della banda (richiesta del proprietario 2026-11-14)
+            if let Some(last) = &last_dial {
+                let (freq, mode) = last.restore_plan(hz, radio_mode_of(&state).as_deref());
+                if let Some(main) = freq {
+                    let rig = Arc::clone(&rig);
+                    match tokio::task::spawn_blocking(move || rig.set_frequency(main)).await {
+                        Ok(Ok(())) => tracing::info!("avvio: radio riportata sull'ultima frequenza {main} Hz (era {hz} Hz)"),
+                        other => tracing::warn!("avvio: ultima frequenza non impostata: {other:?}"),
+                    }
+                }
+                // il modo della radio si comanda solo con Hamlib (gli altri collegamenti non hanno il comando generico)
+                if let (Some(mode), Some(cat)) = (mode, state.cat.clone())
+                    && let Ok(hamlib) = cat.hamlib()
+                {
+                    let wanted = mode.clone();
+                    match tokio::task::spawn_blocking(move || hamlib.set_radio_mode(&wanted)).await {
+                        Ok(Ok(())) => tracing::info!("avvio: radio riportata nel modo {mode}"),
+                        other => tracing::warn!("avvio: modo della radio non impostato: {other:?}"),
+                    }
+                }
                 break;
             }
             let mode = state.current_mode();
@@ -1390,11 +1415,21 @@ fn spawn_start_on_main_frequency(state: AppState, data_dir: std::path::PathBuf) 
             }
             break;
         }
-        // da qui si ricorda la banda in uso (ogni 5 s, si scrive solo quando cambia)
+        // da qui si ricordano la banda, la frequenza e il modo della radio (lettura ogni 5 s, si scrive solo quando cambiano e stanno fermi 10 s)
         let mut last = saved;
+        let mut recorder = last_dial::DialRecorder::new(last_dial);
         loop {
             tokio::time::sleep(Duration::from_secs(5)).await;
-            let Some(hz) = state.current_status().map(|s| s.dial_hz).filter(|hz| *hz > 0) else { continue };
+            let Some(rig) = state.dial_rig() else { continue };
+            let Ok(Ok(hz)) = tokio::task::spawn_blocking(move || rig.frequency()).await else { continue };
+            if hz == 0 || state.is_transmitting() {
+                continue;
+            }
+            if let Some(write) = recorder.observe(last_dial::LastDial { dial_hz: hz, radio_mode: radio_mode_of(&state) }, 2)
+                && let Err(e) = write.save(&data_dir)
+            {
+                tracing::warn!("ultima frequenza non salvata: {e}");
+            }
             let band = state.frequencies.lock().unwrap_or_else(|p| p.into_inner()).band_of(hz);
             if let Some(band) = band
                 && last.as_deref() != Some(band.as_str())
@@ -1404,6 +1439,15 @@ fn spawn_start_on_main_frequency(state: AppState, data_dir: std::path::PathBuf) 
             }
         }
     });
+}
+
+/// Il modo della radio come lo riporta il CAT (`USB`, `PKTUSB`...); OmniRig non lo riporta.
+fn radio_mode_of(state: &AppState) -> Option<String> {
+    let cat = state.cat.as_ref()?;
+    match cat.backend() {
+        rig_control::cat_config::Backend::Omnirig | rig_control::cat_config::Backend::None => None,
+        _ => cat.status().rig.and_then(|r| r.mode).filter(|m| !m.is_empty()),
+    }
 }
 
 fn spawn_scheduler(state: AppState, rig: Arc<dyn Rig>) {
