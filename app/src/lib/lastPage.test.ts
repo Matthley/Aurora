@@ -30,6 +30,20 @@ describe('lastPage', () => {
     expect(lastPageToRestore(s, '')).toBe('#/storico');
   });
 
+  it('comes back to the text modes, SSTV and satellites pages', () => {
+    const s = memory();
+    rememberRoute(s, { name: 'digi' });
+    expect(lastPageToRestore(s, '')).toBe('#/testo');
+    rememberRoute(s, { name: 'sstv' });
+    expect(lastPageToRestore(s, '#/')).toBe('#/sstv');
+    rememberRoute(s, { name: 'sat' });
+    expect(lastPageToRestore(s, '')).toBe('#/satelliti');
+    rememberRoute(s, { name: 'dxmap' });
+    expect(lastPageToRestore(s, '')).toBe('#/mappa-dx');
+    rememberRoute(s, { name: 'window', id: 'mappa' });
+    expect(lastPageToRestore(s, '')).toBe('#/mappa-dx');
+  });
+
   it('remembers the settings tab, from the address or from a click', () => {
     const s = memory();
     expect(rememberedTab(s)).toBeUndefined();

@@ -7,7 +7,8 @@ import type { Route } from './route';
 
 const PAGE_KEY = 'aurora-last-page';
 const TAB_KEY = 'aurora-settings-tab';
-const RESTORABLE = new Set(['#/statistiche', '#/mappa-dx', '#/storico', '#/propagazione', '#/impostazioni', '#/guida']);
+// tutte le pagine dei modi (PSK·RTTY·CW, SSTV, Satelliti, Fox, Contest...) e quelle comuni: riaprendo Aurora si torna li'
+const RESTORABLE = new Set(['#/statistiche', '#/mappa-dx', '#/storico', '#/propagazione', '#/impostazioni', '#/guida', '#/novita', '#/testo', '#/sstv', '#/satelliti', '#/fox', '#/contest', '#/qmap', '#/rotore', '#/esporta']);
 
 type Store = Pick<Storage, 'getItem' | 'setItem'> | null;
 
@@ -38,6 +39,15 @@ const HASH_OF: Record<string, string> = {
   live: '#/',
   stats: '#/statistiche',
   map: '#/mappa-dx',
+  dxmap: '#/mappa-dx',
+  digi: '#/testo',
+  sstv: '#/sstv',
+  sat: '#/satelliti',
+  fox: '#/fox',
+  contest: '#/contest',
+  qmap: '#/qmap',
+  rotator: '#/rotore',
+  export: '#/esporta',
   history: '#/storico',
   propagation: '#/propagazione',
   settings: '#/impostazioni',

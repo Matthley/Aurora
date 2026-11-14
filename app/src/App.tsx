@@ -15,7 +15,7 @@ import { UpdateBar } from './components/UpdateBar';
 import { WantedBar } from './components/WantedBar';
 import { COLORS_STORAGE_KEY, applyColors, readColors } from './lib/colors';
 import { useEscapeStop } from './lib/escapeStop';
-import { rememberRoute } from './lib/lastPage';
+import { lastPageToRestore, rememberRoute } from './lib/lastPage';
 import { addressFromName, findOtherAddress, rememberAddresses } from './lib/knownAddresses';
 import { REMOTE_HOST } from './lib/phone';
 import { followNavigateRequests } from './lib/sdr';
@@ -59,6 +59,12 @@ import { CrashPrompt } from './settings/ReportsBox';
 const REMOTE = REMOTE_HOST;
 /** Telefono o tablet collegato da remoto: una sola pagina, la Stazione come telecomando. */
 const REMOTE_TOUCH = REMOTE && typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
+
+// all'avvio senza un indirizzo preciso si torna all'ultima pagina aperta (PSK·RTTY·CW, SSTV, Satelliti...), prima di leggere la pagina
+{
+  const restored = typeof window !== 'undefined' ? lastPageToRestore(browserStorage(), window.location.hash) : null;
+  if (restored) window.history.replaceState(null, '', restored);
+}
 
 export function App() {
   // i testi che nominano Windows cambiano se il motore gira su un altro sistema
