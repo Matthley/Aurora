@@ -1,5 +1,3 @@
-import { Icon } from '../Icon';
-import { useEffect, useState } from 'react';
 import { useT } from '../../i18n';
 import { cssColor, MACRO_ROWS, type Macro } from '../../lib/macroLang';
 
@@ -29,23 +27,6 @@ export function shortKey(name: string): string {
 /** Vero se la macro accende o spegne il CQ automatico. */
 const isAutoCqMacro = (text: string) => /<\s*(AUTOCQ|ACQ)\s*>/i.test(text);
 
-/** I tasti Ctrl e Shift tenuti premuti: a barra normale mostrano la riga corrispondente. */
-function useHeldModifiers(): { ctrl: boolean; shift: boolean } {
-  const [held, setHeld] = useState({ ctrl: false, shift: false });
-  useEffect(() => {
-    const update = (e: KeyboardEvent) => setHeld((h) => (h.ctrl === e.ctrlKey && h.shift === e.shiftKey ? h : { ctrl: e.ctrlKey, shift: e.shiftKey }));
-    const clear = () => setHeld({ ctrl: false, shift: false });
-    window.addEventListener('keydown', update);
-    window.addEventListener('keyup', update);
-    window.addEventListener('blur', clear);
-    return () => {
-      window.removeEventListener('keydown', update);
-      window.removeEventListener('keyup', update);
-      window.removeEventListener('blur', clear);
-    };
-  }, []);
-  return held;
-}
 
 /**
  * La barra dei comandi: 12 tasti per riga a gruppi di 4 (F1-F4 · F5-F8 · F9-F12), 4 righe (nessun modificatore,
@@ -53,9 +34,10 @@ function useHeldModifiers(): { ctrl: boolean; shift: boolean } {
  */
 export function ControlBar({ macros, extended, disabled = false, onToggleExtended, onRun, onEdit, autoCq = 'off' }: Props) {
   const t = useT();
-  const held = useHeldModifiers();
-  const current = held.ctrl && held.shift ? 3 : held.ctrl ? 1 : held.shift ? 2 : 0;
-  const rows = extended ? [0, 1, 2, 3] : [current];
+  // una sola riga, F1-F12: le righe Ctrl, Shift e Ctrl+Shift non servono (proprietario, 2026-11-14)
+  void extended;
+  void onToggleExtended;
+  const rows = [0];
 
   return (
     <div className="digi-bar-keys" role="toolbar" aria-label={t('digi.bar.title')}>
@@ -96,11 +78,6 @@ export function ControlBar({ macros, extended, disabled = false, onToggleExtende
               );
             })}
             <span className="digi-keyrow-label">{ROW_LABELS[r]}</span>
-            {r === rows[0] ? (
-              <button type="button" className="digi-gear icon-btn icon-btn--sm" aria-pressed={extended} title={extended ? t('digi.bar.compact') : t('digi.bar.extended')} aria-label={extended ? t('digi.bar.compact') : t('digi.bar.extended')} onClick={onToggleExtended}>
-                <Icon name="gear" />
-              </button>
-            ) : null}
           </div>
         ))}
       </div>
