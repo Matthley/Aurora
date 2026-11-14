@@ -28,6 +28,9 @@ interface Props {
   /** Anche chi risponde (dopo DE o TU), non solo chi chiama CQ; e chi la cambia. */
   answering?: boolean;
   onAnswering?(v: boolean): void;
+  /** Le stazioni trovate vanno anche nel pannello DX Cluster di questo PC (mai in rete). */
+  localSpots?: boolean;
+  onLocalSpots?(v: boolean): void;
   stations: RadarStation[];
   /** CW: colonna della velocita'. */
   showWpm: boolean;
@@ -81,7 +84,7 @@ function freqLabel(hz: number, dialHz: number): string {
  * il suo colore. Clic: la ricezione va sulla stazione; doppio clic: ricezione sulla stazione e nominativo nel QSO. Accanto al nominativo il
  * segno del log locale: paese nuovo, gia' collegato su questa banda e modo, collegato altrove (colori dei tipi della pagina FT8).
  */
-export function RadarList({ on = true, onToggle, width, answering = false, onAnswering, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall, qsoCall = '', onPileupTx }: Props) {
+export function RadarList({ on = true, onToggle, width, answering = false, onAnswering, localSpots = false, onLocalSpots, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall, qsoCall = '', onPileupTx }: Props) {
   const t = useT();
   const pileup = useSyncExternalStore(onPileup, getPileup);
   const pileTarget = pileupTarget(pileup);
@@ -191,6 +194,12 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
           <label className="radar-answering" title={t('radar.answeringTip')}>
             <input type="checkbox" checked={answering} onChange={(e) => onAnswering(e.target.checked)} />
             {t('radar.answering')}
+          </label>
+        ) : null}
+        {on && onLocalSpots ? (
+          <label className="radar-answering" title={t('digi.band.spotsTip')}>
+            <input type="checkbox" checked={localSpots} onChange={(e) => onLocalSpots(e.target.checked)} />
+            {t('radar.localSpots')}
           </label>
         ) : null}
         {on ? (

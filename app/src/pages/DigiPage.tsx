@@ -1525,7 +1525,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           }} />
         ) : null}
         {radarMode ? (
-          <RadarList on={radarOn} onToggle={toggleRadar} width={radarW} answering={views.radarAnswering} onAnswering={(v) => setView({ radarAnswering: v })} stations={radar} showWpm={s.mode === 'cw'} showSnr={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} modeName={s.mode === 'cw' ? 'CW' : 'RTTY'} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} qsoCall={qso.call} onPileupTx={(hz) => save({ tx_follow_rx: false, tx_freq_hz: Math.max(200, Math.min(3500, Math.round(hz))) })} />
+          <RadarList on={radarOn} onToggle={toggleRadar} width={radarW} answering={views.radarAnswering} onAnswering={(v) => setView({ radarAnswering: v })} localSpots={s.local_spots === true} onLocalSpots={(v) => save({ local_spots: v })} stations={radar} showWpm={s.mode === 'cw'} showSnr={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} modeName={s.mode === 'cw' ? 'CW' : 'RTTY'} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} qsoCall={qso.call} onPileupTx={(hz) => save({ tx_follow_rx: false, tx_freq_hz: Math.max(200, Math.min(3500, Math.round(hz))) })} />
         ) : null}
         </div>
         {bandOn && !radarMode && views.signals ? (
