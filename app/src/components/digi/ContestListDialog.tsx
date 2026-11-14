@@ -49,7 +49,11 @@ export function ContestListDialog({ onClose, onSelected }: { onClose(): void; on
   const [editing, setEditing] = useState<TextContest | null>(null);
   const active = list.data?.attivo ?? null;
   const current = picked === undefined ? active : picked;
+  const [query, setQuery] = useState('');
   const rows = [{ id: null as string | null, name: t('ctest.none'), notes: '' }, ...(list.data?.contest ?? [])];
+  // la ricerca guarda nome e note; «Nessun contest» resta sempre in cima
+  const q = query.trim().toLowerCase();
+  const shown = q === '' ? rows : rows.filter((r) => r.id === null || `${r.name} ${r.notes}`.toLowerCase().includes(q));
 
   const choose = async (id: string | null) => {
     const name = rows.find((r) => r.id === id)?.name;
@@ -86,6 +90,16 @@ export function ContestListDialog({ onClose, onSelected }: { onClose(): void; on
         <header>
           <strong>{t('ctest.listTitle')}</strong>
         </header>
+        <input
+          type="search"
+          className="ctest-search"
+          value={query}
+          placeholder={t('ctest.search')}
+          aria-label={t('ctest.search')}
+          autoFocus
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => (e.key === 'Escape' && query ? (e.stopPropagation(), setQuery('')) : undefined)}
+        />
         <div className="ctest-table-wrap">
           <table className="ctest-table">
             <thead>
@@ -101,7 +115,7 @@ export function ContestListDialog({ onClose, onSelected }: { onClose(): void; on
                   <td colSpan={3}>{t('ctest.loading')}</td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                shown.map((r) => (
                   <tr key={r.id ?? ''} className={r.id === current ? 'is-picked' : undefined} aria-selected={r.id === current} onClick={() => setPicked(r.id)} onDoubleClick={() => void choose(r.id)}>
                     <td className="ctest-col-active">{r.id === active ? '►' : ''}</td>
                     <td>{r.name}</td>

@@ -23,3 +23,9 @@ td.ctest-col-active { color: var(--accent, #4a9eff); }
 .ctest-stats th:first-child, .ctest-stats td:first-child { text-align: left; }
 .ctest-stats tr.ctest-total td { font-weight: 600; border-top: 1px solid var(--border); }
 .ctest-score { margin: 0.6rem 0 0; font-weight: 600; }
+
+/* ricerca in cima all'elenco e righe a colori alternati */
+.ctest-search { width: 100%; margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; font-size: 0.95rem; box-sizing: border-box; }
+.ctest-table tbody tr:nth-child(even) { background: rgb(255 255 255 / 0.045); }
+html[data-theme='light'] .ctest-table tbody tr:nth-child(even) { background: rgb(0 0 0 / 0.045); }
+.ctest-table tbody tr.is-picked { background: color-mix(in srgb, var(--accent, #22c55e) 32%, transparent); }

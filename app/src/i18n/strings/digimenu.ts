@@ -22,6 +22,7 @@ export const digiMenuStrings = {
   'digi.txm.cut': ['Taglia', 'Cut', 'Ausschneiden', 'Couper', 'Cortar', 'Cortar'],
   'digi.txm.copy': ['Copia', 'Copy', 'Kopieren', 'Copier', 'Copiar', 'Copiar'],
   'digi.txm.paste': ['Incolla', 'Paste', 'Einfügen', 'Coller', 'Pegar', 'Colar'],
+  'ctest.search': ['Cerca un contest (nome o note)…', 'Search a contest (name or notes)…', 'Contest suchen (Name oder Notizen)…', 'Chercher un concours (nom ou notes)…', 'Buscar un concurso (nombre o notas)…', 'Procurar um concurso (nome ou notas)…'],
   'digi.mi.clearRx': ['Pulisci la finestra di ricezione', 'Clear the receive window', 'Empfangsfenster leeren', 'Effacer la fenêtre de réception', 'Limpiar la ventana de recepción', 'Limpar a janela de receção'],
   'digi.mi.clearTx': ['Pulisci la finestra di trasmissione', 'Clear the transmit window', 'Sendefenster leeren', 'Effacer la fenêtre d’émission', 'Limpiar la ventana de transmisión', 'Limpar a janela de transmissão'],
   'digi.mi.copyRx': ['Copia il testo ricevuto', 'Copy the received text', 'Empfangenen Text kopieren', 'Copier le texte reçu', 'Copiar el texto recibido', 'Copiar o texto recebido'],
