@@ -693,6 +693,28 @@ pub(crate) mod tests {
         assert!(cache.take_near(1_000.0, 50.0 + CALL_CACHE_S + 1.0).is_empty());
     }
 
+    /// Le stazioni veloci (38-42 WPM): le bande laterali della manipolazione allargano la riga, ma il canale si apre lo stesso e il
+    /// nominativo si verifica.
+    #[test]
+    fn fast_stations_open_their_channel() {
+        for (k, wpm) in [38.0_f32, 42.0].into_iter().enumerate() {
+            let mut band = vec![0.0_f32; 12_000 * 30];
+            let text = "CQ TEST IU3ABC IU3ABC   CQ TEST IU3ABC IU3ABC   CQ TEST IU3ABC IU3ABC   CQ TEST IU3ABC IU3ABC   CQ TEST IU3ABC IU3ABC";
+            for (s, w) in band.iter_mut().skip(6_000).zip(modulate(text.as_bytes(), 1_000.0, wpm, 0.1)) {
+                *s += w;
+            }
+            for (s, n) in band.iter_mut().zip(noise(12_000 * 30, 0.05, 21 + k as u64)) {
+                *s += n;
+            }
+            let mut sk = CwBandDecoder::new(300.0, 2_500.0, 16);
+            for block in band.chunks(1_200) {
+                sk.process(block);
+            }
+            let chans = sk.channels();
+            assert!(chans.iter().any(|ch| (ch.freq_hz - 1_000.0).abs() < 10.0 && ch.calls.iter().any(|c| c.call == "IU3ABC" && c.verified())), "{wpm} WPM: {chans:#?}");
+        }
+    }
+
     #[test]
     fn noise_opens_no_channel() {
         let mut sk = CwBandDecoder::new(300.0, 2_500.0, 16);
