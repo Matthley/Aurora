@@ -873,7 +873,12 @@ impl ProbSquelch {
         }
         if self.hist.len() == SQ_MEMORY && mean >= self.open_at {
             self.open = true;
-            let ready = std::mem::take(&mut self.held);
+            let mut ready = std::mem::take(&mut self.held);
+            // il testo comincia dal primo carattere affidabile: i deboli trattenuti prima, a cancello chiuso, sono il rumore che precede
+            // il segnale (la media dei quattro sale gia' con tre caratteri buoni e uno di rumore davanti)
+            let first = ready.iter().position(|f| f.prob() >= self.close_at).unwrap_or(0);
+            let dropped: Vec<Frame> = ready.drain(..first).collect();
+            self.drop_frames(dropped);
             if self.nl_pending && !ready.first().is_some_and(|f| matches!(f.code, CR | LF)) {
                 self.nl_now = true;
             }
@@ -2011,6 +2016,32 @@ impl RttyDiversity {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn quadro(code: u8, forza: f32) -> Frame {
+        let mut sums = [forza; 7];
+        sums[0] = -forza;
+        for (k, x) in sums[1..6].iter_mut().enumerate() {
+            if (code >> k) & 1 == 0 {
+                *x = -forza;
+            }
+        }
+        Frame { code, sums, t: 0.0, main: true }
+    }
+
+    #[test]
+    fn squelch_apre_dal_primo_carattere_affidabile() {
+        let mut sq = ProbSquelch::new(SQUELCH_OPEN, SQUELCH_CLOSE);
+        // un carattere di rumore e poi tre buoni: la media dei quattro supera l'apertura, ma il rumore davanti non esce
+        assert!(sq.push(quadro(0x1e, 0.0)).is_empty());
+        assert!(sq.push(quadro(0x01, 300.0)).is_empty());
+        assert!(sq.push(quadro(0x03, 300.0)).is_empty());
+        let out = sq.push(quadro(0x07, 300.0));
+        assert_eq!(out.iter().map(|f| f.code).collect::<Vec<_>>(), vec![0x01, 0x03, 0x07]);
+        // a cancello aperto un carattere incerto in mezzo al testo resta (aspetta il seguente)
+        assert!(sq.push(quadro(0x05, 20.0)).is_empty());
+        let out = sq.push(quadro(0x09, 300.0));
+        assert_eq!(out.iter().map(|f| f.code).collect::<Vec<_>>(), vec![0x05, 0x09]);
+    }
 
     fn p(centre_hz: f32, shift_hz: f32, baud: f32) -> RttyParams {
         RttyParams { centre_hz, shift_hz, baud, reverse: false }
