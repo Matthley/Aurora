@@ -305,12 +305,19 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandH
         ))}
       {onNotches ? <WaterfallNotches notches={notches} minHz={minHz} maxHz={maxHz} width={width} top={SCALE_H} onChange={onNotches} /> : null}
       {passbandHz > 0 ? (
-        <span
-          className="digi-wf-bpf"
-          style={{ left: xOf(rxShown - passbandHz / 2), width: Math.max(4, xOf(rxShown + passbandHz / 2) - xOf(rxShown - passbandHz / 2)), top: SCALE_H }}
-          title={t('digi.st.passband')}
-          aria-hidden="true"
-        />
+        <>
+          {/* il filtro BPF acceso: fuori dalla banda che passa al decodificatore la cascata si scurisce, la banda resta chiara con i bordi gialli */}
+          <span className="digi-wf-bpf-out" style={{ left: 0, width: Math.max(0, xOf(rxShown - passbandHz / 2)), top: SCALE_H }} aria-hidden="true" />
+          <span className="digi-wf-bpf-out" style={{ left: xOf(rxShown + passbandHz / 2), right: 0, top: SCALE_H }} aria-hidden="true" />
+          <span
+            className="digi-wf-bpf"
+            style={{ left: xOf(rxShown - passbandHz / 2), width: Math.max(4, xOf(rxShown + passbandHz / 2) - xOf(rxShown - passbandHz / 2)), top: SCALE_H }}
+            title={t('digi.st.passband')}
+            aria-hidden="true"
+          >
+            <b>BPF</b>
+          </span>
+        </>
       ) : null}
       {flag(rxShown)}
       {hairlines && rxShown >= minHz && rxShown <= maxHz ? <span className="digi-wf-hair digi-wf-hair--rx" style={{ left: xOf(rxShown) }} aria-hidden="true" /> : null}
