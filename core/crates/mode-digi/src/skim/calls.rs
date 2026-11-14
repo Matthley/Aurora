@@ -18,6 +18,9 @@ pub const VERIFIED_SCORE: f32 = 1.5;
 /// Lo stesso per una forma insolita e per una sospetta.
 const VERIFIED_SCORE_UNUSUAL: f32 = 2.0;
 const VERIFIED_SCORE_SUSPICIOUS: f32 = 3.0;
+/// Silenzio (s) dopo cui il testo che arriva e' un'altra trasmissione: le parole di prima non danno piu' il ruolo (chi risponde a un CQ
+/// ripetendo il proprio nominativo non e' chi chiama).
+const PHRASE_GAP_S: f64 = 2.5;
 /// Nominativi tenuti per segnale (i più recenti).
 const MAX_CALLS: usize = 8;
 
@@ -190,6 +193,8 @@ pub struct CallTracker {
     pub last_report: Option<String>,
     /// Ha chiesto se la frequenza e' libera («QRL?»).
     pub qrl: bool,
+    /// Momento dell'ultimo carattere non vuoto (per riconoscere una trasmissione nuova).
+    last_char_s: Option<f64>,
 }
 
 impl CallTracker {
@@ -199,6 +204,15 @@ impl CallTracker {
 
     /// Altro testo del segnale, con la probabilità (0-255) di ogni carattere (vuoto = certo), al momento `now_s`.
     pub fn push(&mut self, text: &[u8], conf: &[u8], now_s: f64) {
+        if text.iter().any(|c| !c.is_ascii_whitespace()) {
+            if self.last_char_s.is_some_and(|t| now_s - t > PHRASE_GAP_S) {
+                let at = self.last_char_s.unwrap_or(now_s);
+                self.end_word(at);
+                self.recent.clear();
+                self.phrase_cq = None;
+            }
+            self.last_char_s = Some(now_s);
+        }
         for (i, &c) in text.iter().enumerate() {
             let p = conf.get(i).map_or(1.0, |&v| f32::from(v) / 255.0);
             // anche il ritorno a capo del RTTY chiude la parola (prima finiva dentro il nominativo: «PR1TW\r»)
@@ -538,6 +552,23 @@ mod tests {
     }
 
     /// Chi risponde a un CQ scrive il suo nominativo poco dopo TEST: resta «altro»; chi chiama e' solo quello accanto a CQ/TEST/QRZ.
+    #[test]
+    fn a_caller_after_a_pause_is_not_cq() {
+        let mut t = CallTracker::new();
+        t.push(b"CQ TEST ", &[], 1.0);
+        t.push(b"K1XYZ K1XYZ ", &[], 4.0);
+        t.flush(5.0);
+        let c = t.calls(Validation::Minimal, &|_| CallCheck::default());
+        let k = c.iter().find(|c| c.call == "K1XYZ").map(|c| c.role);
+        assert_eq!(k, Some(Role::Other));
+        let mut t = CallTracker::new();
+        t.push(b"CQ TEST ", &[], 1.0);
+        t.push(b"IU3ABC IU3ABC ", &[], 2.0);
+        t.flush(3.0);
+        let c = t.calls(Validation::Minimal, &|_| CallCheck::default());
+        assert_eq!(c.iter().find(|c| c.call == "IU3ABC").map(|c| c.role), Some(Role::Cq));
+    }
+
     #[test]
     fn answering_stations_are_not_cq() {
         let mut t = CallTracker::new();
