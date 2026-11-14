@@ -32,6 +32,8 @@ pub(super) struct Session {
     open: bool,
     /// Caratteri gia' passati al modulatore: non si possono piu' togliere ne' cambiare.
     taken: usize,
+    /// Il testo e' finito e la coda di chiusura sta partendo: niente si accoda piu' (andrebbe perso), serve una trasmissione nuova.
+    ended: bool,
 }
 
 impl Session {
@@ -65,7 +67,7 @@ impl DigiService {
     pub fn tx_type(&self, text: &str) -> Result<TxStatus, DigiError> {
         {
             let mut session = lock(&self.inner.session);
-            let Some(s) = session.as_mut() else { return Err(DigiError::BadValue("nessuna trasmissione in corso".into())) };
+            let Some(s) = session.as_mut().filter(|s| !s.ended) else { return Err(DigiError::BadValue("nessuna trasmissione in corso".into())) };
             s.pending.extend(text.chars());
         }
         Ok(lock(&self.inner.tx).clone())
@@ -107,10 +109,56 @@ impl DigiService {
         self.inner.tx_event();
     }
 
+    /// Una macro premuta mentre si trasmette ricomincia da capo: il testo non ancora modulato (della macro prima e di quelle in coda)
+    /// si butta, `text` parte subito dopo l'ultimo carattere gia' modulato senza togliere il PTT, e `open` dice se finito il testo si
+    /// resta in trasmissione (macro senza `<RX>`). Senza trasmissione ne parte una nuova; se quella di prima stava chiudendo si aspetta
+    /// che finisca (al massimo 5 s). Restituisce lo stato e quanti caratteri della trasmissione restano (quelli gia' modulati).
+    pub fn transmit_restart(&self, text: &str, open: bool) -> Result<(TxStatus, usize), DigiError> {
+        if text.trim().is_empty() {
+            return Err(DigiError::Empty);
+        }
+        let port = lock(&self.inner.port).clone().ok_or(DigiError::NoTransmitter)?;
+        if port.can_stream() {
+            {
+                let mut session = lock(&self.inner.session);
+                if let Some(s) = session.as_mut().filter(|s| !s.ended) {
+                    s.pending.clear();
+                    s.pending.extend(text.chars());
+                    s.open = open;
+                    let kept = s.taken;
+                    drop(session);
+                    lock(&self.inner.tx).open = open;
+                    self.inner.tx_event();
+                    return Ok((lock(&self.inner.tx).clone(), kept));
+                }
+            }
+            self.wait_idle(Duration::from_secs(5));
+            return self.start_session(port, text, open).map(|st| (st, 0));
+        }
+        // senza flusso: si ferma quella in corso e si riparte
+        if self.inner.tx_active.load(Ordering::SeqCst) {
+            self.abort_tx();
+            self.wait_idle(Duration::from_secs(5));
+        }
+        self.transmit(text).map(|st| (st, 0))
+    }
+
+    /// Aspetta (al massimo `limit`) che la trasmissione in corso sia finita del tutto.
+    fn wait_idle(&self, limit: Duration) {
+        let t0 = Instant::now();
+        while self.inner.tx_active.load(Ordering::SeqCst) && t0.elapsed() < limit {
+            std::thread::sleep(STEP);
+        }
+    }
+
     /// Una trasmissione a flusso nuova, o il testo accodato a quella in corso.
     pub(super) fn start_session(&self, port: Arc<dyn DigiTxPort>, text: &str, open: bool) -> Result<TxStatus, DigiError> {
         {
             let mut session = lock(&self.inner.session);
+            if session.as_ref().is_some_and(|s| s.ended) {
+                // la trasmissione sta chiudendo: il testo andrebbe perso, si ritenta quando e' finita
+                return Err(DigiError::Busy);
+            }
             if let Some(s) = session.as_mut() {
                 s.pending.extend(text.chars());
                 s.open |= open;
@@ -124,7 +172,7 @@ impl DigiService {
             if self.inner.tx_active.load(Ordering::SeqCst) || port.is_busy() {
                 return Err(DigiError::Busy);
             }
-            *session = Some(Session { pending: text.chars().collect(), open, taken: 0 });
+            *session = Some(Session { pending: text.chars().collect(), open, taken: 0, ended: false });
         }
         let settings = self.settings();
         let lsb = self.inner.read_radio_lsb();
@@ -170,7 +218,11 @@ fn next(inner: &Inner, m: &TxModulator) -> Next {
     let Some(s) = session.as_mut() else { return Next::End };
     let head: Vec<char> = s.pending.iter().take(4).copied().collect();
     if head.is_empty() {
-        return if s.open { Next::Idle } else { Next::End };
+        if s.open {
+            return Next::Idle;
+        }
+        s.ended = true;
+        return Next::End;
     }
     match m.next_token(&head, s.open) {
         Some(n) => {
@@ -436,6 +488,52 @@ mod tests {
         svc.transmit(" 73").expect("accodata");
         assert!(wait_state(&svc, "done", 10));
         assert_eq!(sent(&events), "RYRY CQTU 73");
+    }
+
+    #[test]
+    fn la_macro_ripremuta_ricomincia_da_capo_senza_togliere_il_ptt() {
+        let (svc, port, events, _dir) = service(DigiMode::Rtty);
+        svc.transmit_restart("CQ TEST IU3ABC IU3ABC", false).expect("partita");
+        std::thread::sleep(Duration::from_millis(900));
+        // F2 di nuovo, due volte: ogni volta il resto non ancora modulato si butta e la macro riparte dall'inizio
+        let (_, kept1) = svc.transmit_restart("CQ TEST IU3ABC IU3ABC", false).expect("ripartita");
+        std::thread::sleep(Duration::from_millis(400));
+        let (_, kept2) = svc.transmit_restart("CQ TEST IU3ABC IU3ABC", false).expect("ripartita");
+        assert!(kept2 >= kept1);
+        assert_eq!(svc.snapshot().tx.state, "sending");
+        assert!(wait_state(&svc, "done", 15), "stato: {:?}", svc.snapshot().tx);
+        let out = sent(&events);
+        // l'ultima pressione esce intera e per ultima; delle prime solo i caratteri gia' modulati
+        assert!(out.ends_with("CQ TEST IU3ABC IU3ABC"), "partito: {out:?}");
+        assert!(out.chars().count() < 3 * 21, "partito: {out:?}");
+        assert!(port.closed.load(Ordering::SeqCst));
+        // una macro diversa sostituisce il resto della prima
+        svc.transmit_restart("CQ TEST IU3ABC IU3ABC", false).expect("partita");
+        std::thread::sleep(Duration::from_millis(700));
+        svc.transmit_restart("TU 73", false).expect("ripartita");
+        assert!(wait_state(&svc, "done", 15));
+        let out = sent(&events);
+        assert!(out.ends_with("TU 73"), "partito: {out:?}");
+        assert!(!out.ends_with("IU3ABCTU 73"), "partito: {out:?}");
+    }
+
+    #[test]
+    fn niente_si_accoda_alla_trasmissione_che_sta_chiudendo() {
+        let (svc, _port, _events, _dir) = service(DigiMode::Rtty);
+        svc.transmit("TU").expect("partita");
+        // la coda e' finita e la chiusura sta partendo: prima il testo si perdeva, ora la richiesta e' rifiutata (si ritenta dopo)
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !lock(&svc.inner.session).as_ref().is_some_and(|s| s.ended) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        if lock(&svc.inner.session).as_ref().is_some_and(|s| s.ended) {
+            assert!(matches!(svc.transmit(" 73"), Err(DigiError::Busy)));
+        }
+        // la ripartenza invece aspetta la fine e trasmette di nuovo
+        let (st, kept) = svc.transmit_restart("73", false).expect("ripartita");
+        assert_eq!(st.state, "sending");
+        assert_eq!(kept, 0);
+        assert!(wait_state(&svc, "done", 10));
     }
 
     #[test]

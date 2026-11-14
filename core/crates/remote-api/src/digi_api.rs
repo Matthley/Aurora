@@ -90,6 +90,12 @@ pub(crate) async fn digi_rx_release(State(state): State<AppState>, _: Authed, ax
 #[derive(Deserialize)]
 pub(crate) struct TxBody {
     text: String,
+    /// Una macro ripremuta: il testo non ancora partito si butta e questo ricomincia da capo (vedi `DigiService::transmit_restart`).
+    #[serde(default)]
+    restart: bool,
+    /// Con `restart`: finito il testo si resta in trasmissione (macro senza `<RX>`).
+    #[serde(default)]
+    open: bool,
 }
 
 /// Trasmette un testo con il modo e la frequenza delle impostazioni.
@@ -99,6 +105,10 @@ pub(crate) async fn digi_tx(State(state): State<AppState>, _: Authed, headers: H
     check_tx_allowed(&state, &headers)?;
     if body.text.chars().count() > TEXT_MAX {
         return Err(api_error(DigiError::BadValue(format!("testo oltre {TEXT_MAX} caratteri"))));
+    }
+    if body.restart {
+        let (status, kept) = blocking(move || svc.transmit_restart(&body.text, body.open)).await?.map_err(api_error)?;
+        return Ok(Json(json!({ "tx": status, "kept": kept })));
     }
     let status = blocking(move || svc.transmit(&body.text)).await?.map_err(api_error)?;
     Ok(Json(json!({ "tx": status })))
