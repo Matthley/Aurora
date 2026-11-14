@@ -138,7 +138,7 @@ describe('runMacro: comandi di programma', () => {
   });
 
   it('il testo senza comandi passa com\'e\'', () => {
-    expect(runMacro('Hello world', ctx)).toEqual({ text: 'Hello world', actions: [] });
+    expect(runMacro('Hello world', ctx)).toEqual({ text: 'Hello world', actions: [], steps: [{ text: 'Hello world' }] });
   });
 });
 

@@ -42,6 +42,7 @@ import { useDigiTxLive } from '../lib/digiTxLive';
 import { RowAverager, seekSignal, snapToPair, snapToPeak, type SpectrumRow } from '../lib/digiSpectrum';
 import { bandOf } from '../lib/format';
 import { effectiveMacros, macroNameForKey, runMacro, type Macro, type MacroAction, type MacroContext } from '../lib/macroLang';
+import { planMacro, splitAutoCq } from '../lib/macroPlan';
 import { useListenWhileOpen } from '../lib/listenWhileOpen';
 import { parseSpotSplit } from '../lib/spotSplit';
 import { browserStorage } from '../lib/theme';
@@ -221,6 +222,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const [autoCq, setAutoCq] = useState(false);
   // doppio Esc: l'Auto CQ resta acceso ma in pausa; riparte quando si ripreme (macro <AUTOCQ>)
   const [autoCqPaused, setAutoCqPaused] = useState(false);
+  // la pausa fra due chiamate (<ACQDELAY:s>) e la chiamata data da <AUTOCQ>testo (se no AutoCqText o F2)
+  const [autoCqDelay, setAutoCqDelay] = useState(AUTOCQ_DELAY_S);
+  const autoCqScript = useRef<string | null>(null);
   const lastEsc = useRef(0);
   // <TXE>: l'attesa che cada il segnale ricevuto (Esc la annulla)
   const txeTimer = useRef<number | null>(null);
@@ -820,7 +824,15 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   };
 
   /** Una macro. Se chiede file di testo (`<TEXTFILE>`) o l'ultimo QSO (`<ANYQSOBEFORE...>`) prima si leggono, poi si esegue. */
-  const execute = (script: string) => {
+  const execute = (full: string) => {
+    // <AUTOCQ>testo: il testo diventa la chiamata dell'Auto CQ, che si accende; si esegue subito solo quello che sta prima
+    const { before: script, cq } = splitAutoCq(full);
+    if (cq !== null) {
+      autoCqScript.current = cq;
+      setAutoCqPaused(false);
+      setAutoCq(true);
+      if (script.trim() === '') return;
+    }
     const files = [...script.matchAll(/<TEXTFILE:([^<>]*)>/g)].map((m) => (m[1] ?? '').trim()).filter((n) => n !== '');
     const wantsLast = /<ANYQSOBEFORE(?:DATE|BAND|MODE)>/.test(script);
     if (files.length === 0 && !wantsLast) {
@@ -837,29 +849,21 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     });
   };
 
-  /** I comandi di programma nell'ordine, il testo in trasmissione o nella casella, poi il salvataggio e la pulizia. */
+  /**
+   * Una macro nell'ordine dello script (vedi `planMacro`): i comandi subito, poi il testo prima di `<RX>` in trasmissione (o nella
+   * casella), il testo dopo `<RX>` resta nella finestra, e a fine trasmissione il ritorno in ricezione e la pulizia.
+   */
   const run = (script: string, extra: Pick<MacroContext, 'files' | 'lastQso'>) => {
     const l = live.current;
     const result = runMacro(script, { ...context(), ...extra });
-    let toTx = false;
-    let rxClear = false;
-    let wantRx = false;
-    let clearTx = false;
-    let wantSave = false;
-    let waitCarrier = false;
+    const busy = l.snap.tx.state === 'sending';
+    const plan = planMacro(result.steps, busy);
     const apply = (a: MacroAction) => {
       switch (a.type) {
-        case 'txe': toTx = true; waitCarrier = true; break;
-        case 'tx':
-        case 'txToggle': toTx = true; break;
-        case 'rx': wantRx = true; rxClear = rxClear || a.clear; break;
-        case 'rxe': wantRx = true; break;
-        case 'clearTx': clearTx = true; break;
         case 'clearRx': clearDigiText(); break;
-        case 'clearWindow': clearDigiText(); clearTx = true; break;
+        case 'saveQso': saveQso(); break;
         case 'clearQso': setQso(EMPTY_QSO); setStartAt(null); resetRst(); break;
         case 'fixStartTime': setStartAt(new Date()); break;
-        case 'saveQso': wantSave = true; break;
         case 'mode': {
           const m = modeFromName(a.mode);
           if (m) save({ mode: m });
@@ -905,14 +909,20 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         case 'cursor': if (a.target === 'TX') txBox.current?.focus(); break;
         case 'beep': beep(); break;
         case 'autoCq':
-          if (autoCqPaused && autoCq) {
+          if (a.how === 'start' || (a.how === 'resume' && !autoCq)) {
             setAutoCqPaused(false);
-            toast(t('digi.run.autoCqOn', { s: AUTOCQ_DELAY_S }), 'info');
-          } else {
+            setAutoCq(true);
+          } else if (autoCqPaused && autoCq) {
+            setAutoCqPaused(false);
+            toast(t('digi.run.autoCqOn', { s: autoCqDelay }), 'info');
+          } else if (a.how === 'toggle') {
             setAutoCqPaused(false);
             setAutoCq((on) => !on);
           }
           break;
+        case 'acqDelay': setAutoCqDelay(a.seconds); break;
+        case 'jumpToTx': pickFreq(l.snap.settings.tx_freq_hz, false); break;
+        case 'align': pickFreq(Math.max(200, Math.round(l.rxHz / a.hz) * a.hz), false); break;
         case 'seek': seek(a.direction); break;
         case 'toggle': toggleSetting(a.what, a.value); break;
         case 'scan': setScanning(a.run); break;
@@ -925,27 +935,57 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         case 'cat':
           void digiCat(a.cmd).catch((e: unknown) => toast(t('digi.run.catFail', { why: e instanceof ApiError ? (e.message ?? e.code) : String(e) }), 'error'));
           break;
+        // comandi che la pagina dei modi testuali non sa fare: lo dice
+        case 'tune': toast(t('digi.run.unknown', { tag: 'TUNE' }), 'info'); break;
+        case 'bookmark': toast(t('digi.run.unknown', { tag: 'BOOKMARK' }), 'info'); break;
+        case 'macros': toast(t('digi.run.unknown', { tag: `MACROS:${a.file}` }), 'info'); break;
         case 'unknown': toast(t('digi.run.unknown', { tag: a.tag }), 'info'); break;
-        default: toast(t('digi.run.unknown', { tag: a.type.toUpperCase() }), 'info');
+        // TX, RX e la pulizia della finestra di trasmissione li ordina planMacro: qui non arrivano
+        case 'tx':
+        case 'txe':
+        case 'txToggle':
+        case 'rx':
+        case 'rxe':
+        case 'clearTx':
+        case 'clearWindow':
+          break;
+        default: {
+          const never: never = a;
+          return never;
+        }
       }
     };
-    result.actions.forEach(apply);
-    const body = result.text.replace(/^[\r\n\t ]+|[\r\n\t ]+$/g, '');
-    const busy = l.snap.tx.state === 'sending';
-    if (toTx) {
-      // un comando <TX> da solo trasmette quello che c'e' nella casella
+    plan.actions.forEach(apply);
+    if (plan.clearBox) clearTxWindow();
+    const body = plan.text;
+    // il testo dopo <RX>: resta nella finestra di trasmissione, dopo quello che parte
+    const keepAfter = () => {
+      if (plan.after !== '') setTx((v) => (v.trim() === '' ? plan.after : `${v.replace(/\s+$/, '')} ${plan.after}`));
+    };
+    const toTx = plan.tx === 'start';
+    if (plan.tx === 'stop') {
+      // <TXTOGGLE> mentre si trasmette: parte il testo della macro e poi si torna in ricezione
+      const close = () => {
+        void digiTxClose().then(onChanged, onChanged);
+        keepAfter();
+      };
+      if (body !== '') void send(body).then(close);
+      else close();
+    } else if (toTx) {
+      // un comando <TX> da solo trasmette quello che c'e' nella casella (se non e' stata appena pulita)
       // senza <RX> la trasmissione resta aperta finito il testo (si continua a scrivere), con <RX> si torna in ricezione;
       // si apre solo dopo che il testo e' partito davvero, mai una trasmissione vuota
-      const what = body !== '' ? body : l.tx;
+      const what = body !== '' ? body : plan.clearBox ? '' : l.tx;
       const fire = () =>
         void send(what).then((ok) => {
           if (!ok) clearAfterTx.current = false;
-          else if (!wantRx) void digiTxOpen('').then(onChanged, () => undefined);
+          else if (!plan.rxAfter) void digiTxOpen('').then(onChanged, () => undefined);
           else if (busy) void digiTxClose().then(onChanged, onChanged);
+          keepAfter();
         });
       // <TXE>: si aspetta che cada il segnale sulla frequenza di ricezione (al massimo 30 s, poi si trasmette comunque)
       stopTxe();
-      if (waitCarrier && txeStep(l.snap.rx.carrier, 0, 0) === 'wait') {
+      if (plan.waitCarrier && txeStep(l.snap.rx.carrier, 0, 0) === 'wait') {
         const startedAt = Date.now();
         toast(t('digi.run.txeWait'), 'info');
         txeTimer.current = window.setInterval(() => {
@@ -955,19 +995,20 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           }
         }, 200);
       } else fire();
-    } else if (wantRx && busy) {
-      // <RX> durante una trasmissione: si torna in ricezione appena partito il testo gia' scritto
-      if (body !== '') send(body);
-      void digiTxClose().then(onChanged, onChanged);
-    } else if (body !== '') {
-      setTx((v) => (clearTx || v === '' ? body : `${v} ${body}`));
-    } else if (clearTx) {
-      clearTxWindow();
+    } else if (busy) {
+      // durante una trasmissione il testo della macro si accoda a quello che sta partendo; con <RX> poi si torna in ricezione
+      const after = () => {
+        if (plan.rxAfter) void digiTxClose().then(onChanged, onChanged);
+        keepAfter();
+      };
+      if (body !== '') void send(body).then(after);
+      else after();
+    } else {
+      if (body !== '') setTx((v) => (plan.clearBox || v.trim() === '' ? body : `${v.replace(/\s+$/, '')} ${body}`));
+      keepAfter();
     }
-    if (clearTx && toTx) clearTxWindow();
-    if (wantSave) saveQso();
-    // <RXANDCLEAR>: la finestra di trasmissione si pulisce quando il testo e' partito e si e' tornati in ricezione
-    if (rxClear) {
+    // <RXC>: la finestra di trasmissione si pulisce quando il testo e' partito e si e' tornati in ricezione
+    if (plan.clearAfter) {
       if (toTx || busy) {
         clearAfterTx.current = true;
         // riserva: se la pagina non vede mai «in trasmissione» (trasmissione cortissima), pulisce appena il core dice che non trasmette piu'
@@ -995,6 +1036,20 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     execute(m.text);
     return true;
   };
+  // le macro evento: OnStart all'apertura della pagina, OnEnd alla chiusura, OnTX quando parte una trasmissione, OnCR con Invio nella
+  // casella di trasmissione, OnClickAny quando una parola della ricezione va in un campo del log (dopo che il campo e' aggiornato)
+  const runEvent = useRef(runMacroByName);
+  runEvent.current = runMacroByName;
+  const runEventSoon = (name: string) => window.setTimeout(() => runEvent.current(name), 50);
+  useEffect(() => {
+    runEvent.current('OnStart');
+    return () => void runEvent.current('OnEnd');
+  }, []);
+  const wasSendingEv = useRef(sending);
+  useEffect(() => {
+    if (sending && !wasSendingEv.current) runEvent.current('OnTX');
+    wasSendingEv.current = sending;
+  }, [sending]);
 
   // i tasti F1-F12 con Ctrl e Shift, il «+» del tastierino (macro Gray+), Pausa (RX/TX) e Esc che ferma la trasmissione
   useEffect(() => {
@@ -1030,16 +1085,17 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // CQ automatico: ripete la macro «CQ» finche' non si spegne, con una pausa fra una chiamata e l'altra
   useEffect(() => {
     if (!autoCq || autoCqPaused || sending || !snap.can_transmit) return;
-    const m = live.current.macros.get('AutoCqText') ?? live.current.macros.get('F2');
+    const fromMacro = live.current.macros.get('AutoCqText') ?? live.current.macros.get('F2');
+    const m = autoCqScript.current !== null ? { text: autoCqScript.current } : fromMacro;
     if (!m || m.text.trim() === '') {
       toast(t('digi.run.autoCqNoMacro'), 'info');
       setAutoCq(false);
       return;
     }
-    const timer = window.setTimeout(() => execute(m.text), AUTOCQ_DELAY_S * 1000);
+    const timer = window.setTimeout(() => execute(m.text), autoCqDelay * 1000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCq, autoCqPaused, sending, snap.can_transmit, snap.tx.state]);
+  }, [autoCq, autoCqPaused, autoCqDelay, sending, snap.can_transmit, snap.tx.state]);
 
   // l'avviso del CQ automatico solo quando cambia, non all'apertura della pagina
   const autoCqFirst = useRef(true);
@@ -1048,7 +1104,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       autoCqFirst.current = false;
       return;
     }
-    toast(autoCq ? t('digi.run.autoCqOn', { s: AUTOCQ_DELAY_S }) : t('digi.run.autoCqOff'), 'info');
+    // spento l'Auto CQ, la chiamata data da <AUTOCQ>testo si dimentica
+    if (!autoCq) autoCqScript.current = null;
+    toast(autoCq ? t('digi.run.autoCqOn', { s: autoCqDelay }) : t('digi.run.autoCqOff'), 'info');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoCq]);
 
@@ -1089,6 +1147,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
 
   // la parola scelta col tasto destro va nel campo del log del QSO in corso (il rapporto e' quello ricevuto) o negli appunti
   const pickWord = (target: WordTarget, word: string) => {
+    if (target !== 'copy' && target !== 'clear') runEventSoon('OnClickAny');
     if (target === 'copy') {
       // il testo selezionato nella finestra di ricezione, altrimenti la parola cliccata
       const sel = window.getSelection();
@@ -1405,7 +1464,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             onDoubleClick={(e) => {
               // doppio clic su un nominativo: nel QSO in corso (non salvato) con la ricerca
               const word = rxBox.current ? wordAtPoint(e.clientX, e.clientY, rxBox.current) : null;
-              if (word && isCallsign(word)) takeCall(word);
+              if (word && isCallsign(word)) {
+                takeCall(word);
+                runEventSoon('OnClickAny');
+              }
             }}>
             <DigiRxLive box={rxBox} underlineSent={views.underlineSent} showSent={views.echoRx === true} paused={rxPaused} search={searchOpen ? search : ''} />
           </pre>
@@ -1432,6 +1494,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !sending) send(tx);
+                else if (e.key === 'Enter' && !e.shiftKey && !e.altKey) runEventSoon('OnCR');
               }}
             />
             {!snap.can_transmit ? <p className="notice">{t('digi.tx.notReady')}</p> : null}

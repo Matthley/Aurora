@@ -63,7 +63,14 @@ export type MacroAction =
   | { type: 'editMacro'; name: string }
   | { type: 'alarm'; text: string }
   | { type: 'audioFq'; hz: number; relative: boolean }
-  | { type: 'autoCq' }
+  /** Auto CQ: `toggle` accende o spegne (o riprende se e' in pausa), `start` lo accende, `resume` riprende quello fermato. */
+  | { type: 'autoCq'; how: 'toggle' | 'start' | 'resume' }
+  /** Pausa fra due chiamate dell'Auto CQ, in secondi. */
+  | { type: 'acqDelay'; seconds: number }
+  /** L'ascolto sulla frequenza di trasmissione. */
+  | { type: 'jumpToTx' }
+  /** La frequenza di ricezione al multiplo piu' vicino di questi Hz. */
+  | { type: 'align'; hz: number }
   | { type: 'tune'; seconds: number | null }
   | { type: 'beep' }
   | { type: 'seek'; direction: 'left' | 'right' }
@@ -86,10 +93,15 @@ export type MacroAction =
   /** Un comando che Aurora non conosce ancora: resta nell'elenco per dirlo all'utente. */
   | { type: 'unknown'; tag: string };
 
+/** Un pezzo dello script nell'ordine in cui compare: testo gia' riempito o un comando di programma. */
+export type MacroStep = { text: string } | { action: MacroAction };
+
 export interface MacroResult {
   /** Il testo da trasmettere (o da mettere nella casella di trasmissione). */
   text: string;
   actions: MacroAction[];
+  /** Testo e comandi nell'ordine dello script: conta dove sta un `<RX>` o un `<CLEARTXWINDOW>` (vedi `macroPlan.ts`). */
+  steps: MacroStep[];
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');
@@ -194,7 +206,18 @@ function actionOf(tag: string, arg: string | undefined): MacroAction | null {
     case 'FIXSTARTTIME': return { type: 'fixStartTime' };
     case 'SAVEQSO': return { type: 'saveQso' };
     case 'AUTOCQ':
-    case 'ACQ': return { type: 'autoCq' };
+    case 'ACQ': return { type: 'autoCq', how: 'toggle' };
+    case 'ASAUTOCQ': return { type: 'autoCq', how: 'start' };
+    case 'AUTOCQRESUME': return { type: 'autoCq', how: 'resume' };
+    case 'ACQDELAY': {
+      const n = number(arg);
+      return n === null || n < 0 || n > 600 ? null : { type: 'acqDelay', seconds: n };
+    }
+    case 'JUMPTOTXFQ': return { type: 'jumpToTx' };
+    case 'ALIGN': {
+      const hz = number(arg);
+      return hz === null || hz <= 0 ? null : { type: 'align', hz };
+    }
     case 'BEEP': return arg === 'ON' ? { type: 'beep' } : null;
     case 'SEEKLEFT': return { type: 'seek', direction: 'left' };
     case 'SEEKRIGHT': return { type: 'seek', direction: 'right' };
@@ -273,18 +296,28 @@ const TAG = /<(\[|\]|[A-Z][A-Z0-9_/+-]*)(?::([^<>]*))?>/g;
 /** Esegue uno script: restituisce il testo e le azioni, nell'ordine in cui compaiono. */
 export function runMacro(script: string, ctx: MacroContext): MacroResult {
   const actions: MacroAction[] = [];
-  const text = script.replace(TAG, (_whole, tag: string, arg: string | undefined) => {
+  const steps: MacroStep[] = [];
+  let last = 0;
+  const text = script.replace(TAG, (whole: string, tag: string, arg: string | undefined, at: number) => {
+    if (at > last) steps.push({ text: script.slice(last, at) });
+    last = at + whole.length;
     const value = textTag(tag, arg, ctx);
-    if (value !== null) return value;
-    const action = actionOf(tag, arg);
-    if (action) {
-      actions.push(action);
-      return '';
+    if (value !== null) {
+      steps.push({ text: value });
+      return value;
     }
-    actions.push({ type: 'unknown', tag: arg === undefined ? tag : `${tag}:${arg}` });
+    const action: MacroAction = actionOf(tag, arg) ?? { type: 'unknown', tag: arg === undefined ? tag : `${tag}:${arg}` };
+    actions.push(action);
+    steps.push({ action });
     return '';
   });
-  return { text: text.replace(/ {2,}/g, ' ').replace(/^ /, '').replace(/ $/, '').replace(/ ([\r\n])/g, '$1'), actions };
+  if (last < script.length) steps.push({ text: script.slice(last) });
+  return { text: tidyText(text), actions, steps };
+}
+
+/** Il testo senza spazi doppi, senza spazi in testa e in coda e senza spazi prima di un a capo. */
+export function tidyText(text: string): string {
+  return text.replace(/ {2,}/g, ' ').replace(/^ /, '').replace(/ $/, '').replace(/ ([\r\n])/g, '$1');
 }
 
 /** I nomi dei 48 tasti, nell'ordine: F1-F12, poi Ctrl, Shift e Ctrl-Shift. */
