@@ -5,6 +5,7 @@ import { useT, type T } from '../i18n';
 import { Check, Help } from './common';
 import { Actions, Cells, Field, Group, Message, Notes, Page } from './layout';
 import { useAutosave } from './useAutosave';
+import { RbnGroup } from './RbnGroup';
 import { DXPED_DEFAULT, DXPED_PALETTE, setDxpedColor, useDxpedColor } from '../lib/dxpedColor';
 import { setSplitDxEnabled, useSplitDxEnabled } from '../lib/spotSplit';
 
@@ -325,6 +326,7 @@ export function ClusterTab() {
       <Notes>
         <Help>{t('cluster.intro')}</Help>
       </Notes>
+      <RbnGroup callsign={state.data?.callsign} />
     </Page>
   );
 }

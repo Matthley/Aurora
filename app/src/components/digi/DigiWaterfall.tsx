@@ -334,12 +334,12 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandH
           const tip = l.history ? `${l.text}
 ${l.history}` : l.text;
           return (
-            <span key={`${l.text}-${Math.round(l.hz)}`} className={`digi-wf-label${l.quiet ? ' digi-wf-label--quiet' : ''}`} style={{ left: x, top: SCALE_H + (low ? (showWords ? 52 : 42) : 22) }} title={tip} onPointerDown={(e) => {
+            <span key={`${l.text}-${Math.round(l.hz)}`} className={`digi-wf-label${l.quiet ? ' digi-wf-label--quiet' : ''}${l.rbn ? ' digi-wf-label--rbn' : ''}`} style={{ left: x, top: SCALE_H + (low ? (showWords ? 52 : 42) : 22) }} title={tip} onPointerDown={(e) => {
               if (e.button !== 0) return;
               e.stopPropagation();
               onPick(Math.round(l.hz * 10) / 10, e.shiftKey, true);
             }}>
-              <span className={`digi-wf-call${l.cq ? ' digi-wf-call--cq' : ''}${l.sure ? '' : ' digi-wf-call--maybe'}${l.color !== undefined ? ` digi-wf-call--station radar-c${l.color}` : ''}`}>{l.text}</span>
+              <span className={`digi-wf-call${l.cq ? ' digi-wf-call--cq' : ''}${l.sure ? '' : ' digi-wf-call--maybe'}${l.color !== undefined ? ` digi-wf-call--station radar-c${l.color}` : ''}`}>{l.rbn ? <span className="digi-wf-rbn">RBN</span> : null}{l.text}</span>
               {words ? (
                 <span className="digi-wf-words" style={{ maxWidth: maxW }}>
                   {words.map((w, k) => (

@@ -74,6 +74,16 @@ html[data-theme='light'] .digi-wf-w--key { color: #0b7a3e; }
 /* Aurora BIGScan: l'etichetta ha il colore della stazione, lo stesso del pallino nell'elenco (scritta scura sulle tinte chiare) */
 .digi-wf-call--station { background: var(--radar-c); color: #06121c; text-shadow: none; }
 .digi-wf-call--maybe { color: #c9d0dd; font-weight: 400; font-style: italic; }
+/* Reverse Beacon Network: etichetta vuota con il bordo tratteggiato, per distinguerla da quello che decodifica Aurora */
+.digi-wf-label--rbn .digi-wf-call { background: rgb(0 0 0 / 0.45); border: 1px dashed #7fd3ff; color: #bfe9ff; box-shadow: none; }
+.digi-wf-rbn { margin-right: 0.3em; font-size: 0.75em; font-weight: 700; color: #7fd3ff; letter-spacing: 0.04em; }
+.rbn-list { margin-top: 0.35rem; font-size: 0.85em; }
+.rbn-list h4 { margin: 0 0 0.2rem; font-size: 0.9em; font-weight: 600; }
+.rbn-list ul { list-style: none; margin: 0; padding: 0; max-height: 9rem; overflow-y: auto; }
+.rbn-list button { display: flex; gap: 0.5em; width: 100%; align-items: baseline; background: none; border: 0; padding: 0.1rem 0.2rem; color: inherit; text-align: left; cursor: pointer; }
+.rbn-list button:hover { background: var(--glass-hover, rgb(127 127 127 / 0.15)); }
+.rbn-list .rbn-badge { font-size: 0.75em; font-weight: 700; color: #7fd3ff; border: 1px dashed #7fd3ff; border-radius: 3px; padding: 0 0.25em; }
+.rbn-list .rbn-call { font-weight: 600; min-width: 6.5em; }
 
 /* tema chiaro */
 html[data-theme='light'] .digi-band { background: #ffffff; box-shadow: 0 4px 14px rgb(20 40 90 / 0.1); }

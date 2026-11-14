@@ -73,6 +73,8 @@ export interface WaterfallLabel {
   quiet?: boolean;
   /** Il testo degli ultimi minuti del canale (suggerimento). */
   history?: string;
+  /** Stazione sentita dalla rete RBN e non decodificata da Aurora: etichetta vuota con la scritta «RBN». */
+  rbn?: boolean;
 }
 
 /**

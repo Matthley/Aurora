@@ -652,6 +652,55 @@ export async function sendClusterCommand(server: string, text: string): Promise<
   await request('/dx-cluster/command', jsonInit({ server, text }));
 }
 
+/** Reverse Beacon Network e server spot locale (Impostazioni › Log, cluster e servizi › DX Cluster). */
+export interface RbnConfig {
+  enabled: boolean;
+  cw_rtty: boolean;
+  digital: boolean;
+  bands: string[];
+  modes: string[];
+  continents: string[];
+  server_enabled: boolean;
+  server_port: number;
+  server_lan: boolean;
+}
+
+export interface RbnState {
+  config: RbnConfig;
+  feeds: { port: number; state: 'connecting' | 'connected' | 'error'; detail: string | null; spots: number }[];
+  /** `null` spento, `listening` in ascolto, altrimenti l'errore. */
+  server: string | null;
+  clients: number;
+}
+
+/** Una stazione sentita dai ricevitori RBN negli ultimi 10 minuti. */
+export interface RbnSpot {
+  call: string;
+  freq_khz: number;
+  band: string;
+  mode: string;
+  skimmers: number;
+  best_skimmer: string;
+  best_snr_db: number | null;
+  speed: number | null;
+  kind: 'cq' | 'beacon' | 'ncdxf' | 'dx';
+  time_utc: string;
+  last_ms: number;
+}
+
+export async function getRbn(): Promise<RbnState> {
+  return (await (await request('/rbn')).json()) as RbnState;
+}
+
+export async function putRbn(config: RbnConfig): Promise<void> {
+  await request('/rbn', { ...jsonInit(config), method: 'PUT' });
+}
+
+export async function getRbnSpots(band: string, mode: string, loKhz: number, hiKhz: number): Promise<RbnSpot[]> {
+  const q = new URLSearchParams({ band, mode, lo_khz: String(loKhz), hi_khz: String(hiKhz) });
+  return ((await (await request(`/rbn/spots?${q.toString()}`)).json()) as { spots: RbnSpot[] }).spots;
+}
+
 export interface ClockConfig {
   enabled: boolean;
   servers: string[];

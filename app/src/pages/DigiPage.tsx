@@ -17,6 +17,8 @@ import { isCallsign, useCallLookup } from '../components/digi/callLookup';
 import { DigiWaterfall } from '../components/digi/DigiWaterfall';
 import { BandSignals } from '../components/digi/BandSignals';
 import { RadarList } from '../components/digi/RadarList';
+import { RbnList } from '../components/digi/RbnList';
+import { rbnLabels, useRbnSpots } from '../lib/rbnSpots';
 import { ExtraRxWindow } from '../components/digi/ExtraRxWindow';
 import { PopupMenu } from '../components/PopupMenu';
 import { addNotch } from '../lib/digiNotches';
@@ -90,6 +92,8 @@ interface Views {
   wfCalls: boolean;
   /** «Testo sulla cascata»: le ultime parole di ogni canale sotto il nominativo (assente nelle viste salvate prima: si'). */
   wfWords?: boolean;
+  /** Stazioni della rete RBN sulla cascata e sotto Aurora BIGScan (assente = acceso; servono gli spot RBN accesi nelle impostazioni). */
+  rbn?: boolean;
   /** Aurora BIGScan: anche chi risponde (dopo DE o TU), non solo chi chiama CQ. */
   radarAnswering: boolean;
 }
@@ -399,6 +403,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       .filter((l) => l.sure && shown.has(l.text))
       .map((l) => ({ ...l, color: radarColor(l.text) }));
   }, [band, radarMode, radar]);
+  // Reverse Beacon Network: chi sentono i ricevitori RBN nel tratto della cascata e Aurora non ha decodificato
+  const radarCalls = useMemo(() => new Set(radar.map((r) => r.call.toUpperCase())), [radar]);
+  const rbnSpots = useRbnSpots(radarMode && views.rbn !== false, status?.dial_hz ?? 0, s.mode === 'cw' ? 'CW' : 'RTTY', WF_MIN, views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW, radarCalls);
+  const wfLabels = useMemo(() => [...bandLabels, ...rbnLabels(rbnSpots, status?.dial_hz ?? 0)], [bandLabels, rbnSpots, status?.dial_hz]);
   const toggleRadar = () => (s.mode === 'cw' ? save({ band_cw: s.band_cw === false }) : save({ band_rtty: s.band_rtty === false }));
 
   const macros = useMemo(() => effectiveMacros(s.macros.map(toMacro), s.mode_macros[s.mode]?.map(toMacro), s.merge_macros[s.mode] !== false), [s.macros, s.mode_macros, s.merge_macros, s.mode]);
@@ -1293,6 +1301,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         { label: t('digi.band.view'), checked: views.signals, onSelect: () => setView({ signals: !views.signals }) },
         { label: t('digi.band.wfCalls'), checked: views.wfCalls, onSelect: () => setView({ wfCalls: !views.wfCalls }) },
         { label: t('digi.band.wfWords'), checked: views.wfWords !== false, onSelect: () => setView({ wfWords: views.wfWords === false }) },
+        ...(radarMode ? [{ label: t('rbn.show'), checked: views.rbn !== false, onSelect: () => setView({ rbn: views.rbn === false }) }] : []),
         { label: t('digi.mi.statusBar'), checked: views.statusBar, onSelect: () => setView({ statusBar: !views.statusBar }) },
         'sep' as const,
         { label: t('digi.mi.echoRx'), checked: views.echoRx === true, onSelect: () => setView({ echoRx: !(views.echoRx === true) }) },
@@ -1531,8 +1540,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         {bandOn && !radarMode && views.signals ? (
           <BandSignals signals={band} showWpm={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} emptyText={isPsk ? t('digi.band.emptyPsk') : t('digi.band.empty')} validation={s.band_validation ?? 'normal'} onValidation={(v) => save({ band_validation: v })} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} />
         ) : null}
+        {radarMode && views.rbn !== false ? <RbnList spots={rbnSpots} dialHz={status?.dial_hz ?? 0} onTune={(hz) => pickFreq(hz, false)} /> : null}
         {views.waterfall ? (
-          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? bandLabels : []} showWords={views.wfWords !== false} notches={notches} onNotches={setNotches}
+          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? wfLabels : []} showWords={views.wfWords !== false} notches={notches} onNotches={setNotches}
             extraRx={extras}
             onExtraMove={(id, hz, commit) => {
               const next = extras.map((x) => (x.id === id ? { ...x, freq_hz: hz } : x));
