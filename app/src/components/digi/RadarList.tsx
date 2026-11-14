@@ -205,14 +205,17 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         {on ? (
         <button
           type="button"
-          className="radar-clear"
+          className="radar-clear radar-clear--icon"
           title={t('radar.clearTip')}
+          aria-label={t('radar.clear')}
           onClick={() => {
             clearBandSignals();
             void clearDigiBand().catch(() => undefined);
           }}
         >
-          {t('radar.clear')}
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
+          </svg>
         </button>
         ) : null}
       </header>

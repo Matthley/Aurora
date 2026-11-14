@@ -17,6 +17,7 @@ import { openInMain } from '../lib/sdr';
 import { browserStorage } from '../lib/theme';
 import { toast } from '../lib/toast';
 import { WsprnetGroup } from './OnlineTab';
+import { MacroSlots } from './MacroSlots';
 import { SequenceTab } from './SequenceTab';
 import { Actions, Group, Message, Page } from './layout';
 
@@ -68,38 +69,47 @@ export function DigiMacrosPage() {
   const s = snap.settings;
   const toMacro = (m: { name: string; label: string; text: string; color: number | null }): Macro => ({ name: m.name, label: m.label, text: m.text, color: m.color });
   const macros = effectiveMacros(s.macros.map(toMacro), s.mode_macros[s.mode]?.map(toMacro), s.merge_macros[s.mode] !== false);
-  const order = [...keyNames(), ...EVENT_MACROS];
-  const shown = order.filter((name) => {
+  const events = EVENT_MACROS.filter((name) => {
     const m = macros.get(name);
     return m !== undefined && (m.label.trim() !== '' || m.text.trim() !== '');
   });
   const scopeOf = (name: string): MacroScope => ((s.mode_macros[s.mode] ?? []).some((m) => m.name === name) ? 'mode' : 'all');
-  const firstFree = keyNames().find((n) => !shown.includes(n)) ?? 'F1';
+  const firstFree = keyNames().find((n) => {
+    const m = macros.get(n);
+    return m === undefined || (m.label.trim() === '' && m.text.trim() === '');
+  }) ?? 'F1';
   const edited = editing ? (macros.get(editing.name) ?? { name: editing.name, label: '', text: '', color: null }) : null;
   return (
     <Page>
       <Group title={t('sw.pg.digiMacros')} span={3}>
         <Message kind="muted">{t('sw.macros.mode', { mode: DIGI_NAMES[s.mode] })}</Message>
-        {shown.length === 0 ? <Message kind="muted">{t('sw.macros.empty')}</Message> : null}
-        <ul className="sw-macros">
-          {shown.map((name) => {
-            const m = macros.get(name);
-            if (!m) return null;
-            const bg = cssColor(m.color);
-            return (
-              <li key={name}>
-                <b className="sw-macro-key" style={bg ? { background: bg, color: textColorFor(m.color) } : undefined}>
-                  {name}
-                </b>
-                <span className="sw-macro-label">{m.label || m.text.slice(0, 40)}</span>
-                <small className="muted">{scopeOf(name) === 'mode' ? t('digi.edit.scopeMode', { mode: DIGI_NAMES[s.mode] }) : t('digi.edit.scopeAll')}</small>
-                <button type="button" className="glass" onClick={() => setEditing({ name, scope: scopeOf(name) })}>
-                  {t('sw.macros.edit')}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <MacroSlots macros={macros} scopeOf={scopeOf} modeName={DIGI_NAMES[s.mode]} onEdit={(name) => setEditing({ name, scope: scopeOf(name) })} />
+        {events.length > 0 ? (
+          <>
+            <h4 className="sw-mevents">{t('sw.macros.events')}</h4>
+            <ul className="sw-macros">
+              {events.map((name) => {
+                const m = macros.get(name);
+                if (!m) return null;
+                const bg = cssColor(m.color);
+                return (
+                  <li key={name}>
+                    <b className="sw-macro-key" style={bg ? { background: bg, color: textColorFor(m.color) } : undefined}>
+                      {name}
+                    </b>
+                    <span className="sw-macro-label" title={m.text}>
+                      {m.label || m.text.slice(0, 40)}
+                    </span>
+                    <small className="muted">{scopeOf(name) === 'mode' ? DIGI_NAMES[s.mode] : t('digi.edit.scopeAll')}</small>
+                    <button type="button" className="glass" onClick={() => setEditing({ name, scope: scopeOf(name) })}>
+                      {t('sw.macros.edit')}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : null}
         <Actions>
           <button type="button" className="glass" onClick={() => setEditing({ name: firstFree, scope: 'all' })}>
             {t('sw.macros.new')}
