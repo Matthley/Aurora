@@ -78,12 +78,13 @@ export function MacroGuide({ onClose }: Props) {
                       {c.aliases ? <span className="mguide-alias"> · {c.aliases.map((a) => <code key={a}>{a}</code>)}</span> : null}
                       {c.soon ? <span className="mguide-badge">{t('mguide.notAvail')}</span> : null}
                     </dt>
-                    <dd>
-                      <p>{pick(c.desc, lang)}</p>
-                      {c.long ? <p>{pick(c.long, lang)}</p> : null}
-                      <p className="mguide-ex">
-                        <span>{t('mguide.example')}</span> <code>{c.ex}</code>
-                      </p>
+                    {/* una riga per comando: comando, spiegazione (quella lunga al passaggio del mouse), esempio */}
+                    <dd title={c.long ? pick(c.long, lang) : undefined}>
+                      {pick(c.desc, lang)}
+                      {c.long ? <span className="mguide-more" aria-hidden="true"> ⓘ</span> : null}
+                    </dd>
+                    <dd className="mguide-ex" aria-label={t('mguide.example')}>
+                      <code>{c.ex}</code>
                     </dd>
                   </div>
                 ))}
@@ -101,9 +102,7 @@ export function MacroGuide({ onClose }: Props) {
                       <code>{e.name}</code>
                       {e.runs ? null : <span className="mguide-badge">{t('mguide.notAvail')}</span>}
                     </dt>
-                    <dd>
-                      <p>{pick(e.desc, lang)}</p>
-                    </dd>
+                    <dd>{pick(e.desc, lang)}</dd>
                   </div>
                 ))}
               </dl>

@@ -1500,3 +1500,16 @@ header.app-header .app-nav { flex: 1 1 auto; min-width: 0; display: flex; }
 .newdx-off { pointer-events: auto; align-self: flex-end; padding: 4px 10px; border: 1px solid rgb(255 255 255 / .25); border-radius: 8px; background: rgb(10 16 30 / .85); color: #f4f4f4; font-size: 12px; cursor: pointer; }
 .newdx-off:hover { background: rgb(40 50 80 / .95); }
 html[data-theme='light'] .newdx-off { background: #ffffff; color: #111; border-color: #c9ced6; }
+/* Guida alle macro compatta: una riga per comando (comando | spiegazione | esempio), righe a strisce */
+.mguide-body dl { gap: 0; }
+.mguide-item { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr minmax(8rem, 17rem); gap: 0.2rem 0.8rem; align-items: baseline; padding: 0.22rem 0.5rem; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+.mguide-item:nth-child(even) { background: var(--panel-raised); }
+.mguide-item dt { font-weight: 600; }
+.mguide-item dd { margin: 0; line-height: 1.35; }
+.mguide-item dd.mguide-ex { text-align: right; }
+.mguide-more { color: var(--text-muted); cursor: help; }
+.mguide-item--off { opacity: 0.7; border-style: solid; }
+@media (max-width: 720px) {
+  .mguide-item { grid-template-columns: 1fr; }
+  .mguide-item dd.mguide-ex { text-align: left; }
+}
