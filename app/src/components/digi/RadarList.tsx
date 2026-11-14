@@ -197,10 +197,18 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
           </span>
         ) : null}
         {on && onAnswering ? (
-          <label className="radar-answering" title={t('radar.answeringTip')}>
-            <input type="checkbox" checked={answering} onChange={(e) => onAnswering(e.target.checked)} />
-            {t('radar.answering')}
-          </label>
+          <button
+            type="button"
+            className={`radar-clear radar-clear--icon radar-answer${answering ? ' radar-answer--on' : ''}`}
+            aria-pressed={answering}
+            title={t('radar.answeringTip')}
+            aria-label={t('radar.answering')}
+            onClick={() => onAnswering(!answering)}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 8h12l-3-3M20 16H8l3 3" />
+            </svg>
+          </button>
         ) : null}
         {on ? (
         <button
