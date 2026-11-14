@@ -2,6 +2,13 @@
 
 ## Non rilasciato
 
+## 0.11.258 - 2026-11-14
+
+- Contest dei modi testuali: punteggio dal vivo (QSO, punti, moltiplicatori), statistiche per banda, esportazione Cabrillo; la cattura dello scambio non prende piu' il proprio numero.
+- Aurora BIGScan RTTY: canali nati storti spostati sulla stazione vera (trovate le deboli accanto alle forti), fine parola dopo 1 s di silenzio, verifica alla prima lettura certa dopo CQ; ritardo mediano da 9 a 6 s.
+- Split: registro di ogni comando di split di Aurora e avviso quando la radio va in split da fuori; Doppler dei satelliti solo con la pagina Satelliti aperta.
+- Niente falsi rapporti di blocco con la finestra in secondo piano.
+
 ## 0.11.257 - 2026-11-14
 
 - Modi testuali: menu Contest (Vista › Menu Contest) con 135 contest in file `.contest` modificabili, macro e domini; il contest attivo regola doppi, numero progressivo, macro e cattura dello scambio.
