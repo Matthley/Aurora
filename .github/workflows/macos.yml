@@ -69,13 +69,29 @@ jobs:
           npm ci
           npm run build
 
-      - name: Hamlib dentro l'app (rigctld universale arm64 + x86_64 dalle bottiglie di Homebrew)
+      # il pacchetto Hamlib compilato si conserva tra un'esecuzione e l'altra: la chiave cambia con lo script (versioni e impronte sono li')
+      - name: Cache di Hamlib compilata
+        id: cache-hamlib
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v4
+        with:
+          path: desktop/src-tauri/hamlib-bundle
+          key: hamlib-macos-universale-${{ hashFiles('scripts/hamlib-macos-universale.sh') }}
+
+      - name: Hamlib dentro l'app (rigctld universale arm64 + x86_64 compilato dai sorgenti)
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.cache-hamlib.outputs.cache-hit != 'true'
         run: |
           # rigctld ufficiale di Hamlib con le sue librerie accanto e i percorsi riscritti (@executable_path/libs): l'app funziona senza
-          # installare niente. La macchina di GitHub e' Apple Silicon: lo script prende le bottiglie di entrambe le architetture e le
-          # unisce con lipo (segnalazione #59: prima era solo arm64, «Bad CPU type» sui Mac Intel). Fallisce se un file non e' universale.
+          # installare niente. Homebrew non ha piu' bottiglie x86_64 di hamlib: lo script compila libusb e Hamlib dai sorgenti (impronte
+          # sha256 fissate) per arm64 e x86_64 e li unisce con lipo (segnalazione #59). Fallisce se un file non e' universale.
           bash scripts/hamlib-macos-universale.sh desktop/src-tauri/hamlib-bundle
+
+      - name: Controllo di Hamlib
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        run: |
+          test -x desktop/src-tauri/hamlib-bundle/rigctld
+          cat desktop/src-tauri/hamlib-bundle/VERSIONE.txt
+          desktop/src-tauri/hamlib-bundle/rigctld --version
 
       - name: Programma (.dmg universale)
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
