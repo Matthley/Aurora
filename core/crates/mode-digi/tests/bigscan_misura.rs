@@ -248,6 +248,307 @@ fn cq_del_testo(chunks: &[(f64, Vec<u8>)]) -> Vec<(f64, String)> {
     out
 }
 
+/// Coppie RTTY presenti nel file: per blocchi di 30 s, spettro medio (FFT 4096) e fondo locale (30° percentile su 400 Hz attorno
+/// a ogni casella); una coppia sono due picchi a 170 Hz entrambi sopra il fondo locale, di livello simile, con il centro fra i due
+/// basso. Torna (centro, blocchi da 30 s in cui la coppia c'e').
+const BLOCK_S: f64 = 30.0;
+const SUB_FRAMES: usize = 12;
+const PAIR_RATIO: f32 = 3.0;
+fn trova_coppie(x: &[f32]) -> Vec<(f32, Vec<usize>)> {
+    const N: usize = 4096;
+    let fft = FftPlanner::<f32>::new().plan_fft_forward(N);
+    let hz = RATE as f32 / N as f32;
+    let win: Vec<f32> = (0..N).map(|i| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / N as f32).cos()).collect();
+    let seg = (BLOCK_S * RATE) as usize;
+    let lo = (250.0 / hz) as usize;
+    let hi = (3900.0 / hz) as usize;
+    let step = (SHIFT / hz).round() as usize;
+    let half = (200.0 / hz) as usize;
+    // (centro in caselle da 5 Hz, blocco)
+    let mut hits: Vec<(i32, usize)> = Vec::new();
+    for (b, s) in x.chunks(seg).enumerate() {
+        // massimo per casella delle medie su finestre di ~2 s (un CQ breve conta quanto un segnale continuo)
+        let mut acc = vec![0.0f32; N / 2];
+        let mut sub = vec![0.0f32; N / 2];
+        let mut n = 0;
+        let mut subs = 0;
+        for f in s.chunks_exact(N / 2).collect::<Vec<_>>().windows(2) {
+            let mut buf: Vec<Complex<f32>> = f[0].iter().chain(f[1].iter()).zip(&win).map(|(a, w)| Complex::new(a * w, 0.0)).collect();
+            fft.process(&mut buf);
+            for (a, c) in sub.iter_mut().zip(&buf) {
+                *a += c.norm_sqr();
+            }
+            n += 1;
+            if n % SUB_FRAMES == 0 {
+                for (a, v) in acc.iter_mut().zip(sub.iter_mut()) {
+                    *a = a.max(*v);
+                    *v = 0.0;
+                }
+                subs += 1;
+            }
+        }
+        if subs < 2 {
+            continue;
+        }
+        // fondo locale a passi di 8 caselle
+        let mut floor = vec![0.0f32; N / 2];
+        let mut k = lo.saturating_sub(half);
+        while k < (hi + half).min(N / 2) {
+            let a = k.saturating_sub(half).max(1);
+            let z = (k + half).min(N / 2);
+            let mut v = acc[a..z].to_vec();
+            v.sort_by(f32::total_cmp);
+            let f = v[v.len() * 3 / 10];
+            for q in k..(k + 8).min(N / 2) {
+                floor[q] = f;
+            }
+            k += 8;
+        }
+        let peak = |k: usize| (k - 3..=k + 3).all(|q| acc[q] <= acc[k]);
+        for i in lo..hi - step - 1 {
+            if !(acc[i] > PAIR_RATIO * floor[i] && peak(i)) {
+                continue;
+            }
+            for j in [i + step - 1, i + step, i + step + 1] {
+                if !(acc[j] > PAIR_RATIO * floor[j] && peak(j)) {
+                    continue;
+                }
+                let (a, c) = (acc[i].min(acc[j]), acc[i].max(acc[j]));
+                let mid = acc[(i + j) / 2];
+                if c > 12.0 * a || mid > 0.7 * a {
+                    continue;
+                }
+                let centre = (i + j) as f32 / 2.0 * hz;
+                hits.push(((centre / 5.0).round() as i32, b));
+            }
+        }
+    }
+    // gruppi di centri vicini (entro 20 Hz fra caselle consecutive)
+    hits.sort();
+    let mut out: Vec<(f32, Vec<usize>)> = Vec::new();
+    let mut i = 0;
+    while i < hits.len() {
+        let mut j = i + 1;
+        while j < hits.len() && hits[j].0 - hits[j - 1].0 <= 4 {
+            j += 1;
+        }
+        let g = &hits[i..j];
+        let mut cs: Vec<i32> = g.iter().map(|h| h.0).collect();
+        cs.sort();
+        let centre = cs[cs.len() / 2] as f32 * 5.0;
+        let mut blocks: Vec<usize> = g.iter().map(|h| h.1).collect();
+        blocks.sort();
+        blocks.dedup();
+        if !blocks.is_empty() {
+            out.push((centre, blocks));
+        }
+        i = j;
+    }
+    out
+}
+
+/// Righe di testo di un canale singolo: (momento d'inizio, testo maiuscolo).
+fn righe(chunks: &[(f64, Vec<u8>)]) -> Vec<(f64, String)> {
+    let mut lines: Vec<(f64, String)> = Vec::new();
+    let mut cur = String::new();
+    let mut t0 = 0.0;
+    let mut last = 0.0;
+    for (t, bytes) in chunks {
+        if !cur.is_empty() && t - last > 3.0 {
+            lines.push((t0, std::mem::take(&mut cur)));
+        }
+        for &b in bytes {
+            if b == b'\r' || b == b'\n' || cur.len() > 80 {
+                if !cur.is_empty() {
+                    lines.push((t0, std::mem::take(&mut cur)));
+                }
+                if b == b'\r' || b == b'\n' {
+                    continue;
+                }
+            }
+            if cur.is_empty() {
+                t0 = *t;
+            }
+            cur.push(char::from(b).to_ascii_uppercase());
+        }
+        if !bytes.is_empty() {
+            last = *t;
+        }
+    }
+    if !cur.is_empty() {
+        lines.push((t0, cur));
+    }
+    lines
+}
+
+fn parole(l: &str) -> Vec<&str> {
+    l.split(|c: char| !c.is_ascii_alphanumeric() && c != '/').filter(|w| !w.is_empty()).collect()
+}
+
+/// CQ dal testo (regola morbida): una riga con CQ o TEST e un nominativo che compare due volte nella riga stessa o anche in una
+/// delle due righe vicine (prima o dopo, entro 15 s).
+fn cq_morbidi(lines: &[(f64, String)]) -> Vec<(f64, String)> {
+    let ws: Vec<Vec<&str>> = lines.iter().map(|l| parole(&l.1)).collect();
+    let mut out = Vec::new();
+    for (k, w) in ws.iter().enumerate() {
+        if !w.iter().any(|w| matches!(*w, "CQ" | "TEST")) {
+            continue;
+        }
+        let mut seen: HashSet<&str> = HashSet::new();
+        for c in w.iter().copied().filter(|w| is_call(w)) {
+            if !seen.insert(c) {
+                continue;
+            }
+            let here = w.iter().filter(|x| **x == c).count();
+            let near = [k.wrapping_sub(1), k + 1]
+                .iter()
+                .filter(|&&q| q < ws.len() && (lines[q].0 - lines[k].0).abs() < 15.0)
+                .any(|&q| ws[q].contains(&c));
+            if here >= 2 || near {
+                out.push((lines[k].0, c.to_string()));
+            }
+        }
+    }
+    out
+}
+
+/// Il riferimento RTTY: un ricevitore a canale singolo per ogni coppia trovata, acceso solo nei blocchi in cui la coppia c'e' (piu'
+/// uno prima e uno dopo); un nominativo va alla sola coppia che lo nomina di piu'. Torna nominativo -> (frequenza, momenti dei CQ).
+fn riferimento_rtty(audio: &[f32]) -> BTreeMap<String, (f32, Vec<f64>)> {
+    let pairs = trova_coppie(audio);
+    eprintln!("coppie RTTY trovate: {}", pairs.len());
+    let seg = (BLOCK_S * RATE) as usize;
+    let nblocks = audio.len().div_ceil(seg);
+    // nominativo -> coppia -> (righe in cui compare, momenti dei CQ)
+    let mut per_call: BTreeMap<String, BTreeMap<usize, (usize, Vec<f64>)>> = BTreeMap::new();
+    for (p, (centre, blocks)) in pairs.iter().enumerate() {
+        let mut on = vec![false; nblocks];
+        for &b in blocks {
+            for q in b.saturating_sub(1)..=(b + 1).min(nblocks - 1) {
+                on[q] = true;
+            }
+        }
+        let mut chunks = Vec::new();
+        let mut b = 0;
+        while b < nblocks {
+            if !on[b] {
+                b += 1;
+                continue;
+            }
+            let start = b;
+            while b < nblocks && on[b] {
+                b += 1;
+            }
+            let mut d = RttyDemodulator::new(RttyParams { centre_hz: *centre, shift_hz: SHIFT, baud: BAUD, reverse: false });
+            let a = start * seg;
+            let z = (b * seg).min(audio.len());
+            let mut t = a as f64 / RATE;
+            for block in audio[a..z].chunks(1200) {
+                let out = d.process(block);
+                t += block.len() as f64 / RATE;
+                chunks.push((t, out));
+            }
+            chunks.push((t + 10.0, Vec::new()));
+        }
+        let lines = righe(&chunks);
+        let mut mentions: HashMap<&str, usize> = HashMap::new();
+        for (_, l) in &lines {
+            let mut seen = HashSet::new();
+            for w in parole(l) {
+                if is_call(w) && seen.insert(w) {
+                    *mentions.entry(w).or_default() += 1;
+                }
+            }
+        }
+        let cqs = cq_morbidi(&lines);
+        let names: HashSet<&str> = cqs.iter().map(|c| c.1.as_str()).collect();
+        eprintln!("  {centre:6.0} Hz ({:3} blocchi): {} CQ, {:?}", blocks.len(), cqs.len(), names);
+        for (t, c) in &cqs {
+            let m = mentions.get(c.as_str()).copied().unwrap_or(0);
+            let e = per_call.entry(c.clone()).or_default().entry(p).or_insert((m, Vec::new()));
+            e.1.push(*t);
+        }
+    }
+    let mut single = BTreeMap::new();
+    for (call, by_pair) in per_call {
+        // la coppia con piu' righe che lo nominano (a pari merito quella con piu' CQ) da' la frequenza; le altre contano solo se lo
+        // nominano almeno un terzo delle volte (la radio risintonizzata sposta la stazione), non se lo leggono di sbieco
+        let Some((&p, &(best, _))) = by_pair.iter().max_by_key(|(_, (m, t))| (*m, t.len())) else { continue };
+        let mut times: Vec<f64> = by_pair.values().filter(|(m, _)| 3 * m >= best).flat_map(|(_, t)| t.iter().copied()).collect();
+        times.sort_by(f64::total_cmp);
+        if !times.is_empty() {
+            single.insert(call, (pairs[p].0, times));
+        }
+    }
+    single
+}
+
+/// Il riferimento letto dalla copia accanto al WAV, se c'e' ed e' della stessa versione.
+const RIF_VER: &str = "rif-v5";
+fn leggi_rif(path: &str) -> Option<BTreeMap<String, (f32, Vec<f64>)>> {
+    let s = std::fs::read_to_string(path).ok()?;
+    let mut it = s.lines();
+    if it.next()? != RIF_VER {
+        return None;
+    }
+    let mut m = BTreeMap::new();
+    for l in it {
+        let mut f = l.split(' ');
+        let call = f.next()?.to_string();
+        let hz: f32 = f.next()?.parse().ok()?;
+        let times: Vec<f64> = f.filter_map(|t| t.parse().ok()).collect();
+        m.insert(call, (hz, times));
+    }
+    Some(m)
+}
+
+fn scrivi_rif(path: &str, m: &BTreeMap<String, (f32, Vec<f64>)>) {
+    let mut s = format!("{RIF_VER}\n");
+    for (c, (hz, ts)) in m {
+        let _ = write!(s, "{c} {hz}");
+        for t in ts {
+            let _ = write!(s, " {t:.1}");
+        }
+        s.push('\n');
+    }
+    let _ = std::fs::write(path, s);
+}
+
+/// Il riferimento CW: un ricevitore per ogni picco trovato.
+fn riferimento_cw(audio: &[f32]) -> BTreeMap<String, (f32, Vec<f64>)> {
+    let cw = true;
+    let sig = trova_segnali(audio, cw);
+    eprintln!("segnali trovati: {}", sig.len());
+    // nominativo -> (frequenza, momenti in cui chiama CQ)
+    let mut single: BTreeMap<String, (f32, Vec<f64>)> = BTreeMap::new();
+    for &(centre, votes) in &sig {
+        let mut rtty = (!cw).then(|| RttyDemodulator::new(RttyParams { centre_hz: centre, shift_hz: SHIFT, baud: BAUD, reverse: false }));
+        let mut morse = cw.then(|| CwDemodulator::new(centre, 25.0));
+        let mut chunks = Vec::new();
+        let mut t = 0.0;
+        for block in audio.chunks(1200) {
+            let out = match (&mut rtty, &mut morse) {
+                (Some(d), _) => d.process(block),
+                (_, Some(d)) => d.process(block),
+                _ => Vec::new(),
+            };
+            t += block.len() as f64 / RATE;
+            chunks.push((t, out));
+        }
+        let cqs = cq_del_testo(&chunks);
+        let calls: HashSet<&str> = cqs.iter().map(|c| c.1.as_str()).collect();
+        eprintln!("  {centre:6.0} Hz ({votes:3} segm.): {} CQ, {:?}", cqs.len(), calls);
+        for (t, c) in cqs {
+            let e = single.entry(c).or_insert((centre, Vec::new()));
+            e.1.push(t);
+        }
+    }
+    // una sola ricorrenza puo' essere un errore: si tengono quelli sentiti almeno 2 volte
+    single.retain(|_, v| v.1.len() >= 2);
+
+    single
+}
+
 fn mmss(t: f64) -> String {
     format!("{:02}:{:02}", (t / 60.0) as u32, (t % 60.0) as u32)
 }
@@ -294,36 +595,19 @@ fn bigscan_contro_canale_singolo() {
     }
     eprintln!("tutta la banda: {:.0} s di calcolo, canali al massimo {max_lanes}", started.elapsed().as_secs_f64());
 
-    // 2. un ricevitore a canale singolo per segnale
-    let sig = trova_segnali(&audio, cw);
-    eprintln!("segnali trovati: {}", sig.len());
+    // 2. il riferimento: RTTY una coppia alla volta (copia in `<wav>.rif-rtty.txt`, si rifa' se cambia RIF_VER); CW un segnale alla volta
     let started = std::time::Instant::now();
-    // nominativo -> (frequenza, momenti in cui chiama CQ)
-    let mut single: BTreeMap<String, (f32, Vec<f64>)> = BTreeMap::new();
-    for &(centre, votes) in &sig {
-        let mut rtty = (!cw).then(|| RttyDemodulator::new(RttyParams { centre_hz: centre, shift_hz: SHIFT, baud: BAUD, reverse: false }));
-        let mut morse = cw.then(|| CwDemodulator::new(centre, 25.0));
-        let mut chunks = Vec::new();
-        let mut t = 0.0;
-        for block in audio.chunks(1200) {
-            let out = match (&mut rtty, &mut morse) {
-                (Some(d), _) => d.process(block),
-                (_, Some(d)) => d.process(block),
-                _ => Vec::new(),
-            };
-            t += block.len() as f64 / RATE;
-            chunks.push((t, out));
-        }
-        let cqs = cq_del_testo(&chunks);
-        let calls: HashSet<&str> = cqs.iter().map(|c| c.1.as_str()).collect();
-        eprintln!("  {centre:6.0} Hz ({votes:3} segm.): {} CQ, {:?}", cqs.len(), calls);
-        for (t, c) in cqs {
-            let e = single.entry(c).or_insert((centre, Vec::new()));
-            e.1.push(t);
-        }
-    }
-    // una sola ricorrenza puo' essere un errore: si tengono quelli sentiti almeno 2 volte
-    single.retain(|_, v| v.1.len() >= 2);
+    let rif_path = format!("{path}.rif-{mode}.txt");
+    let single = if cw {
+        riferimento_cw(&audio)
+    } else if let Some(m) = leggi_rif(&rif_path) {
+        eprintln!("riferimento letto da {rif_path}");
+        m
+    } else {
+        let m = riferimento_rtty(&audio);
+        scrivi_rif(&rif_path, &m);
+        m
+    };
     eprintln!("canali singoli: {:.0} s di calcolo", started.elapsed().as_secs_f64());
 
     // 3. tabella
@@ -332,10 +616,16 @@ fn bigscan_contro_canale_singolo() {
     writeln!(rep, "BIGScan {mode}: {path}").unwrap();
     writeln!(
         rep,
-        "{:<10} {:>6} {:>6} {:>6} {:>5} {:>6} {:>6} {:>5} {:>6} {:>6}",
-        "call", "Hz", "1°sing", "1°band", "n.CQ", "%band", "%lane", "drop", "%chiam", "%verif"
+        "{:<10} {:>6} {:>6} {:>6} {:>6} {:>5} {:>6} {:>6} {:>5} {:>6} {:>6}",
+        "call", "Hz", "Hzband", "1°sing", "1°band", "n.CQ", "%band", "%lane", "drop", "%chiam", "%verif"
     )
     .unwrap();
+    // frequenza mediana del canale della banda su cui compare un nominativo
+    let hz_band = |call: &str| {
+        let mut v: Vec<f32> = radar.iter().filter_map(|r| r.get(call).copied()).collect();
+        v.sort_by(f32::total_cmp);
+        v.get(v.len() / 2).copied().unwrap_or(0.0)
+    };
     let mut found_by_band = 0;
     let (mut sum_pct, mut n_pct) = (0.0, 0);
     let mut firsts: Vec<f64> = Vec::new();
@@ -382,9 +672,10 @@ fn bigscan_contro_canale_singolo() {
         tot_drops += drops;
         writeln!(
             rep,
-            "{:<10} {:>6.0} {:>6} {:>6} {:>5} {:>5.0}% {:>5.0}% {:>5} {:>5.0}% {:>5.0}%",
+            "{:<10} {:>6.0} {:>6.0} {:>6} {:>6} {:>5} {:>5.0}% {:>5.0}% {:>5} {:>5.0}% {:>5.0}%",
             call,
             f,
+            hz_band(call),
             mmss(first),
             first_band.map(mmss).unwrap_or_else(|| "-".into()),
             times.len(),
@@ -409,7 +700,8 @@ fn bigscan_contro_canale_singolo() {
     writeln!(rep, "  di questi comparsi almeno una volta nell'elenco della banda: {found_by_band}").unwrap();
     writeln!(rep, "  presenza media nell'elenco mentre sono attivi: {mean_pct:.0}%").unwrap();
     writeln!(rep, "stazioni nell'elenco della banda (CQ verificati): {}", band_all.len()).unwrap();
-    writeln!(rep, "  non trovate dal canale singolo ({}): {:?}", extra.len(), extra).unwrap();
+    let extra_hz: Vec<String> = extra.iter().map(|c| format!("{c}@{:.0}", hz_band(c))).collect();
+    writeln!(rep, "  non trovate dal canale singolo ({}): {:?}", extra.len(), extra_hz).unwrap();
     writeln!(rep, "media per istantanea: {mean_listed:.1} stazioni nell'elenco, {mean_lanes:.1} canali aperti").unwrap();
     writeln!(
         rep,
