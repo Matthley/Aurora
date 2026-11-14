@@ -2,7 +2,7 @@
 //! un ricevitore completo (`RttyDemodulator`, con le varianti, il modello del testo e lo squelch statistico).
 //!
 //! Un segnale RTTY e' una coppia di toni alla distanza dello spostamento che si alternano: un banco di filtri di Goertzel a passi di 5 Hz
-//! misura la potenza di ogni frequenza su finestre lunghe un bit; ogni secondo, per ogni possibile centro, i due toni devono stare sopra
+//! misura la potenza di ogni frequenza su finestre lunghe un bit; ogni mezzo secondo, sull'ultimo secondo e per ogni possibile centro, i due toni devono stare sopra
 //! il fondo della banda (la mediana delle potenze) e le loro potenze bit per bit devono essere anticorrelate (quando c'e' il mark non c'e'
 //! lo space). Una portante o un segnale largo non passano: una portante e' un tono solo, la voce e il rumore non alternano.
 //! Un canale senza caratteri sicuri per 30 secondi si chiude.
@@ -38,6 +38,8 @@ const PREROLL_S: f32 = 2.0;
 /// e' nato storto (una coppia sbagliata fra i toni di una stazione e quelli vicini): si sposta sul segnale vero. Prima due canali a
 /// 970 e 1110 Hz tenevano occupata la stazione a 1035 Hz, che non si leggeva mai.
 const MISPLACED_S: u32 = 3;
+/// Analisi al secondo (la finestra scorre di mezzo secondo).
+const DETECTS_PER_S: u32 = 2;
 /// Entro questa distanza (Hz) un segnale trovato e' lo stesso del canale (passo del banco piu' scivolamento).
 const OWN_HZ: f32 = 10.0;
 
@@ -48,7 +50,7 @@ struct Lane {
     idle_s: f32,
     /// Appena nato: legge prima l'audio passato (`PREROLL_S`).
     fresh: bool,
-    /// Secondi di fila in cui accanto si vede un segnale e al centro del canale no (`MISPLACED_S`).
+    /// Analisi di fila in cui accanto si vede un segnale e al centro del canale no (`MISPLACED_S`).
     misplaced: u32,
 }
 
@@ -133,9 +135,11 @@ impl RttyMulti {
                 self.s1.iter_mut().for_each(|v| *v = 0.0);
                 self.s2.iter_mut().for_each(|v| *v = 0.0);
                 self.history.push(powers);
+                // finestra di un secondo che scorre di mezzo secondo
                 if self.history.len() as f32 >= self.baud {
                     self.detect();
-                    self.history.clear();
+                    let half = self.history.len() / 2;
+                    self.history.drain(..half);
                 }
             }
         }
@@ -224,7 +228,7 @@ impl RttyMulti {
             match (own, beside) {
                 (false, Some(&(c, _))) => {
                     lane.misplaced += 1;
-                    if lane.misplaced >= MISPLACED_S {
+                    if lane.misplaced >= MISPLACED_S * DETECTS_PER_S {
                         moves.push((k, c));
                     }
                 }
@@ -391,5 +395,26 @@ mod tests {
         let mut multi = RttyMulti::new(170.0, 45.45);
         multi.process(&audio);
         assert!(multi.channels().is_empty(), "canali: {:?}", multi.channels());
+    }
+    /// La finestra che scorre di mezzo secondo: una stazione che parte a 0,6 s ha il canale entro 1,6 s (a blocchi fissi di un secondo
+    /// solo a 2 s).
+    #[test]
+    fn il_canale_si_apre_entro_mezzo_secondo_dalla_finestra_piena() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 170.0, baud: 45.45, reverse: false };
+        let mut audio = vec![0.0_f32; 7_200];
+        audio.extend(modulate("RYRYRYRY CQ IU3ABC IU3ABC ".as_bytes(), p, 0.3));
+        let n = audio.len();
+        for (a, r) in audio.iter_mut().zip(rumore(n, 0.3, 19)) {
+            *a += r;
+        }
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        let mut aperto = None;
+        for (k, blocco) in audio.chunks(600).enumerate() {
+            multi.process(blocco);
+            if aperto.is_none() && !multi.channels().is_empty() {
+                aperto = Some((k + 1) as f32 * 0.05);
+            }
+        }
+        assert!(aperto.is_some_and(|t| t <= 1.65), "aperto a {aperto:?} s");
     }
 }
