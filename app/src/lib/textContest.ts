@@ -102,14 +102,24 @@ export function domainLookup(d: Domain | null | undefined, word: string, call: s
 
 const RST = /^(5[1-9][1-9]|5[1-9]|5NN)$/i;
 
+/** Il testo senza le righe di quello che abbiamo trasmesso noi (l'eco «» …» della trasmissione e il testo mandato). */
+export function withoutOwnEcho(text: string): string {
+  return text
+    .split('\n')
+    .filter((l) => !l.startsWith('»'))
+    .join('\n');
+}
+
 /**
  * Lo scambio ricevuto preso dal testo: le parole dopo l'ultima volta che compare il nominativo del QSO. Prima il dominio (se l'elenco
- * c'e'), poi il numero (il rapporto 599/59 davanti si salta). `null` se non c'e' niente da prendere.
+ * c'e'), poi il numero (il rapporto 599/59 davanti si salta). `null` se non c'e' niente da prendere. Il nostro testo trasmesso (righe
+ * «» …»: il testo mandato e l'eco della trasmissione) non conta: con l'eco accesa il nominativo del corrispondente seguito dal nostro
+ * numero e' proprio quello che trasmettiamo. Il numero uguale al nostro non si scarta (all'inizio tutti mandano 001).
  */
 export function grabExchange(text: string, call: string, opts: { number: boolean; domain: Domain | null | undefined }): string | null {
   const c = call.trim().toUpperCase();
   if (c.length < 3) return null;
-  const words = text.toUpperCase().split(/[^A-Z0-9/]+/).filter(Boolean);
+  const words = withoutOwnEcho(text).toUpperCase().split(/[^A-Z0-9/]+/).filter(Boolean);
   let at = -1;
   for (let i = words.length - 1; i >= 0; i--) if (words[i] === c) { at = i; break; }
   if (at < 0) return null;

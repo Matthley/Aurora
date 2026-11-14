@@ -15,6 +15,7 @@ import { useContestLog } from '../lib/useContestLog';
 import { getActiveTextContest, type TextContest } from '../api/contestTesto';
 import { contestWindow, grabExchange, startSerial, withContestMacros } from '../lib/textContest';
 import { ContestEditDialog, ContestListDialog, useSelectTextContest } from '../components/digi/ContestListDialog';
+import { ContestStatsDialog, TEXT_CONTEST_SCORE_KEY, useExportTextCabrillo, useTextContestScore } from '../components/digi/ContestStatsDialog';
 import { RxWordMenu, wordAtPoint, type WordAt, type WordTarget } from '../components/digi/RxWordMenu';
 import { isCallsign, useCallLookup } from '../components/digi/callLookup';
 import { DigiWaterfall } from '../components/digi/DigiWaterfall';
@@ -209,6 +210,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const fixedNrsRef = useRef('');
   fixedNrsRef.current = textContest && !textContest.contest.auto_inc ? textContest.contest.nrs.trim() : '';
   const [contestList, setContestList] = useState(false);
+  const [contestStats, setContestStats] = useState(false);
+  const textScore = useTextContestScore(!!textContest).data;
+  const exportCabrillo = useExportTextCabrillo();
   const [contestEdit, setContestEdit] = useState<TextContest | null>(null);
   const selectTextContest = useSelectTextContest();
   // scegliendo un contest con l'incremento automatico il progressivo riparte dal suo primo numero (001 se vuoto)
@@ -465,6 +469,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     return onDigiText(() => {
       const q = live.current.qso;
       if (q.call.trim() === '' || (q.nrr ?? '').trim() !== '') return;
+      // le righe «» …» (il nostro testo e l'eco della trasmissione) grabExchange le salta: il numero dopo il nominativo li' e' il nostro
       const v = grabExchange(getDigiText().slice(-300), q.call, { number: c.contest.grab_number, domain: c.contest.grab_state ? c.domain : null });
       if (v) setQso((x) => (x.call === q.call && (x.nrr ?? '').trim() === '' ? { ...x, nrr: v } : x));
     });
@@ -885,6 +890,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         setQso((q) => ({ ...q, nrs: '', nrr: '' }));
         toast(t('digi.run.saved', { call }), 'ok');
         void client.invalidateQueries({ queryKey: ['log-qsos'] });
+        void client.invalidateQueries({ queryKey: [...TEXT_CONTEST_SCORE_KEY] });
       },
       () => toast(t('digi.tx.error'), 'error'),
     );
@@ -1279,6 +1285,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               { label: w ? t('ctest.infoWindow', { from: fmt(w.from), to: fmt(w.to) }) : t('ctest.infoNoWindow'), disabled: true },
               { label: t('ctest.infoSerial', { nrs: c.auto_inc ? String(qsoSerial).padStart(3, '0') : c.nrs || '—' }), disabled: true },
               { label: t('ctest.infoMacros', { n: textContest?.macros.length ?? 0 }), disabled: true },
+              ...(textScore ? [{ label: t('ctest.infoScore', { qso: textScore.qso, points: textScore.punti, mult: textScore.molt, score: textScore.punteggio }), disabled: true }] : []),
+              'sep' as const,
+              { label: t('ctest.stats'), onSelect: () => setContestStats(true) },
+              { label: t('ctest.cabrillo'), onSelect: () => void exportCabrillo() },
             ]
           : []),
       ],
@@ -1727,7 +1737,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx } : undefined}
           modeName={MODE_NAMES[s.mode]}
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
-          contestName={textContest?.contest.name ?? null}
+          contestName={textContest ? (textScore ? `${textContest.contest.name} · ${textScore.qso} QSO · ${textScore.punteggio}` : textContest.contest.name) : null}
           onContestClick={() => setContestList(true)}
           onToggleTx={() => {
             // il tasto RX/TX della barra in basso premuto mentre si trasmette ferma subito la trasmissione (come Esc); da fermi la apre
@@ -1756,6 +1766,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       {wordMenu ? <RxWordMenu at={wordMenu} onPick={pickWord} onClose={() => setWordMenu(null)} /> : null}
       {rttyOpen ? <RttySettingsDialog settings={s} onApply={save} onClose={() => setRttyOpen(false)} /> : null}
       {contestList ? <ContestListDialog onClose={() => setContestList(false)} /> : null}
+      {contestStats && textContest ? <ContestStatsDialog name={textContest.contest.name} onClose={() => setContestStats(false)} /> : null}
       {contestEdit ? <ContestEditDialog contest={contestEdit} onClose={() => setContestEdit(null)} onSaved={() => setContestEdit(null)} /> : null}
       {extras.map((x, i) => (
         <ExtraRxWindow key={x.id} id={x.id} freqHz={x.freq_hz} modeName={MODE_NAMES[s.mode]} index={i} afc={x.afc === true} onAfc={(on) => setExtras(extras.map((e) => (e.id === x.id ? { ...e, afc: on } : e)))} onClose={() => closeExtra(x.id)} onWord={takeCall} />

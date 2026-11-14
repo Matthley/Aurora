@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newTextContest, type Domain, type TextContest } from '../api/contestTesto';
-import { categoryValid, contestDateMs, contestQsos, contestWindow, domainLookup, grabExchange, modeCategory, startSerial, textContestStatus, withContestMacros } from './textContest';
+import { categoryValid, contestDateMs, contestQsos, contestWindow, domainLookup, grabExchange, modeCategory, withoutOwnEcho, startSerial, textContestStatus, withContestMacros } from './textContest';
 
 const c = (p: Partial<TextContest> = {}): TextContest => ({ ...newTextContest(), name: 'Prova', ...p });
 const now = Date.UTC(2026, 8, 26, 12, 0, 0);
@@ -69,5 +69,16 @@ describe('macro, numero e cattura', () => {
     expect(grabExchange('IU3ABC 599 K', 'IU3ABC', { number: true, domain: null })).toBeNull();
     expect(grabExchange('nessun nominativo 014', 'IU3ABC', { number: true, domain: null })).toBeNull();
     expect(grabExchange('IU3ABC 599 014', 'IU3ABC', { number: false, domain: null })).toBeNull();
+  });
+
+  it('non prende il nostro numero dall eco della trasmissione', () => {
+    // la nostra risposta (eco «» …») ha il nominativo del corrispondente seguito dal nostro numero
+    expect(grabExchange('CQ TEST DL1ABC\n» DL1ABC 599 001 001 K', 'DL1ABC', { number: true, domain: null })).toBeNull();
+    expect(grabExchange('CQ TEST DL1ABC\n» DL1ABC 599 001 001 K\nIU3XYZ DE DL1ABC 599 015 015 K', 'DL1ABC', { number: true, domain: null })).toBe('015');
+    // eco ancora aperta (riga senza a capo)
+    expect(grabExchange('DE DL1ABC K\n» DL1ABC 599 0', 'DL1ABC', { number: true, domain: null })).toBeNull();
+    // lo stesso numero mandato dal corrispondente si prende
+    expect(grabExchange('» DL1ABC 599 001\nIU3XYZ 599 001 001', 'IU3XYZ', { number: true, domain: null })).toBe('001');
+    expect(withoutOwnEcho('a\n» b\nc')).toBe('a\nc');
   });
 });

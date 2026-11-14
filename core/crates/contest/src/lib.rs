@@ -7,6 +7,7 @@
 //! - [`punteggio`]: doppi, punti, moltiplicatori, punteggio, valore di una stazione, rate e previsione;
 //! - [`export`]: Cabrillo 3.0, EDI e ADIF, con il controllo prima dell'invio;
 //! - [`elenco`]: i contest dei modi testuali (file `.contest`, macro e domini), uno attivo alla volta;
+//! - [`punti_testo`]: punteggio, statistica per banda e Cabrillo del contest attivo dei modi testuali;
 //! - [`servizio`]: contest attivo, impostazioni per contest, log del contest e ascolto del bus.
 //!
 //! La sequenza dei messaggi di contest sta nel motore (`qso-native::contest`): qui si sceglie quale usare.
@@ -17,6 +18,7 @@ pub mod export;
 pub mod geo;
 pub mod liste;
 pub mod punteggio;
+pub mod punti_testo;
 pub mod regole;
 pub mod servizio;
 

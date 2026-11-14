@@ -82,3 +82,58 @@ pub(crate) async fn seleziona(State(state): State<AppState>, _: Authed, Json(bod
     s.elenco().seleziona(body.id.as_deref()).map_err(|e| ApiError::new(StatusCode::NOT_FOUND, "contest_unknown").with_message(e))?;
     Ok(Json(json!({ "ok": true, "attivo": s.elenco().attivo_id() })))
 }
+
+/// Paese, continente e zone di un nominativo dal database DXCC (`None` se manca).
+fn info_paese(state: &AppState, call: &str) -> Option<contest::punti_testo::InfoPaese> {
+    let v = state.dxcc.as_ref()?(call)?;
+    let s = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+    let n = |k: &str| v.get(k).and_then(Value::as_u64).and_then(|x| u8::try_from(x).ok()).unwrap_or(0);
+    Some(contest::punti_testo::InfoPaese { dxcc: s("prefix"), continente: s("continent"), cq: n("cq_zone"), itu: n("itu_zone") })
+}
+
+/// Il contest attivo valutato sui QSO del log: contest, QSO valutati, totali e nominativo della stazione.
+async fn valuta_attivo(state: &AppState) -> Result<(ContestTesto, Vec<contest::punti_testo::Valutato>, contest::punti_testo::Punteggio, String), ApiError> {
+    use contest::punti_testo::{QsoTesto, qso_del_contest, scambi_da_commento, valuta};
+    let s = service(state)?;
+    let attivo = s.elenco().attivo().ok_or_else(|| ApiError::new(StatusCode::CONFLICT, "contest_off"))?;
+    let book = state.logbook.clone();
+    let entries = tokio::task::spawn_blocking(move || book.entries())
+        .await
+        .map_err(|_| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "log_task"))?
+        .map_err(|e| {
+            tracing::warn!("log non letto: {e}");
+            ApiError::new(StatusCode::BAD_GATEWAY, "log_read")
+        })?;
+    let qsos: Vec<QsoTesto> = entries
+        .iter()
+        .filter_map(|e| {
+            let ms = contest::elenco::data_ms(&format!("{}{:0<6}", e.date, e.time))?;
+            let (exch_sent, exch_rcvd) = scambi_da_commento(&e.comment);
+            Some(QsoTesto { call: e.call.clone(), band: e.band.clone(), mode: e.mode.clone(), freq_hz: e.freq_hz, time_ms: ms, rst_sent: e.rst_sent.clone(), rst_rcvd: e.rst_rcvd.clone(), exch_sent, exch_rcvd })
+        })
+        .collect();
+    let ora = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+    let del_contest = qso_del_contest(&attivo.contest, &qsos, ora);
+    let (call, _) = s.stazione();
+    let mio = info_paese(state, &call);
+    let paese = |c: &str| info_paese(state, c);
+    let (valutati, tot) = valuta(&attivo.contest, &del_contest, mio.as_ref(), &paese, attivo.domain.as_ref());
+    Ok((attivo.contest, valutati, tot, call))
+}
+
+/// Il punteggio del contest attivo dei modi testuali: QSO, doppi, punti, moltiplicatori, punteggio e righe per banda.
+#[utoipa::path(get, path = "/api/v1/contest-testo/punteggio", responses((status = 200, description = "Punteggio del contest attivo"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
+pub(crate) async fn punteggio(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
+    let (_, _, tot, _) = valuta_attivo(&state).await?;
+    Ok(Json(json!(tot)))
+}
+
+/// Il file Cabrillo 3.0 del contest attivo dei modi testuali, con il nome proposto.
+#[utoipa::path(get, path = "/api/v1/contest-testo/cabrillo", responses((status = 200, description = "`{testo, nome, qso}`"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
+pub(crate) async fn cabrillo(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
+    let (c, valutati, tot, call) = valuta_attivo(&state).await?;
+    let s = service(&state)?;
+    let testo = contest::punti_testo::cabrillo(&c, &call, &valutati, &tot, s.versione());
+    let nome = format!("{}-{}.log", call.trim().to_ascii_uppercase().replace('/', "_"), c.id.replace(' ', "_"));
+    Ok(Json(json!({ "testo": testo, "nome": nome, "qso": valutati.len() })))
+}

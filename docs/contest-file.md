@@ -31,10 +31,10 @@ sconosciute si ignorano; quelle mancanti prendono il valore di base. I booleani 
 | `m_sNrs` | numero da mandare | con l'incremento: primo numero (001 se vuoto); senza: scambio fisso di `<NRS>` |
 | `n_bAutoIncNrs` | incremento automatico del numero | `<QSONR>`/`<NRS>` avanzano a ogni QSO salvato |
 | `m_iValidContacts` | tipo di contatti validi | conservato |
-| `m_bValidCw`, `m_bValidPhone`, `m_bValidDigital` | categorie valide (nessuna = tutte) | i QSO di categorie non valide non fanno doppio |
-| `m_iPointsMyDxcc`, `m_iPointsMyCont`, `m_iPointsDx` | punti stesso paese / continente / DX | conservati, nessun punteggio |
-| `m_iMultipliers`, `m_iMultipliersOption`, `m_bBandMult` | moltiplicatori | conservati |
-| `m_bBand160Mult` … `m_bBand10Mult`, `m_iBand160Mult` … `m_iBand10Mult` | moltiplicatore e peso per banda (160, 80, 40, 20, 15, 10) | conservati |
+| `m_bValidCw`, `m_bValidPhone`, `m_bValidDigital` | categorie valide (nessuna = tutte) | i QSO di categorie non valide non fanno doppio ne' punteggio |
+| `m_iPointsMyDxcc`, `m_iPointsMyCont`, `m_iPointsDx` | punti stesso paese / continente / DX | punti per QSO (tutti 0 = un punto) |
+| `m_iMultipliers`, `m_iMultipliersOption`, `m_bBandMult` | moltiplicatori | tipo 0-5 (vedi sotto), si sommano; per banda |
+| `m_bBand160Mult` … `m_bBand10Mult`, `m_iBand160Mult` … `m_iBand10Mult` | moltiplicatore e peso per banda (160, 80, 40, 20, 15, 10) | peso dei moltiplicatori della banda |
 | `m_sMacrosFilename` | file di macro, relativo: `macros/<nome>.mc` | macro del contest sui tasti |
 | `m_bMergeMacros` | unisci alle macro del modo | acceso: restano le macro del modo sui tasti liberi |
 | `m_bAutoGrabNumber` | prendi il numero ricevuto | il numero dopo il nominativo va nel numero ricevuto, se vuoto |
@@ -50,6 +50,31 @@ sconosciute si ignorano; quelle mancanti prendono il valore di base. I booleani 
 
 I percorsi devono essere relativi alla cartella `contest` (niente unita', niente `..`): il salvataggio li rifiuta.
 Nel file non vanno nominativi personali: il proprio nominativo viene dalla Stazione (`<MYCALL>`).
+
+## Punteggio e Cabrillo
+
+Il codice sta in `core/crates/contest/src/punti_testo.rs`, le rotte `GET /api/v1/contest-testo/punteggio` e
+`GET /api/v1/contest-testo/cabrillo`, la finestra delle statistiche in `app/src/components/digi/ContestStatsDialog.tsx`.
+
+- QSO: quelli del log di Aurora salvati dalla pagina dei modi testuali (gli scambi stanno in coda al commento,
+  `NRS 001 NRR 015`), dentro la finestra di date del contest (portata nell'anno corrente) e di una categoria valida.
+- Doppio: stesso nominativo, stessa banda (salvo `m_bDupeNoBand`) e stesso modo (salvo `m_bDupeNoMode`): zero punti, nessun
+  moltiplicatore; resta nel Cabrillo.
+- Punti: `m_iPointsMyDxcc` stesso paese DXCC della stazione, `m_iPointsMyCont` stesso continente, `m_iPointsDx` gli altri
+  (paese sconosciuto = DX); tutti a 0 = un punto per QSO.
+- Moltiplicatori (`m_iMultipliers` e `m_iMultipliersOption`, i due tipi si sommano): 0 nessuno, 1 paese DXCC, 2 prefisso WPX,
+  3 zona CQ, 4 zona ITU, 5 dominio (prima parola dello scambio ricevuto trovata nell'elenco `.dom`; senza elenco l'ultima parola
+  non numerica). Le zone sono quelle di cty.dat, non quelle scritte nello scambio.
+- `m_bBandMult`: i moltiplicatori si contano su ogni banda; una banda con `m_bBandNNMult=1` e peso > 0 conta ogni suo
+  moltiplicatore per il peso, le altre per 1.
+- Punteggio = punti x moltiplicatori (senza tipo di moltiplicatore: i punti).
+- Cabrillo 3.0: `CONTEST:` (nome in maiuscolo con i trattini), `CALLSIGN`, `CATEGORY-OPERATOR: SINGLE-OP`, `CATEGORY-BAND: ALL`,
+  `CATEGORY-MODE` dai QSO (CW, RTTY, SSB, DIGI o MIXED), `CATEGORY-TRANSMITTER: ONE`, `CLAIMED-SCORE`, `CREATED-BY`; righe
+  `QSO: freq(kHz) modo(CW/RY/PH/DG) aaaa-mm-gg hhmm mio-call rst+scambio-inviato call rst+scambio-ricevuto`. Potenza, assistenza
+  e le altre categorie si aggiungono a mano prima dell'invio.
+
+La semantica dei codici dei moltiplicatori e' quella di Aurora: i file distribuiti hanno tutti 0 (nessun punteggio finche'
+l'utente non li imposta).
 
 ## File di macro `.mc`
 

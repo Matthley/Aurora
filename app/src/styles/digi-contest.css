@@ -19,3 +19,7 @@ td.ctest-col-active { color: var(--accent, #4a9eff); }
 .ctest-band { display: flex; align-items: center; gap: 0.35rem; }
 .ctest-band input[type='number'] { width: 4rem; }
 .digi-status-contest { cursor: pointer; font-weight: 600; color: var(--accent, #4a9eff); }
+.ctest-stats th, .ctest-stats td { text-align: right; font-variant-numeric: tabular-nums; }
+.ctest-stats th:first-child, .ctest-stats td:first-child { text-align: left; }
+.ctest-stats tr.ctest-total td { font-weight: 600; border-top: 1px solid var(--border); }
+.ctest-score { margin: 0.6rem 0 0; font-weight: 600; }

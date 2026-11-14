@@ -277,6 +277,16 @@ impl ContestService {
         s
     }
 
+    /// Nominativo e locatore della stazione.
+    pub fn stazione(&self) -> (String, String) {
+        (self.stazione)()
+    }
+
+    /// La versione di Aurora (per `CREATED-BY` del Cabrillo).
+    pub fn versione(&self) -> &str {
+        &self.versione
+    }
+
     /// I contest dei modi testuali (elenco, contest attivo, macro e domini).
     pub fn elenco(&self) -> &crate::elenco::ElencoContest {
         &self.elenco

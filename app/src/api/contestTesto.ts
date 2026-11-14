@@ -115,6 +115,31 @@ export const getActiveTextContest = () => call<ActiveTextContest | null>('/attiv
 export const getTextContest = (id: string) => call<TextContest>(`/voce/${encodeURIComponent(id)}`);
 export const saveTextContest = (c: TextContest) => (c.id ? call<{ ok: boolean; id: string }>(`/voce/${encodeURIComponent(c.id)}`, json('PUT', c)) : call<{ ok: boolean; id: string }>('/voce', json('POST', c)));
 export const deleteTextContest = (id: string) => call<{ ok: boolean }>(`/voce/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** Una riga della statistica per banda del contest attivo. */
+export interface TextContestBand {
+  band: string;
+  qso: number;
+  doppi: number;
+  punti: number;
+  molt: number;
+  cw: number;
+  phone: number;
+  digital: number;
+}
+
+/** Il punteggio del contest attivo calcolato dal core sui QSO del log (doppi esclusi). */
+export interface TextContestScore {
+  qso: number;
+  doppi: number;
+  punti: number;
+  molt: number;
+  punteggio: number;
+  tipi: string[];
+  bande: TextContestBand[];
+}
+
+export const getTextContestScore = () => call<TextContestScore>('/punteggio');
+export const getTextContestCabrillo = () => call<{ testo: string; nome: string; qso: number }>('/cabrillo');
 export const selectTextContest = (id: string | null) => call<{ ok: boolean; attivo: string | null }>('/seleziona', json('POST', { id }));
 
 /** Un contest nuovo con i valori di base (digitali validi, incremento automatico, macro unite). */

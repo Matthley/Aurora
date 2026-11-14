@@ -189,6 +189,20 @@ export function ContestEditDialog({ contest, onClose, onSaved }: { contest: Text
       <input type="number" value={Number(c[k])} onChange={(e) => set({ [k]: num(e.target.value) } as Partial<TextContest>)} />
     </label>
   );
+  // i tipi di moltiplicatore: 0 nessuno, 1 paese DXCC, 2 prefisso WPX, 3 zona CQ, 4 zona ITU, 5 dominio (un valore sconosciuto resta)
+  const multSelect = (k: 'multipliers' | 'multipliers_option', label: string) => (
+    <label title={t('ctest.tip.mult')}>
+      <span>{label}</span>
+      <select value={c[k]} onChange={(e) => set({ [k]: num(e.target.value) } as Partial<TextContest>)}>
+        {[0, 1, 2, 3, 4, 5].map((n) => (
+          <option key={n} value={n}>
+            {t(`ctest.m.${n}` as 'ctest.m.0')}
+          </option>
+        ))}
+        {c[k] < 0 || c[k] > 5 ? <option value={c[k]}>{c[k]}</option> : null}
+      </select>
+    </label>
+  );
   const save = async () => {
     setBusy(true);
     try {
@@ -244,17 +258,17 @@ export function ContestEditDialog({ contest, onClose, onSaved }: { contest: Text
             {int('valid_contacts', t('ctest.f.validContacts'), stored)}
           </Group>
           <Group title={t('ctest.g.points')}>
-            {int('points_my_dxcc', t('ctest.f.pointsMyDxcc'), stored)}
-            {int('points_my_cont', t('ctest.f.pointsMyCont'), stored)}
-            {int('points_dx', t('ctest.f.pointsDx'), stored)}
+            {int('points_my_dxcc', t('ctest.f.pointsMyDxcc'), t('ctest.tip.points'))}
+            {int('points_my_cont', t('ctest.f.pointsMyCont'), t('ctest.tip.points'))}
+            {int('points_dx', t('ctest.f.pointsDx'), t('ctest.tip.points'))}
           </Group>
           <Group title={t('ctest.g.mult')}>
-            {int('multipliers', t('ctest.f.multipliers'), stored)}
-            {int('multipliers_option', t('ctest.f.multOption'), stored)}
-            {check('band_mult', t('ctest.f.bandMult'), stored)}
+            {multSelect('multipliers', t('ctest.f.multipliers'))}
+            {multSelect('multipliers_option', t('ctest.f.multOption'))}
+            {check('band_mult', t('ctest.f.bandMult'), t('ctest.tip.bandMult'))}
             <div className="ctest-bands">
               {c.bands.map((b, i) => (
-                <div key={b.band} className="ctest-band" title={stored}>
+                <div key={b.band} className="ctest-band" title={t('ctest.tip.bandMult')}>
                   <label className="ctest-check">
                     <input type="checkbox" checked={b.on} onChange={(e) => set({ bands: c.bands.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)) })} />
                     <span>{t('ctest.f.band', { band: b.band })}</span>
