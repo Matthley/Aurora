@@ -1,6 +1,7 @@
 import { memo, useEffect, useSyncExternalStore, type RefObject } from 'react';
 import type React from 'react';
 import { getDigiBase, getDigiText, getDigiWeak, onDigiText } from '../lib/digiBus';
+import { rxPieces } from '../lib/rxSearch';
 
 /**
  * Il testo della finestra di ricezione dei modi testuali: le righe trasmesse (iniziano con «» ») sottolineate se richiesto, i caratteri
@@ -8,19 +9,19 @@ import { getDigiBase, getDigiText, getDigiWeak, onDigiText } from '../lib/digiBu
  * `base` e' la posizione assoluta del primo carattere (vedi `getDigiBase`): ogni riga ha per chiave la sua posizione assoluta, cosi' a ogni
  * carattere nuovo si ridisegna solo l'ultima riga e non tutte le centinaia di righe della finestra.
  */
-export function DigiRxText({ text, weak, underlineSent, showSent = true, base = 0 }: { text: string; weak: string; underlineSent: boolean; /** Spento: le righe trasmesse non si mostrano (restano nella finestra di trasmissione). */ showSent?: boolean; base?: number }): React.ReactNode {
+export function DigiRxText({ text, weak, underlineSent, showSent = true, base = 0, search = '' }: { text: string; weak: string; underlineSent: boolean; /** Spento: le righe trasmesse non si mostrano (restano nella finestra di trasmissione). */ showSent?: boolean; base?: number; /** Parola cercata: le occorrenze si evidenziano con <mark>. */ search?: string }): React.ReactNode {
   let offset = 0;
   return text.split('\n').map((line, i, all) => {
     const start = offset;
     offset += line.length + 1;
     if (!showSent && line.startsWith('»')) return null;
-    return <RxLine key={base + start} line={line} mask={weak.slice(start, start + line.length)} newline={i < all.length - 1} underline={underlineSent && line.startsWith('» ')} />;
+    return <RxLine key={base + start} line={line} mask={weak.slice(start, start + line.length)} newline={i < all.length - 1} underline={underlineSent && line.startsWith('» ')} search={search} />;
   });
 }
 
 /** Una riga della finestra: si ridisegna solo se cambia il suo testo, i suoi caratteri incerti o il suo stile. */
-const RxLine = memo(function RxLine({ line, mask, newline, underline }: { line: string; mask: string; newline: boolean; underline: boolean }) {
-  const body = withWeak(line, mask);
+const RxLine = memo(function RxLine({ line, mask, newline, underline, search }: { line: string; mask: string; newline: boolean; underline: boolean; search: string }) {
+  const body = search.trim() === '' ? withWeak(line, mask) : withSearch(line, mask, search);
   const nl = newline ? '\n' : '';
   return underline ? (
     <u className="digi-sent">
@@ -39,15 +40,15 @@ const RxLine = memo(function RxLine({ line, mask, newline, underline }: { line: 
  * La finestra di ricezione collegata al testo dei modi testuali: si iscrive da sola, cosi' a ogni carattere ricevuto si ridisegna solo lei e
  * non tutta la pagina; a ogni carattere nuovo `box` scorre in fondo.
  */
-export function DigiRxLive({ box, underlineSent, showSent }: { box: RefObject<HTMLElement | null>; underlineSent: boolean; showSent: boolean }): React.ReactNode {
+export function DigiRxLive({ box, underlineSent, showSent, paused = false, search = '' }: { box: RefObject<HTMLElement | null>; underlineSent: boolean; showSent: boolean; /** Vista ferma: il testo continua ad arrivare ma la finestra non scorre in fondo. */ paused?: boolean; search?: string }): React.ReactNode {
   const text = useSyncExternalStore(onDigiText, getDigiText);
   const weak = useSyncExternalStore(onDigiText, getDigiWeak);
   const base = useSyncExternalStore(onDigiText, getDigiBase);
   useEffect(() => {
     const el = box.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [text, box]);
-  return text === '' ? null : <DigiRxText text={text} weak={weak} base={base} underlineSent={underlineSent} showSent={showSent} />;
+    if (el && !paused) el.scrollTop = el.scrollHeight;
+  }, [text, box, paused]);
+  return text === '' ? null : <DigiRxText text={text} weak={weak} base={base} underlineSent={underlineSent} showSent={showSent} search={search} />;
 }
 
 /** Una riga divisa in tratti certi e incerti. */
@@ -63,4 +64,13 @@ function withWeak(line: string, mask: string): React.ReactNode {
     }
   }
   return parts;
+}
+
+/** Una riga con le parole cercate evidenziate (il primo tratto di ogni occorrenza ha `data-first` per saltare da una all'altra). */
+function withSearch(line: string, mask: string, search: string): React.ReactNode {
+  return rxPieces(line, mask, search).map((p) => {
+    const cls = p.weak ? 'digi-weak' : undefined;
+    if (p.hit) return <mark key={p.start} className={`digi-hit${p.weak ? ' digi-weak' : ''}`} data-first={p.first ? '' : undefined}>{p.text}</mark>;
+    return cls ? <span key={p.start} className={cls}>{p.text}</span> : p.text;
+  });
 }

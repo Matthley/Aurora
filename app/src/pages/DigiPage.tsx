@@ -34,6 +34,8 @@ import { DigiStatusBar } from '../components/digi/StatusBar';
 import { useT } from '../i18n';
 import { appendDigiNote, clearDigiText, getDigiText, onDigi, onDigiText } from '../lib/digiBus';
 import { DigiRxLive } from '../components/DigiRxText';
+import { nextHit } from '../lib/rxSearch';
+import { txeStep } from '../lib/txeWait';
 import { DigiTxBox } from '../components/DigiTxBox';
 import { RttySettingsDialog } from '../components/digi/RttySettingsDialog';
 import { useDigiTxLive } from '../lib/digiTxLive';
@@ -215,6 +217,49 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // doppio Esc: l'Auto CQ resta acceso ma in pausa; riparte quando si ripreme (macro <AUTOCQ>)
   const [autoCqPaused, setAutoCqPaused] = useState(false);
   const lastEsc = useRef(0);
+  // <TXE>: l'attesa che cada il segnale ricevuto (Esc la annulla)
+  const txeTimer = useRef<number | null>(null);
+  const stopTxe = () => {
+    if (txeTimer.current === null) return false;
+    window.clearInterval(txeTimer.current);
+    txeTimer.current = null;
+    return true;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => void stopTxe(), []);
+  // barra sopra la finestra RX: vista ferma (Pausa) e ricerca di un nominativo
+  const [rxPaused, setRxPaused] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [hit, setHit] = useState({ at: -1, count: 0 });
+  const searchBox = useRef<HTMLInputElement>(null);
+  const hitMarks = () => (rxBox.current ? [...rxBox.current.querySelectorAll<HTMLElement>('mark.digi-hit[data-first]')] : []);
+  const jumpHit = (back: boolean) => {
+    const marks = hitMarks();
+    const at = nextHit(hit.at < marks.length ? hit.at : -1, marks.length, back);
+    rxBox.current?.querySelectorAll('mark.digi-hit--now').forEach((m) => m.classList.remove('digi-hit--now'));
+    setHit({ at, count: marks.length });
+    const m = at >= 0 ? marks[at] : undefined;
+    if (!m) return;
+    m.classList.add('digi-hit--now');
+    // per leggere il risultato la finestra si ferma (Pausa premuto)
+    setRxPaused(true);
+    m.scrollIntoView({ block: 'nearest' });
+  };
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearch('');
+    setHit({ at: -1, count: 0 });
+  };
+  useEffect(() => {
+    if (searchOpen) searchBox.current?.focus();
+  }, [searchOpen]);
+  useEffect(() => {
+    // il conto dei risultati dopo che la finestra si e' ridisegnata
+    const id = window.requestAnimationFrame(() => setHit({ at: -1, count: hitMarks().length }));
+    return () => window.cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
   const [scanning, setScanning] = useState(false);
   const s = snap.settings;
   const sending = snap.tx.state === 'sending';
@@ -794,10 +839,11 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     let wantRx = false;
     let clearTx = false;
     let wantSave = false;
+    let waitCarrier = false;
     const apply = (a: MacroAction) => {
       switch (a.type) {
+        case 'txe': toTx = true; waitCarrier = true; break;
         case 'tx':
-        case 'txe':
         case 'txToggle': toTx = true; break;
         case 'rx': wantRx = true; rxClear = rxClear || a.clear; break;
         case 'rxe': wantRx = true; break;
@@ -883,11 +929,25 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       // un comando <TX> da solo trasmette quello che c'e' nella casella
       // senza <RX> la trasmissione resta aperta finito il testo (si continua a scrivere), con <RX> si torna in ricezione;
       // si apre solo dopo che il testo e' partito davvero, mai una trasmissione vuota
-      void send(body !== '' ? body : l.tx).then((ok) => {
-        if (!ok) clearAfterTx.current = false;
-        else if (!wantRx) void digiTxOpen('').then(onChanged, () => undefined);
-        else if (busy) void digiTxClose().then(onChanged, onChanged);
-      });
+      const what = body !== '' ? body : l.tx;
+      const fire = () =>
+        void send(what).then((ok) => {
+          if (!ok) clearAfterTx.current = false;
+          else if (!wantRx) void digiTxOpen('').then(onChanged, () => undefined);
+          else if (busy) void digiTxClose().then(onChanged, onChanged);
+        });
+      // <TXE>: si aspetta che cada il segnale sulla frequenza di ricezione (al massimo 30 s, poi si trasmette comunque)
+      stopTxe();
+      if (waitCarrier && txeStep(l.snap.rx.carrier, 0, 0) === 'wait') {
+        const startedAt = Date.now();
+        toast(t('digi.run.txeWait'), 'info');
+        txeTimer.current = window.setInterval(() => {
+          if (txeStep(live.current.snap.rx.carrier, startedAt, Date.now()) === 'send') {
+            stopTxe();
+            fire();
+          }
+        }, 200);
+      } else fire();
     } else if (wantRx && busy) {
       // <RX> durante una trasmissione: si torna in ricezione appena partito il testo gia' scritto
       if (body !== '') send(body);
@@ -928,6 +988,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           setAutoCqPaused(false);
           toast(t('digi.run.autoCqPaused'), 'info');
         }
+        if (stopTxe()) toast(t('digi.run.txeCancel'), 'info');
         if (live.current.snap.tx.state === 'sending') void digiAbort().then(onChanged, onChanged);
         return;
       }
@@ -1277,6 +1338,39 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
                 <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
               </svg>
             </button>
+            <button type="button" className="digi-rxbar-btn" title={t('digi.rxbar.pause')} aria-label={t('digi.rxbar.pause')} aria-pressed={rxPaused} onClick={() => setRxPaused((v) => !v)}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5v14M15 5v14" /></svg>
+            </button>
+            <button type="button" className="digi-rxbar-btn" title={t('digi.rxbar.search')} aria-label={t('digi.rxbar.search')} aria-pressed={searchOpen} onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5 5" /></svg>
+            </button>
+            {searchOpen ? (
+              <>
+                <input
+                  ref={searchBox}
+                  type="search"
+                  className="digi-rxbar-search"
+                  value={search}
+                  placeholder={t('digi.rxbar.searchHint')}
+                  aria-label={t('digi.rxbar.searchHint')}
+                  title={t('digi.rxbar.searchTip')}
+                  spellCheck={false}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    // i tasti restano alla casella: Esc chiude la ricerca e non ferma la trasmissione
+                    e.stopPropagation();
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      jumpHit(e.shiftKey);
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      closeSearch();
+                    }
+                  }}
+                />
+                {search.trim() !== '' ? <span className="digi-rxbar-count" aria-live="polite">{hit.count === 0 ? '0' : `${hit.at >= 0 ? hit.at + 1 : '-'}/${hit.count}`}</span> : null}
+              </>
+            ) : null}
           </div>
           <pre className={`digi-rxwin${views.slashedZero ? ' digi-zero' : ''}`} style={{ flex: `${rxFrac} 1 0` }} ref={rxBox} aria-live="off" aria-label={t('digi.rx.title')}
             onContextMenu={(e) => {
@@ -1290,7 +1384,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               const word = rxBox.current ? wordAtPoint(e.clientX, e.clientY, rxBox.current) : null;
               if (word && isCallsign(word)) takeCall(word);
             }}>
-            <DigiRxLive box={rxBox} underlineSent={views.underlineSent} showSent={views.echoRx === true} />
+            <DigiRxLive box={rxBox} underlineSent={views.underlineSent} showSent={views.echoRx === true} paused={rxPaused} search={searchOpen ? search : ''} />
           </pre>
           <div className="digi-split" role="separator" aria-orientation="horizontal" title={t('digi.split.tip')} onPointerDown={dragSplit} />
           <div className="digi-txwrap" style={{ flex: `${1 - rxFrac} 1 0` }}>

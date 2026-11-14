@@ -162,3 +162,35 @@ html[data-theme='light'] .digi-classica .sstv-btn { background: #eef2fa; color: 
   border-color: var(--border, #2a3550);
   background: rgba(255, 255, 255, 0.06);
 }
+/* Pausa e Cerca premuti */
+.digi-rxbar-btn[aria-pressed='true'] {
+  border-color: var(--accent, #4a8cff);
+  background: rgba(74, 140, 255, 0.18);
+  color: var(--accent, #4a8cff);
+}
+.digi-rxbar-search {
+  width: 9em;
+  height: 20px;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border, #2a3550);
+  border-radius: 4px;
+  background: var(--surface, #0f1729);
+  color: inherit;
+}
+.digi-rxbar-count {
+  font-size: 11px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+/* parole cercate nella finestra RX */
+.digi-rxwin mark.digi-hit {
+  background: rgba(255, 200, 0, 0.35);
+  color: inherit;
+  border-radius: 2px;
+}
+.digi-rxwin mark.digi-hit--now {
+  background: rgba(255, 140, 0, 0.75);
+  outline: 1px solid rgba(255, 140, 0, 0.9);
+}
