@@ -584,7 +584,11 @@ fn tick(inner: &Arc<Inner>, st: &mut LoopState) {
     }
 
     // ---- Doppler sulla radio ----
-    if settings.doppler_on && now.visible && let (Some(radio), Some(plan), Some(tp)) = (&radio, &now.plan, &transponder) && radio.ready() {
+    // il Doppler muove la radio solo con la pagina dei satelliti aperta: prima, acceso una volta, a ogni passaggio di un satellite seguito
+    // metteva la radio in split sul VFO B anche lavorando in FT8 o nei modi testuali, e lo split restava acceso dopo il passaggio
+    // (proprietario, 2026-11-14)
+    let page_open = lock(&inner.seen).is_some_and(|t| t.elapsed() < PAGE_GONE);
+    if settings.doppler_on && page_open && now.visible && let (Some(radio), Some(plan), Some(tp)) = (&radio, &now.plan, &transponder) && radio.ready() {
         let mut ok = true;
         // radio con VFO separati: split acceso una volta; per le frequenze uguali (APRS) non serve
         let wants_split = (plan.up_nominal_hz - plan.down_nominal_hz).abs() > 1_000.0;
@@ -622,8 +626,8 @@ fn tick(inner: &Arc<Inner>, st: &mut LoopState) {
         }
         now.radio_active = ok;
         let _ = tp;
-    } else if !settings.doppler_on {
-        // lo split acceso per il Doppler si toglie quando il Doppler si spegne: prima restava acceso sulla radio anche tornando agli altri modi
+    } else {
+        // lo split acceso per il Doppler si toglie quando il Doppler si spegne, il satellite tramonta o si lascia la pagina
         if st.split_on
             && let Some(radio) = &radio
             && radio.ready()
