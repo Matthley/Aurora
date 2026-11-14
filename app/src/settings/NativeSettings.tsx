@@ -286,7 +286,8 @@ function SendStatus({ doc, kind, compact = false }: { doc: EngineSettings; kind:
     const detail = `${st.ok ? t('ens.st.ok') : t('ens.st.err')}: ${sendText(st, t)} (${new Date(st.at_ms).toLocaleTimeString()})`;
     return (
       <small className={`ens-reason ${st.ok ? 'muted' : 'live-note'}`} role="status" title={detail} data-testid={`status-${kind}`}>
-        {t('ens.st.title')}: {st.ok ? t('ens.st.ok') : t('ens.st.err')} {new Date(st.at_ms).toLocaleTimeString()}
+        {/* con un errore il motivo si vede subito, non solo passando il mouse (chi ha un errore deve poterlo leggere e riferire) */}
+        {t('ens.st.title')}: {st.ok ? `${t('ens.st.ok')} ${new Date(st.at_ms).toLocaleTimeString()}` : detail}
         {st.pending ? ` — ${t(pendingKey, { n: st.pending })}` : ''}
       </small>
     );
