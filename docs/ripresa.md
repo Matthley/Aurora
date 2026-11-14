@@ -2,6 +2,12 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-14 tarda sera (0.11.258 pubblicata, sito aggiornato)
+
+- **0.11.258** (2026-11-14T19:20:08Z): punteggio, statistiche e Cabrillo del contest dei modi testuali (`contest/src/punti_testo.rs`, `GET /api/v1/contest-testo/punteggio` e `/cabrillo`, `ContestStatsDialog.tsx`; codici moltiplicatori 0-5 scelti in Aurora, i 135 predefiniti hanno punti a zero); cattura dello scambio senza l'eco; BIGScan RTTY: canali storti spostati sul segnale vero (`rtty_multi.rs`), fine parola dopo 1 s (`skim/rtty.rs`), verifica alla prima lettura certa dopo CQ (`calls.rs`) -> ritardo 9 -> 6 s, presenza 46 -> 52%; split: registro di ogni comando e avviso «split acceso fuori da Aurora» (`hamlib_rig.rs`, `rd.splitExternal`), Doppler solo con la pagina Satelliti aperta; niente falsi blocchi con la finestra in secondo piano (`crash.rs` `BACKGROUND`).
+- Split da solo del proprietario (FT-2000): nessuna strada di Aurora trovata; MixW aveva il CAT acceso sulla stessa radio (spento il 2026-11-14). Se torna, leggere il registro (righe `split:` e avviso esterno).
+- Rapporti su Cloudflare (`wrangler d1`/`r2` da `servizi/rapporti`): letti fino al 2026-11-14, nessun altro difetto di Aurora.
+
 ## Stato al 2026-11-14 notte (0.11.257 pubblicata, sito aggiornato)
 
 - **0.11.257** (2026-11-14T18:09:51Z): menu Contest dei modi testuali (`contest/elenco.rs`, `contest_testo_api.rs`, `ContestListDialog.tsx`, `textContest.ts`; 135 contest in `desktop/src-tauri/contest/` copiati al primo avvio in `<dati>/contest/` con `macros/` e `dom/`; formato in `docs/contest-file.md`, convertitore `contest/examples/converti_contest.rs`); macro ripremuta che riparte da capo (`transmit_restart`, `macroRestart.ts`), tasto F sui pulsanti, menu del tasto destro nella finestra TX (`TxMenu.tsx`), finestra TX unica, BPF visibile, suggerimenti in BIGScan, testo breve sul nominativo della cascata, tolti gli spot «nel mio Cluster» dall'interfaccia (`local_spots` resta spento nel core); Hamlib macOS universale dai sorgenti (`scripts/hamlib-macos-universale.sh`, Hamlib 4.7.2 + libusb 1.0.30, cache in `macos.yml`) perche' la 0.11.256 e' uscita senza pacchetto Mac.
