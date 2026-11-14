@@ -115,14 +115,6 @@ export function ModeSettingsFields({
         <input type="checkbox" checked={s.band_cw !== false} onChange={(e) => onSave({ band_cw: e.target.checked })} />
         {t('digi.band.mi')}
       </label>
-      <label className="sstv-check" title={t('digi.band.spotsTip')}>
-        <input type="checkbox" checked={s.local_spots === true} onChange={(e) => onSave({ local_spots: e.target.checked })} />
-        {t('digi.band.spots')}
-      </label>
-      <label className="sstv-check">
-        <input type="checkbox" checked={s.band_spots_cq_only === true} disabled={s.local_spots !== true} onChange={(e) => onSave({ band_spots_cq_only: e.target.checked })} />
-        {t('digi.band.spotsCqOnly')}
-      </label>
       <label title={t('digi.band.validationTip')}>
         <span>{t('digi.band.validation')}</span>
         <select value={s.band_validation ?? 'normal'} onChange={(e) => onSave({ band_validation: e.target.value })}>
