@@ -6,11 +6,13 @@
 //! - [`liste`]: sezioni ARRL/RAC, stati USA, province canadesi e olandesi per controllare lo scambio ricevuto;
 //! - [`punteggio`]: doppi, punti, moltiplicatori, punteggio, valore di una stazione, rate e previsione;
 //! - [`export`]: Cabrillo 3.0, EDI e ADIF, con il controllo prima dell'invio;
+//! - [`elenco`]: i contest dei modi testuali (file `.contest`, macro e domini), uno attivo alla volta;
 //! - [`servizio`]: contest attivo, impostazioni per contest, log del contest e ascolto del bus.
 //!
 //! La sequenza dei messaggi di contest sta nel motore (`qso-native::contest`): qui si sceglie quale usare.
 
 pub mod calendario;
+pub mod elenco;
 pub mod export;
 pub mod geo;
 pub mod liste;

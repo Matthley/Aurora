@@ -239,6 +239,8 @@ pub struct ContestService {
     continente: Mutex<Option<punteggio::PaeseFn>>,
     /// Il QSO in corso e' partito dalla pagina Contest (doppio clic o CQ contest): solo questi entrano nel log del contest.
     da_contest: std::sync::atomic::AtomicBool,
+    /// I contest dei modi testuali (file `.contest` nella stessa cartella).
+    elenco: crate::elenco::ElencoContest,
 }
 
 fn ora_ms() -> i64 {
@@ -260,6 +262,7 @@ impl ContestService {
         }
         let stato: StatoFile = std::fs::read_to_string(dir.join("stato.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
         let s = Arc::new(ContestService {
+            elenco: crate::elenco::ElencoContest::new(&dir),
             dir,
             stazione,
             versione: versione.to_string(),
@@ -272,6 +275,11 @@ impl ContestService {
             s.carica_log(&mut d);
         }
         s
+    }
+
+    /// I contest dei modi testuali (elenco, contest attivo, macro e domini).
+    pub fn elenco(&self) -> &crate::elenco::ElencoContest {
+        &self.elenco
     }
 
     /// Da usare per i moltiplicatori DXCC: il paese di un nominativo (prefisso principale di cty.dat).

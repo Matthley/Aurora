@@ -62,6 +62,10 @@ pub fn detect(places: &Places) -> Values {
     let mut v = Values::new();
     if let Some(cty) = places.bundled_cty.as_deref().filter(|p| p.is_file()) {
         v.insert("AURORA_CTY_PATH".into(), text(cty));
+        // i contest dei modi testuali stanno accanto, nella cartella `contest` delle risorse
+        if let Some(contest) = cty.parent().and_then(Path::parent).map(|r| r.join("contest")).filter(|d| d.is_dir()) {
+            v.insert("AURORA_CONTEST_DEFAULTS".into(), text(&contest));
+        }
     }
     if let Some(db) = places.documents.as_deref().and_then(find_log4om) {
         v.insert("AURORA_LOG4OM_DB".into(), text(&db));

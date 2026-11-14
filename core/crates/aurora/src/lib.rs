@@ -118,6 +118,8 @@ pub struct Config {
     pub replay_on_connect: bool,
     /// File `cty.dat` per riconoscere il paese di ogni stazione. Senza, niente paese ne' novita'.
     pub cty_path: Option<PathBuf>,
+    /// La cartella dei contest dei modi testuali distribuiti con Aurora (`*.contest`, `macros/`, `dom/`), copiati la prima volta.
+    pub contest_defaults: Option<PathBuf>,
     /// Log ADIF dei QSO gia' fatti, per segnalare nuovi DXCC, zone e griglie.
     pub worked_adif: Option<PathBuf>,
     /// Salvaguardie dell'automazione dei QSO: si impostano solo qui, sul PC.
@@ -204,6 +206,7 @@ impl Config {
             history_days: 30,
             replay_on_connect: false,
             cty_path: None,
+            contest_defaults: None,
             worked_adif: None,
             auto_limits: Limits::default(),
             export_udp: Vec::new(),
@@ -306,6 +309,7 @@ impl Config {
             history_days: get("AURORA_HISTORY_DAYS").and_then(|d| d.trim().parse().ok()).unwrap_or(30),
             replay_on_connect,
             cty_path: get("AURORA_CTY_PATH").filter(|p| !p.trim().is_empty()).map(PathBuf::from),
+            contest_defaults: get("AURORA_CONTEST_DEFAULTS").filter(|p| !p.trim().is_empty()).map(PathBuf::from),
             worked_adif: get("AURORA_WORKED_ADIF").filter(|p| !p.trim().is_empty()).map(PathBuf::from),
             auto_limits,
             log4om_db: get("AURORA_LOG4OM_DB").filter(|p| !p.trim().is_empty()).map(PathBuf::from),
@@ -2492,6 +2496,13 @@ pub async fn run(
         }), aurora_core::version::APP_VERSION)
     };
     contest_service.spawn(&bus);
+    // i contest dei modi testuali distribuiti con Aurora: copiati la prima volta, senza toccare i file dell'utente
+    if let Some(da) = &config.contest_defaults {
+        let n = contest_service.elenco().copia_predefiniti(da);
+        if n > 0 {
+            tracing::info!("contest dei modi testuali: {n} file predefiniti copiati");
+        }
+    }
     // moltiplicatori DXCC dei contest: il paese del nominativo dal cty.dat gia' caricato
     if let Some((db, _)) = &enrichment {
         let db = Arc::clone(db);
