@@ -13,6 +13,8 @@ import { buildLogIndex, contestStatus, logStatus, type ContestMark, type LogStat
 import { logWindowStart, qsoTimeMs } from '../../lib/logWindow';
 import { browserStorage } from '../../lib/theme';
 import { useContestLog } from '../../lib/useContestLog';
+import { getActiveTextContest } from '../../api/contestTesto';
+import { contestQsos, textContestStatus } from '../../lib/textContest';
 import { spotBlocked } from '../../lib/spotPrefill';
 import { toast } from '../../lib/toast';
 import { PopupMenu } from '../PopupMenu';
@@ -96,6 +98,12 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
   const inContest = !!contest.attivo;
   const band = dialHz > 0 ? bandOf(dialHz) : null;
   const log = useQuery({ queryKey: ['log-qsos'], queryFn: getLogQsos, retry: false, refetchOnWindowFocus: false, enabled: !inContest });
+  // il contest dei modi testuali (menu Contest): doppi e novita' dai QSO del log dentro la sua finestra di date e delle categorie valide
+  const textContestData = useQuery({ queryKey: ['contest-testo-attivo'], queryFn: getActiveTextContest, retry: false, refetchOnWindowFocus: false, staleTime: 30_000, enabled: !inContest }).data;
+  const textContest = inContest ? null : (textContestData?.contest ?? null);
+  const minute = Math.floor(Date.now() / 60_000);
+  const gara = inContest || !!textContest;
+  const textQsos = useMemo(() => (textContest && log.data ? contestQsos(log.data.qsos, textContest, minute * 60_000) : null), [textContest, log.data, minute]);
   // fuori gara: i QSO dentro la finestra scelta con <IGNOREBEFORE> e <PERIOD> (al minuto, per non ricalcolare a ogni giro)
   const from = logWindowStart(browserStorage(), Math.floor(Date.now() / 60_000) * 60_000);
   const index = useMemo(() => {
@@ -114,7 +122,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
     placeholderData: (prev) => prev,
   }).data;
   const marks = useMemo(() => (inContest && valori ? new Map<string, ContestMark>(valori.valori.map((v) => [v.call, v])) : null), [inContest, valori]);
-  const source = inContest ? t('radar.srcContest', { name: contest.nome ?? '' }) : from != null ? t('radar.srcLogFrom', { t: new Date(from).toISOString().slice(0, 16).replace('T', ' ') }) : t('radar.srcLog');
+  const source = inContest ? t('radar.srcContest', { name: contest.nome ?? '' }) : textContest ? t('radar.srcContest', { name: textContest.name }) : from != null ? t('radar.srcLogFrom', { t: new Date(from).toISOString().slice(0, 16).replace('T', ' ') }) : t('radar.srcLog');
   // menu del tasto destro su una riga: «Spot DX» (la finestra del DX Cluster gia' compilata) e «Copia nominativo»
   const [menu, setMenu] = useState<{ x: number; y: number; s: RadarStation } | null>(null);
   const [spot, setSpot] = useState<RadarStation | null>(null);
@@ -129,8 +137,8 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
     switch (c) {
       case 'call': {
         const code = flagCode(s.country);
-        const st = inContest ? contestStatus(marks, index, s.call, band, modeName) : logStatus(index, s.call, s.country, band, modeName);
-        const mark = st ? logMark(st, inContest) : null;
+        const st = inContest ? contestStatus(marks, index, s.call, band, modeName) : textContest && textQsos ? textContestStatus(textQsos, textContest, s.call, band, modeName) : logStatus(index, s.call, s.country, band, modeName);
+        const mark = st ? logMark(st, gara) : null;
         return (
           <td key={c} className="radar-call">
             <span className="radar-dot" title={s.stale ? t('radar.dotStale') : t('radar.dotLive')} aria-label={s.stale ? t('radar.dotStale') : t('radar.dotLive')} />
@@ -183,10 +191,10 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         </strong>
         {on ? <small>{t('radar.count', { n: stations.length })}</small> : null}
         {on ? (
-          <span className="radar-legend" title={[source, ...LEGEND[inContest ? 'contest' : 'log'].map((k) => { const m = logMark(k, inContest); return `${m.label}: ${t(m.tip)}`; })].join('\n')}>
-            {LEGEND[inContest ? 'contest' : 'log'].map((k) => (
-              <span key={k} className={`radar-log radar-log--${k.replaceAll('_', '-')}`} title={`${logMark(k, inContest).label}: ${t(logMark(k, inContest).tip)}`}>
-                {logMark(k, inContest).label}
+          <span className="radar-legend" title={[source, ...LEGEND[gara ? 'contest' : 'log'].map((k) => { const m = logMark(k, gara); return `${m.label}: ${t(m.tip)}`; })].join('\n')}>
+            {LEGEND[gara ? 'contest' : 'log'].map((k) => (
+              <span key={k} className={`radar-log radar-log--${k.replaceAll('_', '-')}`} title={`${logMark(k, gara).label}: ${t(logMark(k, gara).tip)}`}>
+                {logMark(k, gara).label}
               </span>
             ))}
           </span>

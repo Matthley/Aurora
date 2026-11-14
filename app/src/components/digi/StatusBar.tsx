@@ -57,6 +57,9 @@ interface Props {
   modeName: string;
   /** Clic sul nome del modo (in RTTY: la finestra «Impostazioni RTTY»); senza, il nome non si clicca. */
   onModeClick?(): void;
+  /** Il contest dei modi testuali attivo (menu Contest): il nome nella barra, un clic apre l'elenco dei contest. */
+  contestName?: string | null;
+  onContestClick?(): void;
   onToggleTx(): void;
   onToggleSquelch(): void;
   onToggleAfc(): void;
@@ -231,6 +234,11 @@ export function DigiStatusBar(p: Props) {
         </span>
       ) : null}
       {p.showUtc ? <UtcClock /> : null}
+      {p.contestName ? (
+        <button type="button" className="digi-st digi-status-contest" title={t('ctest.statusTip')} onClick={p.onContestClick}>
+          {t('ctest.status', { name: p.contestName })}
+        </button>
+      ) : null}
       {p.onModeClick ? (
         <button type="button" className="digi-st" title={t('digi.rtty.title')} onClick={p.onModeClick}>
           {p.modeName}

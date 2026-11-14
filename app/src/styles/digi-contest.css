@@ -1,0 +1,21 @@
+/* Menu Contest dei modi testuali: elenco dei contest e finestra di modifica */
+.ctest-dialog { width: min(46rem, calc(96vw / var(--ui-zoom, 1))); }
+.ctest-dialog footer { flex-wrap: wrap; }
+.ctest-dialog footer .rtty-spacer { flex: 1; }
+.ctest-table-wrap { max-height: calc(60vh / var(--ui-zoom, 1)); overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.ctest-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.ctest-table th { position: sticky; top: 0; background: var(--panel-raised); text-align: left; padding: 0.35rem 0.6rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+.ctest-table td { padding: 0.3rem 0.6rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); cursor: default; user-select: none; }
+.ctest-table tr:hover td { background: color-mix(in srgb, var(--accent, #4a9eff) 10%, transparent); }
+.ctest-table tr.is-picked td { background: color-mix(in srgb, var(--accent, #4a9eff) 28%, transparent); color: var(--text); }
+.ctest-col-active { width: 4.5rem; text-align: center; }
+td.ctest-col-active { color: var(--accent, #4a9eff); }
+.ctest-edit { width: min(60rem, calc(96vw / var(--ui-zoom, 1))); }
+.ctest-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.7rem; }
+.ctest-group { display: flex; flex-direction: column; gap: 0.45rem; margin: 0; padding: 0.55rem 0.7rem 0.7rem; border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
+.ctest-group legend { padding: 0 0.3rem; font-weight: 600; color: var(--text); font-size: 0.9rem; }
+.digi-dialog label.ctest-check { flex-direction: row; align-items: center; gap: 0.45rem; color: var(--text); }
+.ctest-bands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.6rem; }
+.ctest-band { display: flex; align-items: center; gap: 0.35rem; }
+.ctest-band input[type='number'] { width: 4rem; }
+.digi-status-contest { cursor: pointer; font-weight: 600; color: var(--accent, #4a9eff); }
