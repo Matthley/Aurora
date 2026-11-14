@@ -183,6 +183,8 @@ struct Inner {
     dx_split: AtomicBool,
     /// La frequenza di trasmissione dello Split DX acceso (Hz, 0 = nessuno): serve a rimetterlo dopo una riconnessione.
     dx_split_tx: AtomicU64,
+    /// La frequenza di ricezione dello Split DX: alla riconnessione lo split si rimette solo se la radio e' ancora li'.
+    dx_split_rx: AtomicU64,
     /// Lo split di FT8 (XIT, «Split: Radio») e' acceso sulla radio perche' l'ha acceso Aurora prima di una trasmissione del motore. Si
     /// spegne al cambio di frequenza, prima di una trasmissione libera (modi testuali, SSTV) e alla chiusura.
     xit_split: AtomicBool,
@@ -436,14 +438,26 @@ impl Inner {
         // trasmettere sul VFO B); se non si riesce si spegne il flag, cosi' torna lo split di FT8
         let dx_tx = self.dx_split_tx.load(Ordering::SeqCst);
         if self.dx_split.load(Ordering::SeqCst) && dx_tx != 0 && let Ok(link) = self.connected_link() {
-            let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
-            self.write_split_mode(&link);
-            let set = link.client().set_split_frequency(dx_tx).and_then(|()| link.client().set_split(true, tx_vfo));
-            match set {
-                Ok(()) => self.update(|s| s.split = Some(true)),
-                Err(e) => {
-                    tracing::warn!("split DX non rimesso dopo la riconnessione: {}", friendly_error(&e.0));
-                    self.dx_split.store(false, Ordering::SeqCst);
+            // solo se la radio e' ancora sulla frequenza dello spot: se nel frattempo l'operatore si e' spostato (manopola, banda, altra
+            // pagina) lo Split DX non e' piu' voluto e si dimentica; prima tornava da solo alla riconnessione, anche ore dopo, mettendo la
+            // radio in split su una frequenza vecchia mentre l'operatore non toccava niente (proprietario, 2026-11-14)
+            let rx = self.dx_split_rx.load(Ordering::SeqCst);
+            let here = link.client().frequency().ok();
+            if rx == 0 || here.is_none_or(|f| f.abs_diff(rx) > 2_000) {
+                self.dx_split.store(false, Ordering::SeqCst);
+                self.dx_split_tx.store(0, Ordering::SeqCst);
+                self.dx_split_rx.store(0, Ordering::SeqCst);
+                tracing::info!("split DX dimenticato: la radio non e' piu' sulla frequenza dello spot");
+            } else {
+                let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
+                self.write_split_mode(&link);
+                let set = link.client().set_split_frequency(dx_tx).and_then(|()| link.client().set_split(true, tx_vfo));
+                match set {
+                    Ok(()) => self.update(|s| s.split = Some(true)),
+                    Err(e) => {
+                        tracing::warn!("split DX non rimesso dopo la riconnessione: {}", friendly_error(&e.0));
+                        self.dx_split.store(false, Ordering::SeqCst);
+                    }
                 }
             }
         }
@@ -838,6 +852,7 @@ impl HamlibRig {
             vfo_reversed: AtomicBool::new(false),
             dx_split: AtomicBool::new(false),
             dx_split_tx: AtomicU64::new(0),
+            dx_split_rx: AtomicU64::new(0),
             xit_split: AtomicBool::new(false),
             split_off_pending: AtomicBool::new(false),
             epoch: AtomicU64::new(0),
@@ -1099,6 +1114,7 @@ impl HamlibRig {
         link.client().set_split_frequency(tx_hz).map_err(fr)?;
         link.client().set_split(true, tx_vfo).map_err(fr)?;
         inner.dx_split_tx.store(tx_hz, Ordering::SeqCst);
+        inner.dx_split_rx.store(rx_hz, Ordering::SeqCst);
         inner.dx_split.store(true, Ordering::SeqCst);
         inner.xit_split.store(false, Ordering::SeqCst);
         inner.split_off_pending.store(false, Ordering::SeqCst);
