@@ -3015,7 +3015,8 @@ pub async fn run(
         updates::spawn_checker(Arc::clone(&updates), bus.events(), Arc::new(move || phone.config().notify_url), config.update_installer.clone().map(|h| h.0), Duration::from_secs(1));
     }
 
-    // la frequenza della radio per il motore proprio. Il CAT la tiene gia' in memoria (la lettura costa niente) e si rilegge ogni quarto di secondo;
+    // la frequenza della radio per il motore proprio. Il CAT la tiene gia' in memoria (la lettura costa niente) e si rilegge ogni decimo di secondo
+    // (il CAT Hamlib segue la sintonia girata a mano con letture della sola frequenza ogni 200-400 ms);
     // OmniRig la chiede a PowerShell (qualche centinaio di millisecondi a lettura): si aspetta quattro volte il tempo che e' costata, per non
     // tenere occupato il computer. Prima era ogni 3 s e il cambio di frequenza compariva in ritardo.
     if config.engine == EngineKind::Native
@@ -3029,7 +3030,7 @@ pub async fn run(
                     dial.store(hz, std::sync::atomic::Ordering::Relaxed);
                 }
                 let spent = started.elapsed();
-                std::thread::sleep((spent * 4).clamp(Duration::from_millis(250), Duration::from_secs(3)));
+                std::thread::sleep((spent * 4).clamp(Duration::from_millis(100), Duration::from_secs(3)));
             }
         });
         // gli strumenti della radio (S-meter in ricezione; potenza, ROS, ALC in trasmissione) letti dal CAT Hamlib: il CAT limita da solo il ritmo

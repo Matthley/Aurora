@@ -3,6 +3,8 @@
 //! `docs/analisi-decodium-cat.md`, sezioni 1 e 6:
 //! - subito dopo l'apertura il PTT si spegne, e per 5 s non si accetta nessun PTT acceso;
 //! - in trasmissione non si leggono frequenza e modo (competono con il PTT sullo stesso bus) e il polling va a un quarto dell'intervallo;
+//! - fra una lettura completa e l'altra si legge la sola frequenza (`f`), ogni 200 ms mentre la sintonia si muove e ogni 400 ms a riposo,
+//!   cosi' la sintonia girata a mano si vede subito (mai in trasmissione, mai con un comando in corso);
 //! - un guasto di lettura non spegne il CAT: 3 consecutivi (8 se sono timeout o errori di porta), poi riconnessione a gradini;
 //! - il PTT si spegne sempre alla chiusura, e se il comando di spegnimento fallisce lo stato resta «acceso»: si dice la verita'.
 
@@ -90,7 +92,21 @@ pub struct Timing {
     /// Guasti di lettura consecutivi tollerati, in generale e se sono timeout o errori di porta.
     pub tolerate: u32,
     pub tolerate_io: u32,
+    /// Lettura della sola frequenza (`f`) fra una lettura completa e l'altra, perche' la sintonia girata a mano si veda subito: ogni
+    /// `freq_fast` se la frequenza e' cambiata negli ultimi `freq_active_for`, altrimenti ogni `freq_idle`. `freq_idle` a zero = spenta.
+    pub freq_fast: Duration,
+    pub freq_idle: Duration,
+    pub freq_active_for: Duration,
 }
+
+/// Lettura veloce della frequenza mentre la sintonia si muove, e a riposo (seriali veloci, rete, USB).
+pub const FREQ_FAST: Duration = Duration::from_millis(200);
+pub const FREQ_IDLE: Duration = Duration::from_millis(400);
+/// Le stesse sulle seriali lente (9600 baud o meno): meno domande, per lasciare spazio al PTT.
+pub const FREQ_FAST_SLOW_PORT: Duration = Duration::from_millis(300);
+pub const FREQ_IDLE_SLOW_PORT: Duration = Duration::from_millis(700);
+/// Per quanto tempo dopo un cambio di frequenza si resta alla lettura veloce.
+pub const FREQ_ACTIVE_FOR: Duration = Duration::from_secs(3);
 
 impl Timing {
     /// I tempi di Decodium: polling scelto dall'utente (le seriali non sotto 2 s), quarto in trasmissione ma non sotto 250 ms, letture a 300 e 800 ms.
@@ -107,6 +123,9 @@ impl Timing {
             max_reconnects: 5,
             tolerate: 3,
             tolerate_io: 8,
+            freq_fast: if slow_port(config) { FREQ_FAST_SLOW_PORT } else { FREQ_FAST },
+            freq_idle: if slow_port(config) { FREQ_IDLE_SLOW_PORT } else { FREQ_IDLE },
+            freq_active_for: FREQ_ACTIVE_FOR,
         }
     }
 }
@@ -202,6 +221,8 @@ struct Inner {
     split_checks: AtomicU32,
     /// Cresce a ogni comando: una lettura iniziata prima di un comando non ne cancella l'effetto.
     epoch: AtomicU64,
+    /// L'ultima volta che la frequenza letta e' cambiata: per qualche secondo la lettura della sola frequenza va piu' spesso.
+    freq_moved_at: Mutex<Option<Instant>>,
     /// Conta i cambi di frequenza chiesti: un cambio che ne vede arrivare uno piu' recente non insiste sulla sua frequenza.
     qsy_seq: AtomicU64,
     /// I misuratori: cosa la radio non da', ultima lettura, turno di lettura.
@@ -584,6 +605,9 @@ impl Inner {
         };
         if let Some(f) = freq {
             self.rx_dial.store(f, Ordering::SeqCst);
+            if self.status.lock().is_ok_and(|s| s.frequency_hz.is_some_and(|old| old != f)) {
+                self.note_freq_moved();
+            }
         }
         // lo split della radio, ogni tante letture e solo in ricezione: chi lo accende fuori da Aurora (radio, programma sulla condivisione)
         let split = if freq.is_some() && self.split_checks.fetch_add(1, Ordering::SeqCst) % SPLIT_CHECK_EVERY == 0 {
@@ -626,10 +650,62 @@ impl Inner {
         Ok(())
     }
 
-    /// Aspetta il prossimo giro di lettura; `false` = si e' chiuso.
+    fn note_freq_moved(&self) {
+        if let Ok(mut at) = self.freq_moved_at.lock() {
+            *at = Some(Instant::now());
+        }
+    }
+
+    /// Fra quanto rileggere la sola frequenza: presto se la sintonia si e' mossa da poco, piu' piano a riposo; `None` = lettura spenta.
+    fn freq_interval(&self) -> Option<Duration> {
+        if self.timing.freq_idle.is_zero() {
+            return None;
+        }
+        let moving = self.freq_moved_at.lock().ok().and_then(|at| *at).is_some_and(|t| t.elapsed() < self.timing.freq_active_for);
+        Some(if moving { self.timing.freq_fast } else { self.timing.freq_idle })
+    }
+
+    /// Legge solo la frequenza (`f`), per seguire la sintonia girata a mano senza aspettare la lettura completa. Non si fa in trasmissione
+    /// (frequenza e modo competono con il PTT sullo stesso bus, `docs/analisi-decodium-cat.md`), con una lettura completa in coda o con la
+    /// sessione di `rigctld` occupata da un comando: in quei casi si salta il giro. Un errore non conta come guasto (lo conta la lettura completa).
+    fn read_frequency(&self) {
+        if self.transmitting() || self.quick.lock().is_ok_and(|q| !q.is_empty()) {
+            return;
+        }
+        let Some(link) = self.link() else { return };
+        if !link.alive() || self.status.lock().map_or(true, |s| s.state != LinkState::Connected) {
+            return;
+        }
+        let client = link.client();
+        if client.busy() {
+            return;
+        }
+        let epoch = self.epoch.load(Ordering::SeqCst);
+        match client.frequency() {
+            Ok(f) if valid_dial_hz(f) => {
+                // un comando arrivato nel frattempo (cambio di frequenza, PTT) vince sulla lettura
+                if self.epoch.load(Ordering::SeqCst) != epoch || self.transmitting() {
+                    return;
+                }
+                let old = self.status.lock().ok().and_then(|s| s.frequency_hz);
+                if old != Some(f) {
+                    self.rx_dial.store(f, Ordering::SeqCst);
+                    self.update(|s| s.frequency_hz = Some(f));
+                    if old.is_some() {
+                        self.note_freq_moved();
+                    }
+                }
+            }
+            Ok(_) => {}
+            Err(e) => tracing::debug!("lettura veloce della frequenza fallita: {e}"),
+        }
+    }
+
+    /// Aspetta il prossimo giro di lettura completa, leggendo intanto la sola frequenza; `false` = si e' chiuso.
     fn wait_next(&self) -> bool {
         let delay = if self.transmitting() { (self.timing.poll / 4).max(self.timing.tx_poll_min) } else { self.timing.poll };
         let until = Instant::now() + delay;
+        let mut freq_at = self.freq_interval().map(|d| Instant::now() + d);
         loop {
             if self.stop.load(Ordering::SeqCst) {
                 return false;
@@ -643,6 +719,16 @@ impl Inner {
             {
                 q.remove(i);
                 return true;
+            }
+            if let Some(at) = freq_at
+                && now >= at
+            {
+                // a meno di un intervallo dalla lettura completa non serve: la frequenza la legge lei
+                if until.saturating_duration_since(now) > self.timing.freq_fast {
+                    self.read_frequency();
+                }
+                freq_at = self.freq_interval().map(|d| Instant::now() + d);
+                continue;
             }
             std::thread::sleep((until - now).min(Duration::from_millis(10)));
         }
@@ -957,6 +1043,7 @@ impl HamlibRig {
             split_cmd_at: Mutex::new(None),
             split_checks: AtomicU32::new(0),
             epoch: AtomicU64::new(0),
+            freq_moved_at: Mutex::new(None),
             qsy_seq: AtomicU64::new(0),
             meter: Mutex::new(MeterPoll::default()),
             extras: Mutex::new(crate::extras::ExtrasPoll::default()),
@@ -1428,6 +1515,9 @@ mod tests {
             max_reconnects: 5,
             tolerate: 3,
             tolerate_io: 8,
+            freq_fast: Duration::ZERO,
+            freq_idle: Duration::ZERO,
+            freq_active_for: Duration::ZERO,
         }
     }
 
@@ -1458,6 +1548,54 @@ mod tests {
             assert!(Instant::now() < until, "tempo scaduto: {what}");
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    /// Lettura completa lenta come su una seriale (2 s) e lettura veloce della sola frequenza con i tempi veri.
+    fn tracking() -> Timing {
+        Timing { poll: Duration::from_secs(2), freq_fast: FREQ_FAST, freq_idle: FREQ_IDLE, freq_active_for: FREQ_ACTIVE_FOR, ..fast() }
+    }
+
+    fn freq_reads(fake: &FakeRigctld) -> usize {
+        fake.commands().iter().filter(|c| *c == "f" || c.starts_with("f ")).count()
+    }
+
+    #[test]
+    fn it_follows_the_dial_turned_by_hand_within_half_a_second() {
+        let fake = FakeRigctld::start(14_080_000);
+        let rig = start_with(&fake, RigConfig::default(), tracking());
+        std::thread::sleep(Duration::from_millis(100));
+        for step in 1..=5u64 {
+            let hz = 14_080_000 + step * 50;
+            fake.set_frequency(hz);
+            let t = Instant::now();
+            wait_until("frequenza nuova", || rig.status().frequency_hz == Some(hz));
+            assert!(t.elapsed() < Duration::from_millis(500), "passo {step}: vista dopo {:?}", t.elapsed());
+        }
+    }
+
+    #[test]
+    fn at_rest_the_frequency_reads_stay_few() {
+        let fake = FakeRigctld::start(14_080_000);
+        let _rig = start_with(&fake, RigConfig::default(), tracking());
+        std::thread::sleep(Duration::from_millis(500));
+        fake.clear_commands();
+        std::thread::sleep(Duration::from_secs(2));
+        let n = freq_reads(&fake);
+        // a riposo: una ogni 400 ms (5 in 2 s) piu' la lettura completa
+        assert!((2..=7).contains(&n), "letture della frequenza a riposo in 2 s: {n}");
+    }
+
+    #[test]
+    fn it_does_not_read_the_frequency_while_transmitting() {
+        let fake = FakeRigctld::start(14_080_000);
+        let rig = start_with(&fake, RigConfig::default(), Timing { startup_block: Duration::from_millis(10), ..tracking() });
+        std::thread::sleep(Duration::from_millis(100));
+        rig.set_ptt(true).expect("PTT");
+        std::thread::sleep(Duration::from_millis(100));
+        fake.clear_commands();
+        std::thread::sleep(Duration::from_millis(1000));
+        assert_eq!(freq_reads(&fake), 0, "{:?}", fake.commands());
+        rig.set_ptt(false).expect("PTT spento");
     }
 
     #[test]

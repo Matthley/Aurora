@@ -616,6 +616,9 @@ pub struct ExtraRx {
     pub afc: bool,
 }
 
+/// Ogni quanto il servizio guarda la frequenza della radio (notch, canali di tutta la banda).
+const DIAL_CHECK: Duration = Duration::from_millis(200);
+
 /// Spostamento della radio (Hz) da cui l'elenco di tutta la banda si ripulisce invece di spostare i toni: piu' della banda audio.
 const BAND_CLEAR_HZ: u64 = 3_500;
 
@@ -1319,8 +1322,10 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
                 inner.page_left();
             }
         }
-        // i notch valgono per la frequenza della radio su cui si sono messi: cambiata la banda o la sintonia si tolgono
-        if last_dial.elapsed() >= Duration::from_secs(1) {
+        // i notch valgono per la frequenza della radio su cui si sono messi: cambiata la banda o la sintonia si tolgono.
+        // La frequenza arriva fino a cinque volte al secondo mentre si gira la sintonia: si guarda ogni `DIAL_CHECK`, cosi' gli
+        // spostamenti piccoli si sommano e i canali si spostano una volta per giro (`dial` e' l'ultima frequenza gia' applicata)
+        if last_dial.elapsed() >= DIAL_CHECK {
             last_dial = Instant::now();
             let now = inner.read_dial();
             if now != 0 && now != dial {

@@ -237,6 +237,11 @@ impl RigctldClient {
     }
 
     /// Frequenza della radio (Hz).
+    /// La sessione e' occupata da un'altra domanda in corso (un comando da un altro thread).
+    pub fn busy(&self) -> bool {
+        self.io.try_lock().is_err()
+    }
+
     pub fn frequency(&self) -> Result<u64, RigError> {
         let r = self.ask("f", 1)?;
         r[0].parse::<f64>().map(|hz| hz.round() as u64).map_err(|_| RigError(format!("frequenza illeggibile: {}", r[0])))

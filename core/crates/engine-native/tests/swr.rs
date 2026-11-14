@@ -30,6 +30,9 @@ fn fast() -> Timing {
         max_reconnects: 5,
         tolerate: 3,
         tolerate_io: 8,
+        freq_fast: Duration::ZERO,
+        freq_idle: Duration::ZERO,
+        freq_active_for: Duration::ZERO,
     }
 }
 
