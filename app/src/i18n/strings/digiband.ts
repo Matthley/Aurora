@@ -141,14 +141,6 @@ export const digiBandStrings = {
     'Decodifica cada señal CW de la banda de audio con su propio receptor, en un hilo aparte que usa como mucho un cuarto de núcleo: con demasiadas señales se queda con las más fuertes.',
     'Descodifica cada sinal CW da banda de áudio com o seu próprio recetor, numa thread à parte que usa no máximo um quarto de um núcleo: com sinais a mais fica com os mais fortes.',
   ],
-  'digi.band.spots': [
-    'Copia le stazioni trovate nel mio DX Cluster (solo su questo PC, non in rete)',
-    'Copy the stations found into my DX Cluster (this PC only, not on the network)',
-    'Gefundene Stationen in meinen DX-Cluster kopieren (nur auf diesem PC, nicht ins Netz)',
-    'Copier les stations trouvées dans mon DX Cluster (sur ce PC seulement, pas sur le réseau)',
-    'Copiar las estaciones encontradas en mi DX Cluster (solo en este PC, no en la red)',
-    'Copiar as estações encontradas para o meu DX Cluster (só neste PC, não na rede)',
-  ],
   'radar.localSpots': ['Nel mio Cluster', 'In my Cluster', 'In meinem Cluster', 'Dans mon Cluster', 'En mi Cluster', 'No meu Cluster'],
   'digi.band.spotsTip': [
     'Le stazioni che BIGScan trova compaiono anche nel pannello DX Cluster di Aurora, come se fossero spot, con la frequenza vera (serve la frequenza della radio). È solo un promemoria sul tuo PC: non vengono mandate a nessun cluster in rete. Per mandare uno spot vero: tasto destro su una stazione › Spot DX…',
@@ -196,14 +188,6 @@ export const digiBandStrings = {
   'digi.band.valNormal': ['Normale', 'Normal', 'Normal', 'Normale', 'Normal', 'Normal'],
   'digi.band.valStrict': ['Severa', 'Strict', 'Streng', 'Sévère', 'Estricta', 'Rigorosa'],
   'digi.band.valMaximum': ['Massima', 'Maximum', 'Maximal', 'Maximale', 'Máxima', 'Máxima'],
-  'digi.band.spotsCqOnly': [
-    'Spot locali solo di chi chiama CQ',
-    'Local spots only for stations calling CQ',
-    'Lokale Spots nur von Stationen, die CQ rufen',
-    'Spots locaux seulement des stations qui appellent CQ',
-    'Spots locales solo de quien llama CQ',
-    'Spots locais só de quem chama CQ',
-  ],
   'digi.band.clear': ['Pulisci', 'Clear', 'Leeren', 'Effacer', 'Limpiar', 'Limpar'],
   'digi.band.clearTip': [
     'Svuota l’elenco e lo storico dei segnali e toglie i nominativi dalla cascata: i segnali che ci sono ancora ricompaiono da soli.',
