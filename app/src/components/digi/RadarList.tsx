@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { clearDigiBand, getLogQsos } from '../../api/client';
+import { clearDigiBand, getClusterSpots, getDigi, getLogQsos } from '../../api/client';
 import { useT } from '../../i18n';
 import { clearBandSignals } from '../../lib/digiBand';
 import { ColumnsMenu, MovableColGroup, MovableTh, useMovableColumns } from '../MovableColumns';
@@ -12,6 +12,10 @@ import { buildLogIndex, contestStatus, logStatus, type ContestMark, type LogStat
 import { logWindowStart, qsoTimeMs } from '../../lib/logWindow';
 import { browserStorage } from '../../lib/theme';
 import { useContestLog } from '../../lib/useContestLog';
+import { spotBlocked } from '../../lib/spotPrefill';
+import { toast } from '../../lib/toast';
+import { PopupMenu } from '../PopupMenu';
+import { SpotDialog } from './SpotDialog';
 import '../../styles/digi-radar.css';
 
 interface Props {
@@ -99,6 +103,14 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
   }).data;
   const marks = useMemo(() => (inContest && valori ? new Map<string, ContestMark>(valori.valori.map((v) => [v.call, v])) : null), [inContest, valori]);
   const source = inContest ? t('radar.srcContest', { name: contest.nome ?? '' }) : from != null ? t('radar.srcLogFrom', { t: new Date(from).toISOString().slice(0, 16).replace('T', ' ') }) : t('radar.srcLog');
+  // menu del tasto destro su una riga: «Spot DX» (la finestra del DX Cluster gia' compilata) e «Copia nominativo»
+  const [menu, setMenu] = useState<{ x: number; y: number; s: RadarStation } | null>(null);
+  const [spot, setSpot] = useState<RadarStation | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  // la banda laterale e lo stato del cluster dalle stesse richieste della pagina e del pannello DX Cluster (nessuna richiesta in piu')
+  const lsb = useQuery({ queryKey: ['digi'], queryFn: getDigi, retry: false, enabled: menu !== null || spot !== null }).data?.rx.radio_lsb === true;
+  const cluster = useQuery({ queryKey: ['dx-cluster'], queryFn: () => getClusterSpots(), retry: false, enabled: menu !== null }).data;
+  const blocked = spotBlocked(cluster?.config.spot_via, cluster?.servers.filter((x) => x.state === 'connected').length ?? 0);
   const head: Record<RadarCol, string> = { call: t('radar.colCall'), freq: t('radar.colFreq'), wpm: 'WPM', snr: 'S/N', cq: 'CQ' };
   const cell = (c: RadarCol, s: RadarStation) => {
     switch (c) {
@@ -220,6 +232,10 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
                       onTune(s.freqHz);
                       onCall(s.call);
                     }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setMenu({ x: e.clientX, y: e.clientY, s });
+                    }}
                   >
                     {cols.visible.map((c) => cell(c, s))}
                   </tr>
@@ -231,6 +247,36 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
       </div>
       ) : null}
       <ColumnsMenu cols={cols} />
+      <PopupMenu at={menu} onClose={closeMenu} className="call-menu" width={220} height={90} label={menu?.s.call}>
+        {menu ? (
+          <>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={blocked}
+              title={blocked ? t('radar.spotOffTip') : t('radar.spotTip')}
+              onClick={() => {
+                setSpot(menu.s);
+                setMenu(null);
+              }}
+            >
+              {t('radar.spot')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const call = menu.s.call;
+                setMenu(null);
+                void navigator.clipboard?.writeText(call).then(() => toast(t('radar.copied', { call }), 'ok'), () => undefined);
+              }}
+            >
+              {t('radar.copyCall')}
+            </button>
+          </>
+        ) : null}
+      </PopupMenu>
+      {spot ? <SpotDialog call={spot.call} dialHz={dialHz} audioHz={spot.freqHz} modeName={modeName} lsb={lsb} khzDecimals={2} onClose={() => setSpot(null)} /> : null}
     </section>
   );
 }

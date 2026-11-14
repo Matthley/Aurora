@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getEngineSettings, postSpotDxsummit } from '../../api/client';
 import { useT } from '../../i18n';
+import { spotFreqKhz } from '../../lib/spotPrefill';
 import { toast } from '../../lib/toast';
 
 interface Props {
@@ -12,16 +13,20 @@ interface Props {
   audioHz: number;
   /** Il modo (PSK31, RTTY...) e' l'inizio del testo dello spot. */
   modeName: string;
+  /** La radio e' in LSB: il tono audio si sottrae. */
+  lsb?: boolean;
+  /** Decimali della frequenza in kHz (1 di base; l'elenco di BIGScan ne usa 2). */
+  khzDecimals?: number;
   onClose(): void;
 }
 
 /** La finestra «Invia spot»: nominativo, la propria stazione, frequenza in kHz e testo; parte verso DXSummit. */
-export function SpotDialog({ call, dialHz, audioHz, modeName, onClose }: Props) {
+export function SpotDialog({ call, dialHz, audioHz, modeName, lsb = false, khzDecimals = 1, onClose }: Props) {
   const t = useT();
   const engine = useQuery({ queryKey: ['engine-settings'], queryFn: getEngineSettings, retry: false, staleTime: 30_000 });
   const mine = engine.data?.values?.MyCall ?? '';
   const [dx, setDx] = useState(call);
-  const [khz, setKhz] = useState(dialHz > 0 ? ((dialHz + audioHz) / 1000).toFixed(1) : '');
+  const [khz, setKhz] = useState(() => spotFreqKhz(dialHz, audioHz, lsb, khzDecimals));
   const [info, setInfo] = useState(modeName);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
