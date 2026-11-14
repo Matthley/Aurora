@@ -18,6 +18,8 @@ pub const VERIFIED_SCORE: f32 = 1.5;
 /// Lo stesso per una forma insolita e per una sospetta.
 const VERIFIED_SCORE_UNUSUAL: f32 = 2.0;
 const VERIFIED_SCORE_SUSPICIOUS: f32 = 3.0;
+/// La probabilita' media dei caratteri perche' una sola lettura dopo CQ basti (vedi `HeardCall::first_read_is_enough`).
+const FIRST_READ_SCORE: f32 = 0.99;
 /// Silenzio (s) dopo cui il testo che arriva e' un'altra trasmissione: le parole di prima non danno piu' il ruolo (chi risponde a un CQ
 /// ripetendo il proprio nominativo non e' chi chiama).
 const PHRASE_GAP_S: f64 = 2.5;
@@ -89,10 +91,27 @@ pub struct HeardCall {
 impl HeardCall {
     pub fn verified(&self) -> bool {
         match self.shape {
-            Shape::Typical | Shape::Unknown => self.score >= VERIFIED_SCORE && self.count >= 2,
+            Shape::Typical | Shape::Unknown => (self.score >= VERIFIED_SCORE && self.count >= 2) || self.first_read_is_enough(),
             Shape::Unusual => self.score >= VERIFIED_SCORE_UNUSUAL && self.count >= 2,
             Shape::Suspicious => self.score >= VERIFIED_SCORE_SUSPICIOUS && self.count >= 3,
         }
+    }
+
+    /// Una sola lettura basta quando e' certa in ogni carattere (`FIRST_READ_SCORE`), dopo CQ, TEST o QRZ, e il nominativo ha la forma
+    /// piu' comune: prefisso di una o due lettere o cifre prima della cifra dell'area, senza `/`, da 4 a 6 caratteri. Sul banco BIGScan il
+    /// ritardo mediano scende da 8 a 5 s (la prima ricorrenza arriva un nominativo prima della seconda); i prefissi di tre lettere
+    /// («ICT7BJG» per CT7BJG) restano fuori.
+    fn first_read_is_enough(&self) -> bool {
+        let b = self.call.as_bytes();
+        let Some(area) = b.iter().rposition(u8::is_ascii_digit) else { return false };
+        self.count == 1
+            && self.cq_count == 1
+            && self.score >= FIRST_READ_SCORE
+            && (4..=6).contains(&b.len())
+            && !self.call.contains('/')
+            && (1..=2).contains(&area)
+            && b[area + 1..].iter().all(u8::is_ascii_uppercase)
+            && b[..area].iter().all(u8::is_ascii_alphanumeric)
     }
 
     /// Passa il livello di convalida, sapendo cosa dice `check` del nominativo.
@@ -597,6 +616,22 @@ mod tests {
         t.push(b"OK1XYZ 5NN 33 TU EC7YV QRZ ", &[], 170.0);
         let c = t.calls.get("EC7YY").cloned();
         assert!(c.as_ref().is_some_and(|c| c.role == Role::Cq && c.last_s == 170.0), "{c:?}");
+    }
+
+    /// Una sola lettura certa dopo CQ di un nominativo dalla forma comune basta; dopo DE, incerta o con un prefisso di tre lettere no.
+    #[test]
+    fn one_certain_read_after_cq_is_enough() {
+        let one = |text: &[u8], conf: &[u8], call: &str| {
+            let mut t = CallTracker::new();
+            t.push(text, conf, 1.0);
+            t.flush(2.0);
+            t.calls(Validation::Minimal, &|_| CallCheck::default()).into_iter().find(|c| c.call == call).is_some_and(|c| c.verified())
+        };
+        assert!(one(b"CQ TEST EC1RS ", &[], "EC1RS"));
+        assert!(!one(b"DE EC1RS ", &[], "EC1RS"));
+        assert!(!one(b"CQ TEST EC1RS ", &[255, 255, 0, 255, 255, 255, 255, 0, 255, 255, 200, 255, 255, 0], "EC1RS"));
+        assert!(!one(b"CQ ICT7BJG ", &[], "ICT7BJG"));
+        assert!(!one(b"CQ EA8/EC1RS ", &[], "EA8/EC1RS"));
     }
 
     #[test]
