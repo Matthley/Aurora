@@ -1472,6 +1472,26 @@ header.app-header .app-nav { flex: 1 1 auto; min-width: 0; display: flex; }
 .digi-dialog input, .digi-dialog select, .digi-dialog textarea { font: inherit; color: var(--text); background: var(--panel-raised); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.55rem; min-width: 0; }
 .digi-dialog input[type='color'] { padding: 0; width: 3rem; height: 2.1rem; }
 .digi-dialog footer { display: flex; gap: 0.6rem; align-items: center; }
+.mguide { width: min(64rem, calc(96vw / var(--ui-zoom, 1))); height: calc(90vh / var(--ui-zoom, 1)); overflow: hidden; }
+.mguide-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.mguide-intro { margin: 0; color: var(--text-muted); line-height: 1.5; }
+.mguide-search input { font-size: 1rem; }
+.mguide-toc { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font-size: 0.85rem; }
+.mguide-toc a { color: var(--accent, var(--text)); text-decoration: underline; text-underline-offset: 2px; }
+.mguide-body { flex: 1; min-height: 0; overflow: auto; padding-right: 0.4rem; }
+.mguide-body h3 { position: sticky; top: 0; margin: 0.8rem 0 0.4rem; padding: 0.3rem 0; background: inherit; background-color: var(--panel); font-size: 1rem; border-bottom: 1px solid var(--border); z-index: 1; }
+.mguide-body dl { margin: 0; display: grid; gap: 0.6rem; }
+.mguide-item { padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-raised); }
+.mguide-item dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; font-weight: 600; }
+.mguide-item dd { margin: 0.3rem 0 0; line-height: 1.5; }
+.mguide-item dd p { margin: 0.2rem 0; }
+.mguide-item code { font-family: ui-monospace, Consolas, monospace; font-size: 0.92em; }
+.mguide-alias code { margin-right: 0.35rem; font-weight: 400; }
+.mguide-ex { color: var(--text-muted); }
+.mguide-ex code { color: var(--text); background: var(--panel); padding: 0.05rem 0.35rem; border-radius: 5px; border: 1px solid var(--border); overflow-wrap: anywhere; }
+.mguide-badge { font-size: 0.75rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.mguide-item--off { opacity: 0.8; border-style: dashed; }
+.digi-classica .mguide-body h3 { background-color: #121e36; }
 .digi-dialog--small { width: min(26rem, calc(94vw / var(--ui-zoom, 1))); }
 /* UTC tagliata sul bordo destro: altri 5 px di margine (23 px) */
 .cluster-table td.cluster-utc, .cluster-table th:last-child { padding-right: 23px !important; }

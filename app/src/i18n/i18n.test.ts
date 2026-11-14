@@ -3,6 +3,7 @@ import { DEFAULT_LANG, LANGS, LANG_NAMES, TABLE_LANGS, detectLang, fill, isLang,
 import { firstLaunchLang, readLang, saveLang } from './lang';
 import { GUIDE } from './guide';
 import { NOVITA } from '../lib/novita';
+import { MACRO_COMMANDS, MACRO_EVENTS } from '../lib/macroCommands';
 import { STRINGS, keyForSystem, textOf, translate, type Key } from './index';
 import { NL_TEXTS } from './nl/texts';
 import { NL_UI } from './nl/ui';
@@ -146,6 +147,8 @@ describe('Dutch (separate dictionary, English fallback)', () => {
   const anon: Entry[] = [
     ...GUIDE.flatMap((c) => [c.title, ...c.sections.flatMap((s) => [s.title, s.text, s.tip, ...(s.steps ?? []), ...(s.fix ?? [])].filter((e): e is Entry => !!e))]),
     ...NOVITA.flatMap((n) => [n.title, n.text]),
+    ...MACRO_COMMANDS.flatMap((c) => (c.long ? [c.desc, c.long] : [c.desc])),
+    ...MACRO_EVENTS.map((e) => e.desc),
   ];
 
   it('has no orphan keys: every Dutch key exists in the base tables', () => {

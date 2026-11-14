@@ -26,6 +26,7 @@ export async function caricaModello() {
         `export { textKey } from ${src('i18n/core.ts')};`,
         `export { GUIDE } from ${src('i18n/guide.ts')};`,
         `export { NOVITA } from ${src('lib/novita.ts')};`,
+        `export { MACRO_COMMANDS, MACRO_EVENTS } from ${src('lib/macroCommands.ts')};`,
         `export { NL_UI } from ${src('i18n/nl/ui.ts')};`,
         `export { NL_TEXTS } from ${src('i18n/nl/texts.ts')};`,
         '',
@@ -56,6 +57,12 @@ export async function caricaModello() {
       aggiungi(n.title, 'news');
       aggiungi(n.text, 'news');
     }
+    // l'elenco dei comandi delle macro (editor e Guida alle macro)
+    for (const c of m.MACRO_COMMANDS) {
+      aggiungi(c.desc, 'macro');
+      aggiungi(c.long, 'macro');
+    }
+    for (const e of m.MACRO_EVENTS) aggiungi(e.desc, 'macro');
     return { ui, testi: [...testi.values()], nlUi: m.NL_UI, nlTesti: m.NL_TEXTS };
   } finally {
     rmSync(tmp, { recursive: true, force: true });

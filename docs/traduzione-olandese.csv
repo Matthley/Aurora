@@ -4466,6 +4466,34 @@ digi.run.noSpectrum,The waterfall has no data yet: turn listening on.,De waterva
 digi.run.memSaved,Settings saved to memory {n},Instellingen opgeslagen in geheugen {n}
 digi.run.memEmpty,Memory {n} is empty.,Geheugen {n} is leeg.
 digi.run.memLoaded,Settings recalled from memory {n},Instellingen opgeroepen uit geheugen {n}
+digi.mi.macroGuide,Macro guide,Macrogids
+digi.edit.guide,Macro guide…,Macrogids…
+mguide.title,Macro guide,Macrogids
+mguide.close,Close,Sluiten
+mguide.intro,"A macro is text with commands between < and > in capitals. Text commands become the data (callsign, report, time...); the others do something (transmit, change mode, turn the rotator...). Order and position matter: for example the text after <RX> is not sent.","Een macro is tekst met commando’s tussen < en > in hoofdletters. Tekstcommando’s worden de gegevens (roepnaam, rapport, tijd...); de andere doen iets (zenden, van mode wisselen, de rotor draaien...). Volgorde en plaats zijn belangrijk: de tekst na <RX> wordt bijvoorbeeld niet verzonden."
+mguide.search,Search a command,Zoek een commando
+mguide.toc,Categories,Categorieën
+mguide.example,Example:,Voorbeeld:
+mguide.notAvail,not available,niet beschikbaar
+mguide.none,No command found.,Geen commando gevonden.
+mguide.events,Event macros,Gebeurtenismacro’s
+mguide.eventsIntro,They are written like the other macros (pick the name in the edit window) and run by themselves when something happens.,Ze worden net als de andere macro’s geschreven (kies de naam in het bewerkvenster) en starten vanzelf wanneer er iets gebeurt.
+mguide.cat.data,Station and other station data,Station en gegevens van het andere station
+mguide.cat.time,"Time, date and greetings","Tijd, datum en groeten"
+mguide.cat.format,New lines and special characters,Nieuwe regels en speciale tekens
+mguide.cat.freq,Frequency and band,Frequentie en band
+mguide.cat.txrx,Transmit and receive,Zenden en ontvangen
+mguide.cat.windows,Windows and alerts,Vensters en meldingen
+mguide.cat.qso,"QSO, log and contest","QSO, log en contest"
+mguide.cat.mode,Mode and settings,Mode en instellingen
+mguide.cat.autocq,Auto CQ,Auto CQ
+mguide.cat.rotor,Rotator,Rotor
+mguide.cat.cat,CAT (radio commands),CAT (radiocommando’s)
+mguide.cat.files,Files and macro sets,Bestanden en macroreeksen
+mguide.cat.cw,CW,CW
+mguide.cat.rtty,RTTY,RTTY
+mguide.cat.sstv,SSTV,SSTV
+mguide.cat.hell,Hellschreiber,Hellschreiber
 xrx.dragTip,Drag to move the window,Sleep om het venster te verplaatsen
 xrx.afcTip,"AFC of this RX window: it follows its station if it drifts. It is its own, separate from the AFC in the bottom bar (which is for the main reception).","AFC van dit RX-venster: volgt zijn station als het verloopt. Alleen van dit venster, los van de AFC in de onderste balk (die voor de hoofdontvangst geldt)."
 xrx.close,Close this RX window,Dit RX-venster sluiten
@@ -6031,6 +6059,7 @@ t.22z33rx43xk,"[[digi.menu.configure]] › [[digi.mi.macrosMode]] and [[digi.mi.
 t.2012n4alzvz,[[digi.menu.configure]] › [[digi.mi.modeSettings]]: opens Settings on the “[[sw.pg.digiRxTx]]” page of the text modes.,[[digi.menu.configure]] › [[digi.mi.modeSettings]]: opent de Instellingen op de pagina “[[sw.pg.digiRxTx]]” van de tekstmodi.
 t.1i21bmmasc0,"[[digi.menu.configure]] › [[digi.mi.personal]]: opens [[nav.settings]] › [[sw.sec.station]] › [[sw.pg.personal]], where you write the name and QTH used by the macros (<MYNAME>, <MYQTH>).","[[digi.menu.configure]] › [[digi.mi.personal]]: opent [[nav.settings]] › [[sw.sec.station]] › [[sw.pg.personal]], waar je de naam en QTH invult die de macro’s gebruiken (<MYNAME>, <MYQTH>)."
 t.1moll0yjdy8,"[[digi.menu.help]] › [[digi.mi.guide]]: opens Aurora’s Guide (all of it, not just the part for this page).","[[digi.menu.help]] › [[digi.mi.guide]]: opent de Gids van Aurora (helemaal, niet alleen het deel voor deze pagina)."
+t.jmp1hikdw4,"[[digi.menu.help]] › [[digi.mi.macroGuide]]: all macro commands by category, with an explanation and an example, plus the event macros; the filter at the top finds a command or a word. It also opens from a macro’s edit window.","[[digi.menu.help]] › [[digi.mi.macroGuide]]: alle macrocommando’s per categorie, met uitleg en een voorbeeld, plus de gebeurtenismacro’s; het filter bovenaan zoekt een commando of een woord. Gaat ook open vanuit het bewerkingsvenster van een macro."
 t.4tr0ifeslh,The [[digi.menu.mode]] menu,Het menu [[digi.menu.mode]]
 t.1qnqcwyai3c,"Chooses the mode and, for RTTY and CW, also shows the items that mode needs. The mode changes immediately, without opening windows.","Kiest de modus en toont voor RTTY en CW ook de onderdelen die die modus nodig heeft. De modus verandert meteen, zonder vensters te openen."
 t.18qy5e38129,"PSK31, PSK63, RTTY, CW: the mode in use has the tick. A click changes it and saves it. Choosing RTTY does not open “[[digi.rtty.title]]”: that window opens with a click on the mode name in the status bar.","PSK31, PSK63, RTTY, CW: de modus die in gebruik is, heeft het vinkje. Een klik wijzigt en bewaart hem. RTTY kiezen opent “[[digi.rtty.title]]” niet: dat venster opent met een klik op de modusnaam in de statusbalk."
@@ -7183,3 +7212,127 @@ t.1sklcw8pdg1,DX Cluster and menus with solid background,DX Cluster en menu’s 
 t.z77fads81l,On the DX Cluster Comments cell only the comment is shown. The mode and frequency menus have a solid background: the tab underneath no longer shows through.,In de cel Opmerkingen van de DX Cluster verschijnt alleen de opmerking. De menu’s voor modus en frequentie hebben een volle achtergrond: het tabblad eronder schemert niet meer door.
 t.dredo7bbn0,Warning for a CI-V address written in hex,Waarschuwing bij een hexadecimaal geschreven CI-V-adres
 t.240ijs1xzhu,"If the CI-V address looks like it was typed in hex (88 instead of 136), a warning appears under the field with a button to fix it.","Lijkt het CI-V-adres hexadecimaal ingetypt (88 in plaats van 136), dan verschijnt onder het veld een waarschuwing met een knop om het te corrigeren."
+t.v68amzrc7k,your callsign,je roepnaam
+t.dw2fq6eg5o,"your callsign without /P, /M...","je roepnaam zonder /P, /M..."
+t.klukfbk9vr,your name,je naam
+t.ysn586xpkp,your QTH,je QTH
+t.s86lig4osg,your locator,je locator
+t.1737fh9mufn,callsign of the other station,roepnaam van het andere station
+t.rs67r0i0zb,name of the other operator,naam van de andere operator
+t.209rth7eacg,QTH of the other station,QTH van het andere station
+t.1ef66wv1lnh,locator of the other station,locator van het andere station
+t.24ubsy0p5ud,RST to send,te zenden RST
+t.20esz68pfos,RST received,ontvangen RST
+t.120y1x40a25,notes field,notitieveld
+t.qgrmd082oq,exchange to send (contest; empty = serial number),te zenden exchange (contest; leeg = volgnummer)
+t.2epnrn7gpk0,"The exchange to send in a contest. If the field is empty Aurora uses the serial number: last number sent + 1, padded with zeros to three digits (001). Digits are always sent in full (no cut numbers like T for 0).","De exchange die je in een contest zendt. Als het veld leeg is, gebruikt Aurora het volgnummer: laatst verzonden nummer + 1, aangevuld met nullen tot drie cijfers (001). Cijfers worden altijd voluit verzonden (geen afgekorte cijfers zoals T voor 0)."
+t.26hpradlxhm,exchange received (contest),ontvangen exchange (contest)
+t.1d90fof88c2,today’s date (UTC),de datum van vandaag (UTC)
+t.1b04t5kr1b0,UTC time,UTC-tijd
+t.khppj990m4,local time,lokale tijd
+t.8jcjdi8zod,QSO start time,starttijd van de QSO
+t.1r7zsrl00so,UTC time as HHMM,UTC-tijd als HHMM
+t.1cavkdunrom,"GM, GA or GE by the time","GM, GA of GE naargelang de tijd"
+t.7eymh5jsmn,"like <GA>, long phrase","zoals <GA>, lange zin"
+t.anpoqqly5o,radio frequency in kHz (<KHZ:n> for n decimals),radiofrequentie in kHz (<KHZ:n> voor n decimalen)
+t.1kqcoaidxlg,radio frequency in MHz (<MHZ:n>),radiofrequentie in MHz (<MHZ:n>)
+t.1ubvur66aan,band in use,gebruikte band
+t.eya2a8upm,mode in use,gebruikte mode
+t.1c25k5s2ln1,"contest serial number (001, goes up with every saved QSO)","contestvolgnummer (001, loopt op bij elke opgeslagen QSO)"
+t.e860cpeg0a,carriage return (CR),wagenterugloop (CR)
+t.17bfg2r6h06,line feed (LF),regelinvoer (LF)
+t.1b1seqaobfc,full new line (CR + LF),volledige nieuwe regel (CR + LF)
+t.x78j22hkr7,tab character,tabteken
+t.8s37mh88k,date of the last QSO with this callsign in the log (empty if none),datum van de laatste QSO met deze roepnaam in het log (leeg als er geen is)
+t.tjjcon5pbl,band of the last QSO with this callsign,band van de laatste QSO met deze roepnaam
+t.1keqpjlzqfg,mode of the last QSO with this callsign,mode van de laatste QSO met deze roepnaam
+t.1k3dj142bju,the text of a file in the macro texts folder,de tekst van een bestand in de map met macroteksten
+t.55v9dyyguu,The file is looked up in Aurora’s macro texts folder; if it is missing the command writes nothing.,"Het bestand wordt gezocht in de map met macroteksten van Aurora; als het ontbreekt, schrijft het commando niets."
+t.3mc6xxdy9h,the < and > signs in the text,de tekens < en > in de tekst
+t.z4ayw025rp,IMD of the received PSK signal: Aurora shows it in the status bar but the command writes nothing,"IMD van het ontvangen PSK-signaal: Aurora toont het in de statusbalk, maar het commando schrijft niets"
+t.2fr1stggnb7,program name,naam van het programma
+t.azanypqxaj,switches to transmit and sends the macro text (alone: the text in the box),schakelt naar zenden en verzendt de macrotekst (alleen: de tekst in het vak)
+t.174f5df1bu4,"The macro text (before any <RX>) goes out on the air. Without <RX> the transmission stays open after the text and what you type goes out at once; with <RX> it goes back to receive. <TX> alone sends what is in the box. If you are already transmitting, the text is queued. Aurora never opens an empty transmission.","De macrotekst (vóór een eventuele <RX>) gaat de ether in. Zonder <RX> blijft de uitzending na de tekst open en gaat wat je typt meteen de ether in; met <RX> keert hij terug naar ontvangst. <TX> alleen verzendt wat in het vak staat. Als je al zendt, komt de tekst in de wachtrij. Aurora opent nooit een lege uitzending."
+t.26zjnhes1kb,transmit when the signal on the receive frequency drops (after 30 s at most; Esc cancels),zend wanneer het signaal op de ontvangstfrequentie wegvalt (na maximaal 30 s; Esc annuleert)
+t.2f89aom91t7,"Like <TX>, but first waits for the signal on the receive frequency to drop (the other station has finished). After 30 seconds it transmits anyway; Esc cancels the wait.","Zoals <TX>, maar wacht eerst tot het signaal op de ontvangstfrequentie wegvalt (het andere station is klaar). Na 30 seconden zendt het toch; Esc annuleert het wachten."
+t.1k2qegqxdsm,toggles between transmit and receive (while sending: back to receive at the end of the text),schakelt tussen zenden en ontvangen (tijdens het zenden: terug naar ontvangst aan het einde van de tekst)
+t.5xjoj8hpia,back to receive when the transmission reaches this point; the text after it stays in the window unsent,terug naar ontvangst als de uitzending dit punt bereikt; de tekst erna blijft ongezonden in het venster staan
+t.1nswq13snr1,"<RX> is a mark inside the text: when the transmission reaches that point it goes back to receive. Text written after <RX> is not sent: it stays in the transmit window, ready for next time. If the macro does not transmit and you are not transmitting, <RX> does nothing.","<RX> is een markering in de tekst: wanneer de uitzending dat punt bereikt, keert hij terug naar ontvangst. Tekst die na <RX> staat, wordt niet verzonden: hij blijft in het zendvenster staan, klaar voor de volgende keer. Als de macro niet zendt en je zendt niet, doet <RX> niets."
+t.201ro5aqnk8,"like <RX> and, once back to receive, clears the transmit window","zoals <RX> en wist, eenmaal terug in ontvangst, het zendvenster"
+t.1h8qqruihtg,"Like <RX>, but once back to receive the transmit window is emptied: both the box and the text already sent. If the macro does not transmit, it clears at once.","Zoals <RX>, maar zodra hij terug is in ontvangst wordt het zendvenster leeggemaakt: zowel het vak als de al verzonden tekst. Als de macro niet zendt, wordt het meteen gewist."
+t.1ggvmutuiwd,same as <RXANDCLEAR>,hetzelfde als <RXANDCLEAR>
+t.1uxdk4bim11,back to receive when all text is sent,terug naar ontvangst als alle tekst is verzonden
+t.19o2m6xba2r,clears the receive window,wist het ontvangstvenster
+t.26jiqxihpxl,clears the transmit window (box and text already sent) up to this point: the text after it stays,wist het zendvenster (vak en al verzonden tekst) tot dit punt: de tekst erna blijft staan
+t.v4ooe4ha9m,Where you put it matters: at the start it clears the window and then the macro text goes in clean; after the text it erases it. After an <RX> it clears when back to receive.,"De plaats waar je het zet, is belangrijk: aan het begin wist het het venster en komt de macrotekst er schoon in; na de tekst wist het die. Na een <RX> wist het zodra hij terug is in ontvangst."
+t.or5m153g6w,clears the receive and transmit windows,wist het ontvangst- en het zendvenster
+t.114ay4x5tb8,clears the QSO data,wist de QSO-gegevens
+t.1gjcrn8sh45,fixes now as the QSO start time,legt nu de starttijd van de QSO vast
+t.183kqdzbm5l,saves the QSO to the log (put it before any clear command),slaat de QSO op in het log (zet het vóór een wisopdracht)
+t.t630ybzkk5,Saves the current QSO to the log with the data of that moment. Put it before <CLEARQSO>: commands run in the order you write them.,Slaat de huidige QSO met de gegevens van dat moment op in het log. Zet het vóór <CLEARQSO>: commando’s worden uitgevoerd in de volgorde waarin je ze schrijft.
+t.20lo1gtlb1z,"starts or stops the automatic CQ; followed by a text, that text becomes the call",start of stopt de automatische CQ; met een tekst erachter wordt die tekst de oproep
+t.cbjtca26gd,"Alone it turns Auto CQ on or off; it repeats the AutoCqText macro (or F2) with a pause between calls (<ACQDELAY>). If a text follows <AUTOCQ>, that text becomes the repeated call (its commands are filled in each round). Pressing Esc twice turns Auto CQ off.","Alleen zet het Auto CQ aan of uit; het herhaalt de macro AutoCqText (of F2) met een pauze tussen de oproepen (<ACQDELAY>). Als er een tekst op <AUTOCQ> volgt, wordt die tekst de herhaalde oproep (de commando’s erin worden elke ronde ingevuld). Tweemaal op Esc drukken zet Auto CQ uit."
+t.sw170yreto,tuning tone: Aurora does not send it in the text modes (use the radio’s Tune key),afstemtoon: Aurora zendt die niet in de tekstmodes (gebruik de Tune-toets van de radio)
+t.u5hzt9kzv3,sounds a beep,laat een piep horen
+t.luj63ut15z,puts the cursor in the transmit box,zet de cursor in het zendvak
+t.10xu13mdutk,loads another macro set: Aurora has no macro files (each mode’s macros are in Settings),laadt een andere macroreeks: Aurora heeft geen macrobestanden (de macro’s van elke mode staan in Instellingen)
+t.qjlcw3e78s,sets the audio frequency (relative with + or -),stelt de audiofrequentie in (relatief met + of -)
+t.1km1rflm8l5,seeks a signal to the left,zoekt een signaal links
+t.pyo1mnp5pp,seeks a signal to the right,zoekt een signaal rechts
+t.apbv0hgcb7,bookmark on the waterfall: Aurora has none,bladwijzer op de waterval: Aurora heeft er geen
+t.t14d56yhl0,"changes mode (PSK31, PSK63, RTTY)","wisselt van mode (PSK31, PSK63, RTTY)"
+t.mqly8on7zt,"speed: 31.25 or 62.5 for PSK, 45.45, 50, 75... for RTTY","snelheid: 31,25 of 62,5 voor PSK, 45,45, 50, 75... voor RTTY"
+t.1xorohm8ie0,RTTY shift in Hz,RTTY-shift in Hz
+t.1eex8320rxm,same as <AUTOCQ>,hetzelfde als <AUTOCQ>
+t.2fdp8n8suaz,shows a notice with the text,toont een melding met de tekst
+t.1i0o924p07w,pause between two automatic CQs (seconds),pauze tussen twee automatische CQ’s (seconden)
+t.jx4madgi9f,turns Auto CQ on; the text that follows becomes the call,zet Auto CQ aan; de tekst die volgt wordt de oproep
+t.1ld7rjrz10g,resumes a stopped Auto CQ,hervat een gestopte Auto CQ
+t.24t7zl4wmkm,"opens the edit window of a macro (F5, Ctrl-F5...)","opent het bewerkvenster van een macro (F5, Ctrl-F5...)"
+t.29t0pfnt5p,loads the macros of another mode,laadt de macro’s van een andere mode
+t.1v8f1a9v2n5,hides the text being sent,verbergt de tekst die wordt verzonden
+t.1fmht981kvz,shows the text being sent again,toont de tekst die wordt verzonden weer
+t.svf98j0j0w,tunes the radio so the signal falls on this frequency in kHz,stemt de radio af zodat het signaal op deze frequentie in kHz valt
+t.ntoh82q3sb,The frequency is that of the signal: Aurora moves the radio so the signal falls on the current receive audio frequency.,De frequentie is die van het signaal: Aurora verplaatst de radio zodat het signaal op de huidige audiofrequentie van de ontvangst valt.
+t.1t7vpdl0joq,split on (1) or off (0): the transmit stays put while you move the receive,split aan (1) of uit (0): de zending blijft staan terwijl je de ontvangst verplaatst
+t.an8b8danny,moves the receive to the transmit frequency,verplaatst de ontvangst naar de zendfrequentie
+t.y1gprkyrn9,aligns the receive frequency to a multiple of these Hz,zet de ontvangstfrequentie op een veelvoud van deze Hz
+t.h125id6qdt,sends a CAT command to the radio,stuurt een CAT-commando naar de radio
+t.1cecr7kle9d,"turns AFC on (<AFCOFF> off, <AFC> toggles)","zet AFC aan (<AFCOFF> uit, <AFC> schakelt om)"
+t.1sq7mehdjr3,"turns squelch on (<SQUELCHOFF>, <SQUELCH>)","zet Squelch aan (<SQUELCHOFF>, <SQUELCH>)"
+t.27mzrviv0ck,"turns Snap on (<SNAPOFF>, <SNAP>)","zet Snap aan (<SNAPOFF>, <SNAP>)"
+t.olfavqsm36,locks the transmit where it is (<UNLOCKTX> frees it),vergrendelt de zending waar hij staat (<UNLOCKTX> maakt hem weer vrij)
+t.23fi4rzrqrl,"log marks (BIGScan, outside a contest) ignore QSOs before this UTC date and time; <IGNOREBEFORE:ERASE> removes the limit","logmarkeringen (BIGScan, buiten een contest) negeren QSO’s vóór deze UTC-datum en -tijd; <IGNOREBEFORE:ERASE> haalt de limiet weg"
+t.1g44wj16mhh,"log marks (BIGScan, outside a contest) count only QSOs from the last n minutes; 0 = off","logmarkeringen (BIGScan, buiten een contest) tellen alleen QSO’s van de laatste n minuten; 0 = uit"
+t.1ff7qgfa11n,starts the band scan (<STOPSCAN> stops it),start de bandscan (<STOPSCAN> stopt hem)
+t.moeyfo6a1t,opens the mode settings,opent de instellingen van de mode
+t.fjxan632xo,opens the squelch threshold,opent de Squelch-drempel
+t.h0z8ifrqb1,saves the settings in memory n (<MEMR:n> reads it back),slaat de instellingen op in geheugen n (<MEMR:n> leest ze terug)
+t.9slrf1olb7,turns the rotator to that heading (0-359),draait de rotor naar die richting (0-359)
+t.7kkymswem,turns the rotator toward the QSO station by the short path,draait de rotor via het korte pad naar het QSO-station
+t.1dxim3zrssg,"The heading is worked out from your locator and the other station’s one in the current QSO; without either, Aurora says so and does not turn.","De richting wordt berekend uit je locator en die van het andere station in de huidige QSO; als een van beide ontbreekt, meldt Aurora dat en draait niet."
+t.q2ma1xpn9y,like <ROTOR:SP> but by the long path,"zoals <ROTOR:SP>, maar via het lange pad"
+t.24qhm06cvrb,sends the shift-to-letters code,zendt de code voor omschakelen naar letters
+t.1f8z00vjpik,sends the shift-to-figures code,zendt de code voor omschakelen naar cijfers
+t.1ii71iqy45x,loads a picture to send,laadt een afbeelding om te zenden
+t.1myhwncjy3,takes the picture from the clipboard,neemt de afbeelding van het klembord
+t.29hdns7t19q,chooses the font for the texts on the picture,kiest het lettertype voor de teksten op de afbeelding
+t.13skb336n8d,limits the scan lines sent,beperkt de verzonden beeldlijnen
+t.yniuia5lyx,"procedure signs: one sign in CW, the letters in other modes","procedureseinen: één teken in CW, de letters in andere modes"
+t.3tuxn5astp,"In CW each is a single sign, with no gap between the letters. In RTTY and PSK they go out as plain letters (AR, BT, KN, SK).","In CW is elk een enkel teken, zonder pauze tussen de letters. In RTTY en PSK gaan ze als gewone letters de ether in (AR, BT, KN, SK)."
+t.19fixrjj2fi,speed in words per minute (relative with + or -),snelheid in woorden per minuut (relatief met + of -)
+t.joqthngz1v,character table of the language,tekentabel van de taal
+t.wqnx31fuxu,sends a command to the Winkeyer,stuurt een commando naar de Winkeyer
+t.c1jjch1ma9,Hell receiver filter,filter van de Hell-ontvangst
+t.240d1cuh9p0,font of the Hell transmission,lettertype van de Hell-uitzending
+t.1ktvc6b4hgm,Hellschreiber submode,submode van Hellschreiber
+t.2ae4yd2gj6n,when the text-modes page opens,wanneer de pagina met tekstmodes opent
+t.u7c103azlj,when the page closes (going to another page or closing Aurora),wanneer de pagina sluit (naar een andere pagina gaan of Aurora afsluiten)
+t.12yb8biwyo9,when a transmission starts,wanneer een uitzending begint
+t.142z8c0bdpc,on Enter in the transmit box,bij Enter in het zendvak
+t.1yswkpjltnt,when a word from the receive window goes into a log field (double click or right-click menu),wanneer een woord uit het ontvangstvenster in een logveld komt (dubbelklik of rechtermuisknopmenu)
+t.s1pvhn78w3,with the + key of the numeric keypad,met de +-toets van het numerieke toetsenblok
+t.1ltexjmlf2l,"the text Auto CQ repeats (if missing, that of F2)","de tekst die Auto CQ herhaalt (als die ontbreekt, die van F2)"
+t.1epqhlm1ww,"alert on received text: Aurora has no such alert, the macro does not run","melding bij ontvangen tekst: Aurora heeft zo’n melding niet, de macro wordt niet uitgevoerd"
+t.1v11owa6bds,has no matching event in Aurora: the macro does not run,heeft geen overeenkomstige gebeurtenis in Aurora: de macro wordt niet uitgevoerd
+t.177p19t303g,"has no matching event in Aurora: you can open it with <EDITMACRO:Hello> to edit it, but it does not run by itself","heeft geen overeenkomstige gebeurtenis in Aurora: je kunt hem openen met <EDITMACRO:Hello> om hem te bewerken, maar hij start niet vanzelf"

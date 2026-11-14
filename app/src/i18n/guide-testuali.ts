@@ -189,6 +189,14 @@ export const GUIDE_TESTUALI: readonly GuideSection[] = [
         "[[digi.menu.help]] › [[digi.mi.guide]]: abre la Guía de Aurora (toda, no solo la parte de esta página).",
         "[[digi.menu.help]] › [[digi.mi.guide]]: abre o Guia do Aurora (todo, não só a parte desta página).",
       ],
+      [
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]]: tutti i comandi delle macro per categoria, con la spiegazione e un esempio, e le macro evento; il filtro in alto cerca un comando o una parola. Si apre anche dalla finestra di modifica di una macro.",
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]]: all macro commands by category, with an explanation and an example, plus the event macros; the filter at the top finds a command or a word. It also opens from a macro’s edit window.",
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]]: alle Makrobefehle nach Kategorie, mit Erklärung und Beispiel, dazu die Ereignismakros; der Filter oben findet einen Befehl oder ein Wort. Öffnet sich auch aus dem Bearbeitungsfenster eines Makros.",
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]] : toutes les commandes des macros par catégorie, avec une explication et un exemple, plus les macros d’événement ; le filtre en haut trouve une commande ou un mot. S’ouvre aussi depuis la fenêtre de modification d’une macro.",
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]]: todos los comandos de las macros por categoría, con explicación y ejemplo, y las macros de evento; el filtro de arriba busca un comando o una palabra. También se abre desde la ventana de edición de una macro.",
+        "[[digi.menu.help]] › [[digi.mi.macroGuide]]: todos os comandos das macros por categoria, com explicação e exemplo, e as macros de evento; o filtro em cima procura um comando ou uma palavra. Também abre a partir da janela de edição de uma macro.",
+      ],
     ],
   },
   {

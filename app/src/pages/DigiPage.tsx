@@ -24,6 +24,7 @@ import { clearExtraText, getExtraText, onExtraText } from '../lib/digiBus';
 import { takePendingSpot, textModeOfSpot } from '../lib/spotMode';
 import { getBandMode, getBandSignals, onBandSignals, cqCallOf, radarColor, radarStations, waterfallLabels } from '../lib/digiBand';
 import { MacroEditor } from '../components/digi/MacroEditor';
+import { MacroGuide } from '../components/digi/MacroGuide';
 import { digiWithDefaults as withDefaults, editMacros, type MacroScope } from '../lib/digiMacroEdit';
 import { MenuBar, type MenuDef } from '../components/digi/MenuBar';
 import { CW_BANDWIDTHS, CW_WIDE_HZ, ModeSettings, RTTY_BAUDS, RTTY_SHIFTS, roundBaud, withCurrent } from '../components/digi/ModeSettings';
@@ -217,6 +218,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const [problem, setProblem] = useState('');
   const [editing, setEditing] = useState<{ name: string; scope: MacroScope } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // la «Guida alle macro» (menu Aiuto)
+  const [macroGuide, setMacroGuide] = useState(false);
   // la finestra «Impostazioni RTTY» (clic sul modo nella barra in basso o sulla voce RTTY del menu Modo)
   const [rttyOpen, setRttyOpen] = useState(false);
   const [autoCq, setAutoCq] = useState(false);
@@ -1054,7 +1057,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // i tasti F1-F12 con Ctrl e Shift, il «+» del tastierino (macro Gray+), Pausa (RX/TX) e Esc che ferma la trasmissione
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (editing !== null || settingsOpen || rttyOpen) return;
+      if (editing !== null || settingsOpen || rttyOpen || macroGuide) return;
       if (e.key === 'Escape') {
         // Esc una volta ferma la trasmissione; due volte di seguito (entro mezzo secondo) spegne anche il CQ automatico (scelta del
         // proprietario: non resta in pausa, per ripartire si ripreme Auto CQ)
@@ -1314,7 +1317,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     },
     {
       label: t('digi.menu.help'),
-      items: [{ label: t('digi.mi.guide'), onSelect: () => { location.hash = '#/guida'; } }],
+      items: [
+        { label: t('digi.mi.guide'), onSelect: () => { location.hash = '#/guida'; } },
+        { label: t('digi.mi.macroGuide'), onSelect: () => setMacroGuide(true) },
+      ],
     },
   ];
 
@@ -1628,6 +1634,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         <MacroEditor key={editing.name} macro={editedMacro} modeName={MODE_NAMES[s.mode]} scope={editing.scope} onSave={saveMacro} onCancel={() => setEditing(null)} />
       ) : null}
 
+      {macroGuide ? <MacroGuide onClose={() => setMacroGuide(false)} /> : null}
       {wordMenu ? <RxWordMenu at={wordMenu} onPick={pickWord} onClose={() => setWordMenu(null)} /> : null}
       {rttyOpen ? <RttySettingsDialog settings={s} onApply={save} onClose={() => setRttyOpen(false)} /> : null}
       {extras.map((x, i) => (

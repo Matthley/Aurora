@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
-import { TABLE_LANGS, useLang, useT } from '../../i18n';
+import { useLang, useT } from '../../i18n';
+import { pick } from '../../i18n/core';
 import { commandsOf, type CommandGroup } from '../../lib/macroCommands';
 import { EVENT_MACROS, keyNames, cssColor, type Macro } from '../../lib/macroLang';
+import { MacroGuide } from './MacroGuide';
 
 import type { MacroScope } from '../../lib/digiMacroEdit';
 export type { MacroScope };
@@ -31,8 +33,7 @@ export function MacroEditor({ macro, modeName, scope, onSave, onCancel }: Props)
   const [group, setGroup] = useState<CommandGroup | ''>('');
   const [picked, setPicked] = useState('');
   const [where, setWhere] = useState<MacroScope>(scope);
-  // l'olandese non ha una colonna nelle tabelle dei comandi: si usa l'inglese
-  const idx = lang === 'nl' ? 1 : Math.max(0, TABLE_LANGS.indexOf(lang));
+  const [guide, setGuide] = useState(false);
   const commands = commandsOf(group);
 
   const insert = () => {
@@ -101,7 +102,7 @@ export function MacroEditor({ macro, modeName, scope, onSave, onCancel }: Props)
               {commands.map((c) => (
                 <li key={c.tag}>
                   <button type="button" role="option" aria-selected={picked === c.tag} className={picked === c.tag ? 'on' : ''} onClick={() => setPicked(c.tag)} onDoubleClick={() => { setPicked(c.tag); window.setTimeout(insert, 0); }}>
-                    <b>{c.tag}</b> — {c.desc[idx]}{c.soon ? ` (${t('digi.edit.soon')})` : ''}
+                    <b>{c.tag}</b> — {pick(c.desc, lang)}{c.soon ? ` (${t('digi.edit.soon')})` : ''}
                   </button>
                 </li>
               ))}
@@ -115,6 +116,9 @@ export function MacroEditor({ macro, modeName, scope, onSave, onCancel }: Props)
           <button type="button" className="glass sstv-btn" onClick={() => { setLabel(''); setText(''); setColor(null); }}>
             {t('digi.edit.clear')}
           </button>
+          <button type="button" className="glass sstv-btn" onClick={() => setGuide(true)}>
+            {t('digi.edit.guide')}
+          </button>
           <span style={{ flex: 1 }} />
           <button type="button" className="glass sstv-btn" onClick={onCancel}>
             {t('digi.edit.cancel')}
@@ -124,6 +128,7 @@ export function MacroEditor({ macro, modeName, scope, onSave, onCancel }: Props)
           </button>
         </footer>
       </div>
+      {guide ? <MacroGuide onClose={() => setGuide(false)} /> : null}
     </div>
   );
 }
