@@ -100,8 +100,8 @@ pub struct Timing {
 }
 
 /// Lettura veloce della frequenza mentre la sintonia si muove, e a riposo (seriali veloci, rete, USB).
-pub const FREQ_FAST: Duration = Duration::from_millis(200);
-pub const FREQ_IDLE: Duration = Duration::from_millis(400);
+pub const FREQ_FAST: Duration = Duration::from_millis(160);
+pub const FREQ_IDLE: Duration = Duration::from_millis(300);
 /// Le stesse sulle seriali lente (9600 baud o meno): meno domande, per lasciare spazio al PTT.
 pub const FREQ_FAST_SLOW_PORT: Duration = Duration::from_millis(300);
 pub const FREQ_IDLE_SLOW_PORT: Duration = Duration::from_millis(700);
