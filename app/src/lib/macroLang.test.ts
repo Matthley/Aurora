@@ -154,7 +154,7 @@ describe('tasti e insiemi', () => {
 
   it('il nome della macro da un tasto premuto', () => {
     expect(macroNameForKey({ key: 'F5', ctrlKey: false, shiftKey: false })).toBe('F5');
-    expect(macroNameForKey({ key: 'F12', ctrlKey: true, shiftKey: true })).toBe('Ctrl-Shift-F12');
+    expect(macroNameForKey({ key: 'F12', ctrlKey: true, shiftKey: true })).toBeNull();
     expect(macroNameForKey({ key: 'a', ctrlKey: false, shiftKey: false })).toBeNull();
     expect(macroNameForKey({ key: 'F13', ctrlKey: false, shiftKey: false })).toBeNull();
   });

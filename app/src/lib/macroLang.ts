@@ -333,8 +333,9 @@ export const EVENT_MACROS = ['OnStart', 'OnEnd', 'OnTX', 'OnCR', 'OnClickAny', '
 /** Il nome della macro per un tasto premuto (`F5` con i modificatori), o `null` se non e' un tasto di funzione. */
 export function macroNameForKey(e: { key: string; ctrlKey: boolean; shiftKey: boolean }): string | null {
   const m = /^F([1-9]|1[0-2])$/.exec(e.key);
-  if (!m) return null;
-  return `${e.ctrlKey ? 'Ctrl-' : ''}${e.shiftKey ? 'Shift-' : ''}F${m[1]}`;
+  // solo F1-F12 senza modificatori: Ctrl e Shift non sono assegnati (le macro delle altre righe si usano col clic)
+  if (!m || e.ctrlKey || e.shiftKey) return null;
+  return `F${m[1]}`;
 }
 
 export interface Macro {

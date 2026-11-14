@@ -1,7 +1,6 @@
 import { useT } from '../../i18n';
 import { cssColor, MACRO_ROWS, type Macro } from '../../lib/macroLang';
 
-const ROW_LABELS = ['', 'Ctrl', 'Shift', 'Ctrl+Shift'] as const;
 
 interface Props {
   macros: ReadonlyMap<string, Macro>;
@@ -34,10 +33,10 @@ const isAutoCqMacro = (text: string) => /<\s*(AUTOCQ|ACQ)\s*>/i.test(text);
  */
 export function ControlBar({ macros, extended, disabled = false, onToggleExtended, onRun, onEdit, autoCq = 'off' }: Props) {
   const t = useT();
-  // una sola riga, F1-F12: le righe Ctrl, Shift e Ctrl+Shift non servono (proprietario, 2026-11-14)
+  // le 4 righe di macro restano tutte visibili; solo la prima ha i tasti F1-F12, le altre si usano col clic (proprietario, 2026-11-14)
   void extended;
   void onToggleExtended;
-  const rows = [0];
+  const rows = [0, 1, 2, 3];
 
   return (
     <div className="digi-bar-keys" role="toolbar" aria-label={t('digi.bar.title')}>
@@ -73,11 +72,10 @@ export function ControlBar({ macros, extended, disabled = false, onToggleExtende
                   }}
                 >
                   <span className="digi-key-label">{blank ? '' : macro?.label}</span>
-                  <span className="digi-key-hint" aria-hidden="true">{shortKey(name)}</span>
+                  {r === 0 ? <span className="digi-key-hint" aria-hidden="true">{shortKey(name)}</span> : null}
                 </button>
               );
             })}
-            <span className="digi-keyrow-label">{ROW_LABELS[r]}</span>
           </div>
         ))}
       </div>
