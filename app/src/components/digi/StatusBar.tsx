@@ -57,6 +57,10 @@ interface Props {
   modeName: string;
   /** Clic sul nome del modo (in RTTY: la finestra «Impostazioni RTTY»); senza, il nome non si clicca. */
   onModeClick?(): void;
+  /** I modi della pagina: un clic sul nome del modo in fondo alla barra apre la tendina per cambiarlo. */
+  modes?: { id: string; name: string }[];
+  modeId?: string;
+  onPickMode?(id: string): void;
   /** Il contest dei modi testuali attivo (menu Contest): il nome nella barra, un clic apre l'elenco dei contest. */
   contestName?: string | null;
   onContestClick?(): void;
@@ -94,6 +98,9 @@ export function DigiStatusBar(p: Props) {
   // il menu del tasto destro (su qualunque casella della barra)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  // la tendina dei modi (clic sul nome del modo): i modi, poi le impostazioni del modo
+  const [modeMenu, setModeMenu] = useState<{ x: number; y: number } | null>(null);
+  const closeModeMenu = useCallback(() => setModeMenu(null), []);
   const item = (label: string, checked: boolean | null, run: () => void) => (
     <button
       type="button"
@@ -239,7 +246,53 @@ export function DigiStatusBar(p: Props) {
           {t('ctest.status', { name: p.contestName })}
         </button>
       ) : null}
-      {p.onModeClick ? (
+      {p.modes && p.onPickMode ? (
+        <>
+          <button
+            type="button"
+            className="digi-st"
+            title={t('digi.menu.mode')}
+            aria-haspopup="menu"
+            aria-expanded={modeMenu !== null}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setModeMenu(modeMenu ? null : { x: r.left, y: r.top - Math.min(400, 32 * (p.modes?.length ?? 0) + 60) });
+            }}
+          >
+            {p.modeName}
+          </button>
+          <PopupMenu at={modeMenu} onClose={closeModeMenu} className="call-menu digi-st-menu" width={230} height={400} label={t('digi.menu.mode')}>
+            {p.modes.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={m.id === p.modeId}
+                onClick={() => {
+                  setModeMenu(null);
+                  if (m.id !== p.modeId) p.onPickMode?.(m.id);
+                }}
+              >
+                <span className="digi-st-menu-check">{m.id === p.modeId ? '✓' : ''}</span>
+                {m.name}
+              </button>
+            ))}
+            <hr className="digi-st-menu-sep" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setModeMenu(null);
+                if (p.onModeClick) p.onModeClick();
+                else p.onModeSettings();
+              }}
+            >
+              <span className="digi-st-menu-check" />
+              {t('digi.st.modeSettings')}
+            </button>
+          </PopupMenu>
+        </>
+      ) : p.onModeClick ? (
         <button type="button" className="digi-st" title={t('digi.rtty.title')} onClick={p.onModeClick}>
           {p.modeName}
         </button>

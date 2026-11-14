@@ -1647,6 +1647,7 @@ export const NL_UI: Record<string, string> = {
   "digi.st.measures": "Signaalmetingen: S/R (in PSK zoals fldigi, in CW in 3 kHz), IMD van PSK (tijdens de faseomkeringen in rust; onder -20 dB is goed) en de herkende snelheid in CW",
   "digi.st.menu": "Opties van de balk",
   "digi.st.modeData": "Snelheid en shift: klik voor de modusinstellingen",
+  "digi.st.modeSettings": "Modusinstellingen…",
   "digi.st.passband": "BPF: smal banddoorlaatfilter rond de ontvangstfrequentie, alleen voor de decoder. Het verwijdert stations in de buurt; de breedte hangt af van de mode. De AFC blijft binnen de band.",
   "digi.st.snap": "Snap: een klik op de waterval gaat naar het juiste afstempunt van het signaal",
   "digi.st.squelch": "Squelch: alleen signalen boven de drempel worden afgedrukt (rechtsklik: drempel). “Sq *” = het signaal ligt erboven",

@@ -1737,6 +1737,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx } : undefined}
           modeName={MODE_NAMES[s.mode]}
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
+          modes={snap.modes.map((m) => ({ id: m.id, name: m.name }))}
+          modeId={s.mode}
+          onPickMode={(id) => save({ mode: id as DigiSettings['mode'] })}
           contestName={textContest ? (textScore ? `${textContest.contest.name} · ${textScore.qso} QSO · ${textScore.punteggio}` : textContest.contest.name) : null}
           onContestClick={() => setContestList(true)}
           onToggleTx={() => {
