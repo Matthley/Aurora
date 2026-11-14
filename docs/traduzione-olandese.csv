@@ -7385,3 +7385,101 @@ t.1epqhlm1ww,"alert on received text: Aurora has no such alert, the macro does n
 t.1v11owa6bds,has no matching event in Aurora: the macro does not run,heeft geen overeenkomstige gebeurtenis in Aurora: de macro wordt niet uitgevoerd
 t.177p19t303g,"has no matching event in Aurora: you can open it with <EDITMACRO:Hello> to edit it, but it does not run by itself","heeft geen overeenkomstige gebeurtenis in Aurora: je kunt hem openen met <EDITMACRO:Hello> om hem te bewerken, maar hij start niet vanzelf"
 t.193bvbjoaez,"In the bottom-right corner of each button its key is shown, small: “F1”, “C-F1” (Ctrl), “S-F1” (Shift), “CS-F1” (Ctrl+Shift). If you press a macro while another one (or the same one) is transmitting, the previous one stops and the new one starts again from the beginning, without dropping PTT: text already sent stays, text not yet sent is discarded. This applies at every press: the last one always wins, and only its “<RX>” and “<RXANDCLEAR>” commands decide when to go back to receive and clear the window. Esc stops everything.","Rechtsonder op elke knop staat klein de bijbehorende toets: “F1”, “C-F1” (Ctrl), “S-F1” (Shift), “CS-F1” (Ctrl+Shift). Druk je op een macro terwijl een andere (of dezelfde) aan het zenden is, dan stopt de vorige en begint de nieuwe opnieuw vanaf het begin, zonder de PTT los te laten: tekst die al verzonden is blijft, tekst die nog niet verzonden is vervalt. Dat geldt bij elke druk: de laatste wint altijd, en alleen haar commando’s “<RX>” en “<RXANDCLEAR>” bepalen wanneer naar ontvangst wordt teruggeschakeld en het venster wordt gewist. Esc stopt alles."
+ctest.viewMenu,Contest menu,Contestmenu
+ctest.viewMenuTip,"Shows the Contest menu in the bar, with the list of text-mode contests","Toont in de balk het Contestmenu, met de lijst van de contests van de tekstmodi"
+ctest.menu,Contest,Contest
+ctest.list,List of contests…,Lijst van contests…
+ctest.editActive,Edit active contest…,Actieve contest bewerken…
+ctest.none,No contest,Geen contest
+ctest.infoActive,Active: {name},Actief: {name}
+ctest.infoNone,No active contest,Geen actieve contest
+ctest.infoWindow,Window: {from} – {to} UTC,Venster: {from} – {to} UTC
+ctest.infoNoWindow,No date window: all QSOs count,Geen datumvenster: alle QSO’s tellen mee
+ctest.infoSerial,Number to send: {nrs},Te verzenden nummer: {nrs}
+ctest.infoMacros,Contest macros: {n},Contestmacro’s: {n}
+ctest.status,Contest: {name},Contest: {name}
+ctest.statusTip,Active text-mode contest: click for the list of contests,Contest van de tekstmodi actief: klik voor de lijst van contests
+ctest.listTitle,List of contests,Lijst van contests
+ctest.colActive,Active,Actief
+ctest.colName,Name,Naam
+ctest.colNotes,Notes,Notities
+ctest.edit,Edit…,Bewerken…
+ctest.delete,Delete,Verwijderen
+ctest.add,Add new…,Toevoegen…
+ctest.select,Select,Selecteren
+ctest.close,Close,Sluiten
+ctest.loading,Loading…,Laden…
+ctest.deleteConfirm,Delete the contest “{name}”? Its file is removed (the macros stay).,De contest “{name}” verwijderen? Het bestand wordt gewist (de macro’s blijven).
+ctest.selected,Active contest: {name},Actieve contest: {name}
+ctest.deselected,No active contest,Geen actieve contest
+ctest.saved,Contest saved,Contest opgeslagen
+ctest.deleted,Contest deleted,Contest verwijderd
+ctest.error,Contest: {why},Contest: {why}
+ctest.editTitle,Edit contest: {name},Contest bewerken: {name}
+ctest.newTitle,New contest,Nieuwe contest
+ctest.g.general,General,Algemeen
+ctest.g.serial,Serial number,Volgnummer
+ctest.g.validity,Validity,Geldigheid
+ctest.g.points,Points,Punten
+ctest.g.mult,Multipliers per band,Multipliers per band
+ctest.g.macros,Macros,Macro’s
+ctest.g.grab,Auto-grab,Automatisch overnemen
+ctest.g.suggest,Suggestions,Suggesties
+ctest.g.dupes,Dupes,Dubbele QSO’s
+ctest.f.name,Name,Naam
+ctest.f.notes,Notes,Notities
+ctest.f.start,Start (UTC),Begin (UTC)
+ctest.f.end,End (UTC),Einde (UTC)
+ctest.f.workTime,Working hours,Werkuren
+ctest.f.nrs,Number to send,Te verzenden nummer
+ctest.f.autoInc,Auto-increment,Automatisch ophogen
+ctest.f.validContacts,Valid contact type,Type geldige contacten
+ctest.f.validCw,CW,CW
+ctest.f.validPhone,Phone,Fonie
+ctest.f.validDigital,"Digital (RTTY, PSK…)","Digitaal (RTTY, PSK…)"
+ctest.f.pointsMyDxcc,Same country,Zelfde land
+ctest.f.pointsMyCont,Same continent,Zelfde continent
+ctest.f.pointsDx,Other continents,Andere continenten
+ctest.f.multipliers,Multiplier type,Type multipliers
+ctest.f.multOption,Multiplier option,Optie van de multipliers
+ctest.f.bandMult,Multipliers per band,Multipliers per band
+ctest.f.band,{band} m,{band} m
+ctest.f.weight,Weight,Gewicht
+ctest.f.macros,Macro file,Macrobestand
+ctest.f.macrosNone,(none),(geen)
+ctest.f.merge,Merge with the mode macros,Samenvoegen met de macro’s van de modus
+ctest.f.grabNumber,Grab the received number,Ontvangen nummer overnemen
+ctest.f.grabNumberType,Number type,Type nummer
+ctest.f.grabTime,Grab the time,Tijd overnemen
+ctest.f.grabState,"Grab the domain (province, state, zone)","Domein overnemen (provincie, staat, zone)"
+ctest.f.domain,Domain list,Lijst van domeinen
+ctest.f.grabDomainTo,Domain field,Veld van het domein
+ctest.f.sCq,CQ zone,CQ-zone
+ctest.f.sItu,ITU zone,ITU-zone
+ctest.f.sDomain,Domain,Domein
+ctest.f.sDxcc,DXCC prefix,DXCC-prefix
+ctest.f.noBand,Dupe on any band,Dubbel ook op een andere band
+ctest.f.noMode,Dupe in any mode,Dubbel ook in een andere modus
+ctest.f.logBar,Log bar view,Weergave van de logbalk
+ctest.tip.dates,Start and end of the contest in UTC. QSOs outside this window are never dupes. The dates repeat every year: day and time count; empty = no limit.,Begin en einde van de contest in UTC. QSO’s buiten dit venster zijn nooit dubbel. De data gelden elk jaar: dag en tijd tellen; leeg = geen limiet.
+ctest.tip.workTime,Operating hours allowed by the rules (0 = no limit). Reminder only.,Door het reglement toegestane werkuren (0 = geen limiet). Alleen als geheugensteun.
+ctest.tip.nrs,"With auto-increment it is the first number (001 if empty); without, it is the fixed exchange sent by <NRS> (zone, province…).","Met automatisch ophogen is dit het eerste nummer (001 als het leeg is); zonder is het de vaste uitwisseling die met <NRS> wordt verzonden (zone, provincie…)."
+ctest.tip.autoInc,The serial number goes up by one at every saved QSO.,Het volgnummer gaat bij elk opgeslagen QSO met één omhoog.
+ctest.tip.valid,The mode categories that count. None ticked = all. QSOs in categories that do not count are never dupes.,De modus-categorieën die meetellen. Niets aangevinkt = alle. QSO’s in categorieën die niet meetellen zijn nooit dubbel.
+ctest.tip.stored,Kept in the contest file; Aurora does not use it for the score.,Bewaard in het contestbestand; Aurora gebruikt het niet voor de score.
+ctest.tip.macros,The contest macros (folder contest/macros). They replace the mode macros on the same key.,De macro’s van de contest (map contest/macros). Ze vervangen de macro’s van de modus op dezelfde toets.
+ctest.tip.merge,On: the mode macros stay on the keys the contest does not use. Off: contest macros only.,Aan: de macro’s van de modus blijven op de toetsen die de contest niet gebruikt. Uit: alleen de contestmacro’s.
+ctest.tip.grabNumber,"The number after the QSO callsign in the received text goes by itself into the received-number field, if it is empty.","Het nummer na de call van het QSO in de ontvangen tekst gaat vanzelf in het veld van het ontvangen nummer, als dat leeg is."
+ctest.tip.grabState,"A received word found in the domain list goes by itself into the received-number field, if it is empty.","Een ontvangen woord dat in de lijst van domeinen staat, gaat vanzelf in het veld van het ontvangen nummer, als dat leeg is."
+ctest.tip.domain,"The list of provinces, states or zones (folder contest/dom).","De lijst van provincies, staten of zones (map contest/dom)."
+ctest.tip.noBand,On: the same callsign is a dupe on any band.,Aan: dezelfde call is dubbel op elke band.
+ctest.tip.noMode,On: the same callsign is a dupe in any mode.,Aan: dezelfde call is dubbel in elke modus.
+ctest.grabbed,Received: {v},Ontvangen: {v}
+t.mc68o27nij,The [[ctest.menu]] menu: list of contests,Het menu [[ctest.menu]]: lijst van contests
+t.154od1gp8rq,"From [[digi.menu.view]] › [[ctest.viewMenu]] the [[ctest.menu]] menu appears in the bar. Each contest is a .contest file in the contest folder of Aurora’s data, with its macros (contest/macros) and the lists of provinces, states and zones (contest/dom). On first start Aurora copies more than a hundred ready-made contests, never touching the files you changed. Only one contest is active at a time.","Via [[digi.menu.view]] › [[ctest.viewMenu]] verschijnt het menu [[ctest.menu]] in de balk. Elke contest is een .contest-bestand in de map contest van de gegevens van Aurora, met zijn macro’s (contest/macros) en de lijsten van provincies, staten en zones (contest/dom). Bij de eerste start kopieert Aurora meer dan honderd kant-en-klare contests, zonder ooit de bestanden aan te raken die je hebt aangepast. Er is steeds maar één contest actief."
+t.qqyot9uta8,Points and multipliers in the file are kept but do not make a score: for live scoring and Cabrillo of FT8/FT4 contests there is the Contest page.,"Punten en multipliers in het bestand blijven bewaard, maar geven geen score: voor de live score en het Cabrillo van FT8/FT4-contests is er de pagina Contest."
+t.cy7o3g6rny,"[[ctest.list]] opens the window with the columns [[ctest.colActive]] (the arrow marks the active one), [[ctest.colName]] and [[ctest.colNotes]]. The first row is [[ctest.none]]. Buttons: [[ctest.edit]], [[ctest.delete]] (asks for confirmation), [[ctest.add]], [[ctest.select]] (a double click does the same) and [[ctest.close]].","[[ctest.list]] opent het venster met de kolommen [[ctest.colActive]] (de pijl markeert de actieve), [[ctest.colName]] en [[ctest.colNotes]]. De eerste rij is [[ctest.none]]. Knoppen: [[ctest.edit]], [[ctest.delete]] (vraagt om bevestiging), [[ctest.add]], [[ctest.select]] (een dubbelklik doet hetzelfde) en [[ctest.close]]."
+t.16eq7feuf8f,"[[ctest.editActive]] opens the edit window, split into groups: [[ctest.g.general]], [[ctest.g.serial]], [[ctest.g.validity]], [[ctest.g.points]], [[ctest.g.mult]], [[ctest.g.macros]], [[ctest.g.grab]], [[ctest.g.suggest]], [[ctest.g.dupes]]. Hovering over a field shows its explanation.","[[ctest.editActive]] opent het bewerkvenster, verdeeld in groepen: [[ctest.g.general]], [[ctest.g.serial]], [[ctest.g.validity]], [[ctest.g.points]], [[ctest.g.mult]], [[ctest.g.macros]], [[ctest.g.grab]], [[ctest.g.suggest]], [[ctest.g.dupes]]. Als je met de muis boven een veld blijft hangen, verschijnt de uitleg."
+t.auxh30u8dj,"With an active contest, the DUPE marks of Aurora BIGScan only count the log QSOs inside the contest date window (the dates repeat every year), following [[ctest.f.noBand]] and [[ctest.f.noMode]] and only for the valid categories (CW, phone, digital). The status bar shows “Contest: name”: a click opens the list again.","Bij een actieve contest tellen de DUPE-markeringen van Aurora BIGScan alleen de QSO’s van het log binnen het datumvenster van de contest (de data gelden elk jaar), volgens de regels [[ctest.f.noBand]] en [[ctest.f.noMode]] en alleen voor de geldige categorieën (CW, fonie, digitaal). De statusbalk toont “Contest: naam”: een klik opent de lijst opnieuw."
+t.hy4p38bf71,"The number to send (<QSONR>, <NRS>): with [[ctest.f.autoInc]], selecting the contest restarts the serial from the number written (001 if empty) and it goes up at every saved QSO; without it, <NRS> always sends the fixed exchange (zone, province).","Het te verzenden nummer (<QSONR>, <NRS>): met [[ctest.f.autoInc]] begint het volgnummer bij het kiezen van de contest opnieuw bij het ingevulde nummer (001 als het leeg is) en gaat het bij elk opgeslagen QSO omhoog; zonder verzendt <NRS> altijd de vaste uitwisseling (zone, provincie)."
+t.20ae4rzhupk,"The contest macros take the place of the mode macros on the same keys; with [[ctest.f.merge]] the other mode macros stay. With [[ctest.f.grabNumber]] and [[ctest.f.grabState]] the number or domain received after the callsign goes by itself into the received number, if it is empty.","De macro’s van de contest nemen de plaats in van die van de modus op dezelfde toetsen; met [[ctest.f.merge]] blijven de andere macro’s van de modus staan. Met [[ctest.f.grabNumber]] en [[ctest.f.grabState]] gaat het nummer of domein dat na de call is ontvangen vanzelf in het ontvangen nummer, als dat leeg is."
