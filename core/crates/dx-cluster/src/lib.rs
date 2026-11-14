@@ -1,6 +1,7 @@
 //! Client DX Cluster di Aurora: si collega via telnet a uno o piu' cluster (pubblici o propri), entra con il
 //! nominativo, raccoglie gli spot e li tiene in memoria per l'interfaccia. Tutto si imposta dalle impostazioni.
 
+pub mod rbn;
 pub mod spot;
 pub mod telnet;
 
@@ -282,6 +283,8 @@ pub struct ClusterService {
     station_call: Mutex<String>,
     /// Spot mandati via telnet che aspettano di tornare indietro dal cluster (`DX de <noi>: ...`): server, DX, chi aspetta.
     waiting: Mutex<Vec<(String, String, oneshot::Sender<()>)>>,
+    /// Reverse Beacon Network e server spot locale (`rbn.json` accanto a queste impostazioni).
+    rbn: Arc<rbn::RbnService>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -307,6 +310,7 @@ impl ClusterService {
             enricher: Mutex::new(None),
             station_call: Mutex::new(String::new()),
             waiting: Mutex::new(Vec::new()),
+            rbn: rbn::RbnService::open(&path.with_file_name("rbn.json")),
         })
     }
 
@@ -314,13 +318,20 @@ impl ClusterService {
         lock(&self.config).clone()
     }
 
+    /// Reverse Beacon Network e server spot locale: segue nominativo di stazione e paesi del cluster.
+    pub fn rbn(&self) -> Arc<rbn::RbnService> {
+        Arc::clone(&self.rbn)
+    }
+
     pub fn set_enricher(&self, enricher: Enricher) {
+        self.rbn.set_enricher(Arc::clone(&enricher));
         *lock(&self.enricher) = Some(enricher);
     }
 
     /// Il nominativo dei dati di stazione (Impostazioni › Stazione): lo si usa sempre per entrare nei cluster, senza doverlo scrivere qui.
     /// Se cambia mentre il cluster e' acceso i collegamenti si rifanno con quello nuovo.
     pub fn set_station_call(self: &Arc<Self>, call: &str) {
+        self.rbn.set_station_call(call);
         let call = call.trim().to_uppercase();
         let changed = {
             let mut now = lock(&self.station_call);

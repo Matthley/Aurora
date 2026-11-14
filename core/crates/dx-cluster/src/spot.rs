@@ -70,6 +70,9 @@ const PLAN_KHZ: &[(f64, f64, &str)] = &[
     (144180.0, 144400.0, "SSB"),
 ];
 
+/// I nomi delle bande conosciute.
+pub const BAND_NAMES: &[&str] = &["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "4m", "2m", "70cm"];
+
 pub fn band_of_khz(khz: f64) -> Option<&'static str> {
     BANDS.iter().find(|(_, lo, hi)| khz >= *lo && khz <= *hi).map(|(name, _, _)| *name)
 }

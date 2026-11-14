@@ -23,7 +23,7 @@ const COOKIE_NAME: &str = "aurora_session";
 const COOKIE_MAX_AGE_SECS: u64 = 31_536_000;
 
 #[derive(OpenApi)]
-#[openapi(paths(crate::digi_api::digi_get, crate::digi_api::digi_put, crate::digi_api::digi_rx_start, crate::digi_api::digi_rx_stop, crate::digi_api::digi_rx_hold, crate::digi_api::digi_rx_release, crate::digi_api::digi_tx, crate::digi_api::digi_tx_abort, crate::digi_api::digi_import_macros, crate::digi_api::digi_cat, crate::digi_api::digi_textfile, crate::sstv_api::sstv_get, crate::sstv_api::sstv_put, crate::sstv_api::sstv_rx_start, crate::sstv_api::sstv_rx_stop, crate::sstv_api::sstv_rx_hold, crate::sstv_api::sstv_rx_release, crate::sstv_api::sstv_rx_force, crate::sstv_api::sstv_rx_cancel, crate::sstv_api::sstv_rx_current, crate::sstv_api::sstv_rx_current_clean, crate::sstv_api::sstv_images, crate::sstv_api::sstv_tx_folder, crate::sstv_api::sstv_tx_photo, crate::sstv_api::sstv_tx_folder_delete, crate::sstv_api::sstv_images_delete, crate::sstv_api::sstv_image, crate::sstv_api::sstv_image_clean, crate::sstv_api::sstv_image_delete, crate::sstv_api::sstv_tx, crate::sstv_api::sstv_tx_abort, crate::rotator_api::rotator_get, crate::rotator_api::rotator_put, crate::rotator_api::rotator_goto, crate::rotator_api::rotator_stop, crate::rotator_api::rotator_models, update_install, update_download, online_get, online_put, online_psk, online_solar, online_dxped, set_dx, set_report, tune, log_qso, fox_command, fox_clublog, online_refresh, history_get, history_stats, history_clear, output_level_get, output_level_put, input_level_get, input_level_put, controls_get, control_press, tx_message, tx_text, access_get, access_put, pairing_get, pairing_put, frequencies_get, frequencies_put, frequencies_defaults, schedule_get, schedule_put, stats, dxcc_matrix, log_qsos, log_add, log_delete, log_qso_get, log_qso_edit, log_qso_delete, log_export, log_export_save, log4om_db_get, log4om_db_put, log4om_db_choose, diagnostics_get, diagnostics_crash_folder, diagnostics_support_bundle, diagnostics_support_reveal, reports_get, reports_put, reports_new_id, reports_crash_preview, reports_crash_send, reports_crash_dismiss, reports_bundle_send, log_pending, log_pending_answer, log_import, log_new_empty_get, log_new_empty, log4om, map_worked, wishlist_get, wishlist_put, wishlist_test, update_get, update_put, update_check, engine_settings_get, engine_settings_put, spot_dxsummit, audio_devices, audio_settings_put, dxcc_lookup, callsign_lookup, cluster_get, cluster_put, cluster_catalog, cluster_test, cluster_command, clock_get, clock_put, clock_check, clock_correct, ui_settings_get, ui_settings_put, band_filters_get, band_filters_put, change_band, change_frequency, change_mode, rx_frequency, free_text, call_cq, tx_frequency, station_info, health, health_resources, pair_start, pair_finish, devices, revoke_device, halt_tx, reply, queue_reply, automation_get, automation_put, automation_countries, ws::stream, qso_upload_test, wavelog_stations, band_hop_next, crate::qmap_api::qmap_get, crate::qmap_api::qmap_put, crate::qmap_api::qmap_decode, crate::qmap_api::qmap_clear_average, crate::qmap_api::qmap_tune, crate::contest_api::contest_get, crate::contest_api::contest_regole, crate::contest_api::contest_attiva, crate::contest_api::contest_disattiva, crate::contest_api::contest_impostazioni, crate::contest_api::contest_valuta, crate::contest_api::contest_lavorati, crate::contest_api::contest_consiglio, crate::contest_api::contest_mappa, crate::contest_api::contest_log, crate::contest_api::contest_log_modifica, crate::contest_api::contest_log_azzera, crate::contest_api::contest_esporta, crate::contest_api::contest_calendario, crate::contest_api::contest_analisi, crate::digi_api::digi_tx_open, crate::digi_api::digi_tx_type, crate::digi_api::digi_tx_unsend, crate::digi_api::digi_tx_close, crate::digi_api::digi_tx_replace, crate::digi_api::digi_band, crate::digi_api::digi_band_clear, crate::digi_api::digi_notches_get, crate::digi_api::digi_notches_put, crate::digi_api::digi_extra_rx_get, crate::digi_api::digi_extra_rx_put))]
+#[openapi(paths(crate::digi_api::digi_get, crate::digi_api::digi_put, crate::digi_api::digi_rx_start, crate::digi_api::digi_rx_stop, crate::digi_api::digi_rx_hold, crate::digi_api::digi_rx_release, crate::digi_api::digi_tx, crate::digi_api::digi_tx_abort, crate::digi_api::digi_import_macros, crate::digi_api::digi_cat, crate::digi_api::digi_textfile, crate::sstv_api::sstv_get, crate::sstv_api::sstv_put, crate::sstv_api::sstv_rx_start, crate::sstv_api::sstv_rx_stop, crate::sstv_api::sstv_rx_hold, crate::sstv_api::sstv_rx_release, crate::sstv_api::sstv_rx_force, crate::sstv_api::sstv_rx_cancel, crate::sstv_api::sstv_rx_current, crate::sstv_api::sstv_rx_current_clean, crate::sstv_api::sstv_images, crate::sstv_api::sstv_tx_folder, crate::sstv_api::sstv_tx_photo, crate::sstv_api::sstv_tx_folder_delete, crate::sstv_api::sstv_images_delete, crate::sstv_api::sstv_image, crate::sstv_api::sstv_image_clean, crate::sstv_api::sstv_image_delete, crate::sstv_api::sstv_tx, crate::sstv_api::sstv_tx_abort, crate::rotator_api::rotator_get, crate::rotator_api::rotator_put, crate::rotator_api::rotator_goto, crate::rotator_api::rotator_stop, crate::rotator_api::rotator_models, update_install, update_download, online_get, online_put, online_psk, online_solar, online_dxped, set_dx, set_report, tune, log_qso, fox_command, fox_clublog, online_refresh, history_get, history_stats, history_clear, output_level_get, output_level_put, input_level_get, input_level_put, controls_get, control_press, tx_message, tx_text, access_get, access_put, pairing_get, pairing_put, frequencies_get, frequencies_put, frequencies_defaults, schedule_get, schedule_put, stats, dxcc_matrix, log_qsos, log_add, log_delete, log_qso_get, log_qso_edit, log_qso_delete, log_export, log_export_save, log4om_db_get, log4om_db_put, log4om_db_choose, diagnostics_get, diagnostics_crash_folder, diagnostics_support_bundle, diagnostics_support_reveal, reports_get, reports_put, reports_new_id, reports_crash_preview, reports_crash_send, reports_crash_dismiss, reports_bundle_send, log_pending, log_pending_answer, log_import, log_new_empty_get, log_new_empty, log4om, map_worked, wishlist_get, wishlist_put, wishlist_test, update_get, update_put, update_check, engine_settings_get, engine_settings_put, spot_dxsummit, audio_devices, audio_settings_put, dxcc_lookup, callsign_lookup, cluster_get, cluster_put, cluster_catalog, cluster_test, cluster_command, rbn_get, rbn_put, rbn_spots, clock_get, clock_put, clock_check, clock_correct, ui_settings_get, ui_settings_put, band_filters_get, band_filters_put, change_band, change_frequency, change_mode, rx_frequency, free_text, call_cq, tx_frequency, station_info, health, health_resources, pair_start, pair_finish, devices, revoke_device, halt_tx, reply, queue_reply, automation_get, automation_put, automation_countries, ws::stream, qso_upload_test, wavelog_stations, band_hop_next, crate::qmap_api::qmap_get, crate::qmap_api::qmap_put, crate::qmap_api::qmap_decode, crate::qmap_api::qmap_clear_average, crate::qmap_api::qmap_tune, crate::contest_api::contest_get, crate::contest_api::contest_regole, crate::contest_api::contest_attiva, crate::contest_api::contest_disattiva, crate::contest_api::contest_impostazioni, crate::contest_api::contest_valuta, crate::contest_api::contest_lavorati, crate::contest_api::contest_consiglio, crate::contest_api::contest_mappa, crate::contest_api::contest_log, crate::contest_api::contest_log_modifica, crate::contest_api::contest_log_azzera, crate::contest_api::contest_esporta, crate::contest_api::contest_calendario, crate::contest_api::contest_analisi, crate::digi_api::digi_tx_open, crate::digi_api::digi_tx_type, crate::digi_api::digi_tx_unsend, crate::digi_api::digi_tx_close, crate::digi_api::digi_tx_replace, crate::digi_api::digi_band, crate::digi_api::digi_band_clear, crate::digi_api::digi_notches_get, crate::digi_api::digi_notches_put, crate::digi_api::digi_extra_rx_get, crate::digi_api::digi_extra_rx_put))]
 struct ApiDoc;
 
 pub fn router(state: AppState) -> Router {
@@ -120,6 +120,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/dx-cluster/catalog", get(cluster_catalog))
         .route("/api/v1/dx-cluster/test", post(cluster_test))
         .route("/api/v1/dx-cluster/command", post(cluster_command))
+        .route("/api/v1/rbn", get(rbn_get).put(rbn_put))
+        .route("/api/v1/rbn/spots", get(rbn_spots))
         .route("/api/v1/clock", get(clock_get).put(clock_put))
         .route("/api/v1/clock/check", post(clock_check))
         .route("/api/v1/clock/correct", post(clock_correct))
@@ -1734,6 +1736,40 @@ async fn cluster_command(State(state): State<AppState>, _: Authed, Json(body): J
     }
     cluster.send_command(&body.server, &body.text).map_err(|_| ApiError::new(StatusCode::CONFLICT, "not_connected"))?;
     Ok(Json(json!({ "ok": true })))
+}
+
+#[utoipa::path(get, path = "/api/v1/rbn", responses((status = 200, description = "Reverse Beacon Network: impostazioni, stato delle porte e del server spot locale"), (status = 404, description = "Non disponibile (cluster_unavailable)")))]
+async fn rbn_get(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
+    let rbn = cluster_service(&state)?.rbn();
+    let (server, clients) = rbn.server_status();
+    Ok(Json(json!({ "config": rbn.config(), "feeds": rbn.statuses(), "server": server, "clients": clients })))
+}
+
+#[utoipa::path(put, path = "/api/v1/rbn", responses((status = 200, description = "Impostazioni salvate, collegamenti e server rifatti"), (status = 400, description = "Valori non validi (bad_rbn)"), (status = 404, description = "Non disponibile (cluster_unavailable)"), (status = 500, description = "Scrittura non riuscita (rbn_write)")))]
+async fn rbn_put(State(state): State<AppState>, _: Authed, Json(config): Json<dx_cluster::rbn::RbnConfig>) -> Result<Json<Value>, ApiError> {
+    let rbn = cluster_service(&state)?.rbn();
+    config.validate().map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "bad_rbn"))?;
+    rbn.set_config(config).map_err(|e| {
+        tracing::warn!("salvataggio delle impostazioni RBN fallito: {e}");
+        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "rbn_write")
+    })?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct RbnSpotsQuery {
+    band: Option<String>,
+    mode: Option<String>,
+    lo_khz: Option<f64>,
+    hi_khz: Option<f64>,
+}
+
+#[utoipa::path(get, path = "/api/v1/rbn/spots", responses((status = 200, description = "Stazioni sentite dai ricevitori RBN negli ultimi 10 minuti, per banda, modo e tratto di frequenza (kHz)"), (status = 404, description = "Non disponibile (cluster_unavailable)")))]
+async fn rbn_spots(State(state): State<AppState>, _: Authed, axum::extract::Query(q): axum::extract::Query<RbnSpotsQuery>) -> Result<Json<Value>, ApiError> {
+    let rbn = cluster_service(&state)?.rbn();
+    let mut spots = rbn.spots(q.band.as_deref().filter(|b| !b.is_empty()), q.mode.as_deref().filter(|m| !m.is_empty()), q.lo_khz.unwrap_or(0.0), q.hi_khz.unwrap_or(f64::MAX));
+    spots.truncate(300);
+    Ok(Json(json!({ "spots": spots })))
 }
 
 fn clock_service(state: &AppState) -> Result<std::sync::Arc<clock_sync::ClockService>, ApiError> {

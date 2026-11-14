@@ -1240,6 +1240,10 @@ fn wire_band_decoder(digi: &Arc<mode_digi::DigiService>, cluster: &Arc<dx_cluste
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
         if gate.lock().map(|mut g| g.allow(&s, band, khz, now)).unwrap_or(false) {
             cluster.add_own_spot(&s.call, khz, &s.comment(), "Aurora");
+            // le stazioni verificate in CQ vanno anche ai programmi collegati al server spot locale (se acceso)
+            if s.cq {
+                cluster.rbn().publish_local(&s.call, khz, s.mode, s.snr_db, s.wpm, true);
+            }
         }
     }));
 }
@@ -2459,6 +2463,8 @@ pub async fn run(
         });
     }
     cluster.restart();
+    // Reverse Beacon Network e server spot locale: spenti di fabbrica (Impostazioni › Log, cluster e servizi)
+    cluster.rbn().restart();
     let own_log = Arc::clone(&logbook);
     // i rapporti degli errori: spenti di fabbrica, si accendono in Impostazioni > Assistenza
     let rapporti = rapporti::Rapporti::avvia(&config.data_dir);
