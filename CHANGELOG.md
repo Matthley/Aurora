@@ -2,6 +2,12 @@
 
 ## Non rilasciato
 
+## 0.11.260 - 2026-11-14
+
+- CAT Hamlib: lettura veloce della sola frequenza (160 ms mentre si gira il VFO, 300 ms da ferma), anche su seriale: display, cascata e BIGScan seguono la manopola.
+- Barra delle macro: di nuovo 4 righe visibili, tasti F1-F12 solo sulla prima (senza scorciatoie Ctrl e Shift), scritta F piu' leggibile; macro spostabili col clic tenuto e trascinamento, con Annulla.
+- Guida alle macro a due colonne con categorie a colori; pagina delle macro nelle Impostazioni a gruppi per riga di tasti; ricerca nell'elenco dei contest; tendina dei modi dalla barra in basso; numero e scambi del contest solo con un contest attivo; icone in BIGScan; riga del QSO nuovo colorata nel log.
+
 ## 0.11.259 - 2026-11-14
 
 - Modi testuali: barra delle macro con una sola riga F1-F12 (tolte le righe Ctrl, Shift e Ctrl+Shift, l'ingranaggio e la voce del menu Vista); Guida aggiornata.
