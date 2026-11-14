@@ -3512,6 +3512,7 @@ export const NL_UI: Record<string, string> = {
   "send.clublog_secrets_missing": "Wachtwoord of API-sleutel van Club Log niet ingesteld; het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt",
   "send.clublog_sent": "QSO met {calls} verzonden naar Club Log{d}",
   "send.clublog_token_denied": "Club Log accepteert de token niet ({detail}): maak een nieuwe aan in Club Log › Settings › API en plak hem in de instellingen; het verzenden staat stil (de QSO’s blijven in de wachtrij)",
+  "send.hrdlog_call_missing": "De logroepnaam voor HRDLOG.NET ontbreekt: vul die in bij «Logroepnaam»; het verzenden is gepauzeerd (de QSO’s blijven in de wachtrij)",
   "send.hrdlog_code_missing": "Uploadcode van HRDLOG.NET niet ingesteld; het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt",
   "send.hrdlog_denied": "HRDLOG.NET weigerde de roepnaam of de uploadcode ({detail}); het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt. Je hebt de “Upload code” uit je HRDLOG.NET-profiel nodig, niet het wachtwoord.",
   "send.hrdlog_duplicate": "QSO met {calls} staat al op HRDLOG.NET{d}",

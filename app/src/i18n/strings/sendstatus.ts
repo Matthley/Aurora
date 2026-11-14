@@ -81,6 +81,14 @@ export const sendStatusStrings = {
     'Código de subida de HRDLOG.NET no configurado; el envío está parado (los QSO siguen en cola) hasta que cambies los ajustes',
     'Código de envio do HRDLOG.NET não definido; o envio está parado (os QSO ficam em fila) até mudares as definições',
   ],
+  'send.hrdlog_call_missing': [
+    'Manca il nominativo del log di HRDLOG.NET: scrivilo in «Nominativo del log»; invio fermo (i QSO restano in coda)',
+    'The HRDLOG.NET log callsign is missing: enter it in «Log callsign»; sending is paused (the QSOs stay queued)',
+    'Das Log-Rufzeichen für HRDLOG.NET fehlt: trage es unter «Log-Rufzeichen» ein; das Senden ist angehalten (die QSOs bleiben in der Warteschlange)',
+    'L’indicatif du log HRDLOG.NET manque : saisis-le dans « Indicatif du log » ; l’envoi est suspendu (les QSO restent en file)',
+    'Falta el indicativo del log de HRDLOG.NET: escríbelo en «Indicativo del log»; el envío está parado (los QSO siguen en cola)',
+    'Falta o indicativo do log do HRDLOG.NET: escreve-o em «Indicativo do log»; o envio está parado (os QSO ficam em fila)',
+  ],
   'send.clublog_sent': [
     'QSO con {calls} inviato a Club Log{d}',
     'QSO with {calls} sent to Club Log{d}',

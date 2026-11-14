@@ -433,6 +433,9 @@ async fn send(service: &Service, target: Target, config: &Config, items: &[Pendi
                 // nominativo in maiuscolo e codice senza spazi: incollato da una pagina web spesso porta uno spazio o un a capo in coda
                 let call = if account.callsign.trim().is_empty() { config.call.clone() } else { account.callsign.clone() };
                 let call = call.trim().to_uppercase();
+                if call.is_empty() {
+                    return (Outcome::Blocked("manca il nominativo del log di HRDLOG.NET".into()), "hrdlog_call_missing", String::new());
+                }
                 let code = code.trim();
                 crate::hrdlog::upload_coded(&endpoints.hrdlog_url, &call, code, record, endpoints.upload_timeout, &endpoints.user_agent)
             }
