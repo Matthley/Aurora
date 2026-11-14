@@ -346,3 +346,9 @@ html[data-theme='light'] .digi-wingrip::before { background: #4a5a8a; }
 .digi-key-hint { position: absolute; right: 3px; bottom: 1px; font-size: 8px; line-height: 1; font-weight: 500; letter-spacing: 0; opacity: 0.5; pointer-events: none; color: var(--key-ink); }
 html[data-theme='light'] .digi-key-hint { color: #1b2540; opacity: 0.55; }
 .digi-key--blank .digi-key-hint { opacity: 0.35; }
+
+/* riga del QSO nuovo (in corso): colore proprio, ben diverso dalle righe alternate, in scuro e in chiaro */
+html .digi-log-table--completa tbody tr.digi-log-cur td { background: #0b5e6e; color: #fff; border-bottom-color: #22d3ee; }
+html .digi-log-table--completa tbody tr.digi-log-cur td:first-child { border-left-color: #22d3ee; }
+html[data-theme='light'] .digi-log-table--completa tbody tr.digi-log-cur td { background: #a5f0fc; color: #000; border-bottom-color: #06b6d4; }
+html[data-theme='light'] .digi-log-table--completa tbody tr.digi-log-cur td:first-child { border-left-color: #0891b2; }
