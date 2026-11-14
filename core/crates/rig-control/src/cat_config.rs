@@ -413,6 +413,9 @@ pub fn friendly_error(raw: &str) -> String {
     let has = |words: &[&str]| words.iter().any(|w| m.contains(w));
     if has(&["porta di condivisione"]) {
         raw.to_string()
+    } else if has(&["bad cpu type"]) || (cfg!(target_os = "macos") && has(&["os error 86"])) {
+        // macOS: rigctld compilato per un altro processore (per esempio solo Apple Silicon su un Mac Intel)
+        "rigctld (Hamlib) incluso in Aurora non puo' girare su questo Mac: e' compilato per un altro processore (Apple Silicon o Intel). Scarica e installa l'ultima versione di Aurora.".into()
     } else if has(&["rigctld non trovato"]) {
         "Manca rigctld (Hamlib): probabilmente l'antivirus l'ha tolto. Su Windows premi «Ripristina Hamlib»; altrimenti mettilo accanto ad Aurora o indica il percorso nella variabile AURORA_RIGCTLD.".into()
     } else if has(&["already open", "access denied", "accesso negato", "occupata", "in uso", "sharing violation"]) {
@@ -845,6 +848,7 @@ mod tests {
         assert!(friendly_error("rigctld si e' fermato (exit code: 1): rig_open: Access denied").contains("occupata"));
         assert!(friendly_error("f: timeout: la radio non risponde (-5)").contains("non risponde"));
         assert!(friendly_error("rigctld non trovato: C:/x").contains("AURORA_RIGCTLD"));
+        assert!(friendly_error("rigctld non avviato: Bad CPU type in executable (os error 86)").contains("altro processore"));
         assert!(is_io_failure("f: timeout: la radio non risponde (-5)"));
         assert!(is_io_failure("rigctld: lettura: connessione interrotta"));
         assert!(!is_io_failure("M: comando rifiutato dalla radio (-9)"));

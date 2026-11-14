@@ -8,6 +8,14 @@ export const coreTextStrings = {
     'Falta rigctld (Hamlib): probablemente lo quitó el antivirus. En Windows pulsa «Restaurar Hamlib»; si no, ponlo junto a Aurora o indica la ruta en la variable AURORA_RIGCTLD.',
     'Falta o rigctld (Hamlib): provavelmente foi o antivírus que o removeu. No Windows prime «Restaurar o Hamlib»; senão coloca-o junto ao Aurora ou indica o caminho na variável AURORA_RIGCTLD.',
   ],
+  'core.rigctldCpu': [
+    'rigctld (Hamlib) incluso in Aurora non può girare su questo Mac: è compilato per un altro processore (Apple Silicon o Intel). Scarica e installa l’ultima versione di Aurora.',
+    'The rigctld (Hamlib) bundled with Aurora cannot run on this Mac: it was built for a different processor (Apple Silicon or Intel). Download and install the latest version of Aurora.',
+    'Das mit Aurora gelieferte rigctld (Hamlib) läuft auf diesem Mac nicht: Es wurde für einen anderen Prozessor gebaut (Apple Silicon oder Intel). Lade die neueste Version von Aurora herunter und installiere sie.',
+    'Le rigctld (Hamlib) fourni avec Aurora ne peut pas fonctionner sur ce Mac : il a été compilé pour un autre processeur (Apple Silicon ou Intel). Télécharge et installe la dernière version d’Aurora.',
+    'El rigctld (Hamlib) incluido en Aurora no puede funcionar en este Mac: está compilado para otro procesador (Apple Silicon o Intel). Descarga e instala la última versión de Aurora.',
+    'O rigctld (Hamlib) incluído no Aurora não pode correr neste Mac: foi compilado para outro processador (Apple Silicon ou Intel). Descarrega e instala a versão mais recente do Aurora.',
+  ],
   'core.portBusy': [
     'La porta seriale è occupata da un altro programma: chiudilo (o scegli un’altra porta) e riprova.',
     'The serial port is in use by another program: close it (or choose another port) and try again.',

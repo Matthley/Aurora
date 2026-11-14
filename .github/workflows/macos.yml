@@ -69,19 +69,13 @@ jobs:
           npm ci
           npm run build
 
-      - name: Hamlib dentro l'app (rigctld e librerie da Homebrew)
+      - name: Hamlib dentro l'app (rigctld universale arm64 + x86_64 dalle bottiglie di Homebrew)
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
-          # rigctld ufficiale di Hamlib con le sue librerie copiate accanto e i percorsi riscritti (@executable_path/libs):
-          # l'app funziona senza installare niente. La macchina di GitHub e' Apple Silicon: sui Mac Intel Aurora usa l'Hamlib di Homebrew
-          brew install hamlib dylibbundler
-          mkdir -p desktop/src-tauri/hamlib-bundle/libs
-          cp "$(brew --prefix hamlib)/bin/rigctld" desktop/src-tauri/hamlib-bundle/
-          chmod u+w desktop/src-tauri/hamlib-bundle/rigctld
-          dylibbundler -of -b -x desktop/src-tauri/hamlib-bundle/rigctld -d desktop/src-tauri/hamlib-bundle/libs -p @executable_path/libs/
-          codesign --force -s - desktop/src-tauri/hamlib-bundle/libs/*.dylib desktop/src-tauri/hamlib-bundle/rigctld
-          desktop/src-tauri/hamlib-bundle/rigctld --version
-          ls -la desktop/src-tauri/hamlib-bundle desktop/src-tauri/hamlib-bundle/libs
+          # rigctld ufficiale di Hamlib con le sue librerie accanto e i percorsi riscritti (@executable_path/libs): l'app funziona senza
+          # installare niente. La macchina di GitHub e' Apple Silicon: lo script prende le bottiglie di entrambe le architetture e le
+          # unisce con lipo (segnalazione #59: prima era solo arm64, «Bad CPU type» sui Mac Intel). Fallisce se un file non e' universale.
+          bash scripts/hamlib-macos-universale.sh desktop/src-tauri/hamlib-bundle
 
       - name: Programma (.dmg universale)
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
@@ -93,6 +87,25 @@ jobs:
           npx tauri build --target universal-apple-darwin --bundles app,dmg
           mkdir -p ../dist-macos
           cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg ../dist-macos/Aurora-macOS.dmg
+
+      - name: Controllo architetture (ogni Mach-O di Aurora.app con x86_64 e arm64)
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        working-directory: desktop
+        run: |
+          app=src-tauri/target/universal-apple-darwin/release/bundle/macos/Aurora.app
+          test -x "$app/Contents/Resources/hamlib/rigctld"
+          bad=0
+          while IFS= read -r f; do
+            if file -b "$f" | grep -q 'Mach-O'; then
+              archs="$(lipo -archs "$f")"
+              echo "$f: $archs"
+              if ! echo "$archs" | grep -qw x86_64 || ! echo "$archs" | grep -qw arm64; then
+                echo "::error::$f non e' universale ($archs)"
+                bad=1
+              fi
+            fi
+          done < <(find "$app" -type f)
+          exit $bad
 
       - name: Pacchetto di aggiornamento (Aurora.app compressa e firmata)
         if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
