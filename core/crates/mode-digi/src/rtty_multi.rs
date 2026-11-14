@@ -31,12 +31,17 @@ const MAX_CHANNELS: usize = 30;
 /// La sintonia fine dei ricevitori dei canali (Hz): il centro nasce al passo del banco (2,5 Hz di errore) e la stazione puo' scivolare;
 /// sul banco di prova BIGScan il ritardo mediano scende da 12 a 9 s.
 const FINE_TUNING_HZ: f32 = 15.0;
+/// Secondi d'audio gia' passato che un canale nuovo legge appena nasce: il segnale si riconosce dopo almeno un secondo e l'inizio del
+/// CQ (spesso il nominativo) andava perso, cosi' la stazione si verificava solo al CQ seguente.
+const PREROLL_S: f32 = 2.0;
 
 /// Un segnale seguito.
 struct Lane {
     centre_hz: f32,
     demod: RttyDemodulator,
     idle_s: f32,
+    /// Appena nato: legge prima l'audio passato (`PREROLL_S`).
+    fresh: bool,
 }
 
 /// I caratteri nuovi di un canale.
@@ -59,6 +64,8 @@ pub struct RttyMulti {
     /// Le potenze delle ultime finestre (un secondo), finestra per finestra.
     history: Vec<Vec<f64>>,
     lanes: Vec<Lane>,
+    /// L'audio degli ultimi `PREROLL_S` secondi, fino al blocco in corso escluso.
+    past: std::collections::VecDeque<f32>,
 }
 
 impl RttyMulti {
@@ -75,6 +82,7 @@ impl RttyMulti {
             s2: vec![0.0; bins],
             history: Vec::new(),
             lanes: Vec::new(),
+            past: std::collections::VecDeque::new(),
         }
     }
 
@@ -88,6 +96,7 @@ impl RttyMulti {
             l.demod = new_demod(l.centre_hz, self.shift_hz, self.baud);
         }
         self.history.clear();
+        self.past.clear();
         self.s1.iter_mut().for_each(|v| *v = 0.0);
         self.s2.iter_mut().for_each(|v| *v = 0.0);
         self.fill = 0;
@@ -124,8 +133,15 @@ impl RttyMulti {
         }
         let mut out = Vec::new();
         let secs = samples.len() as f32 / RATE;
+        let (a, b) = self.past.as_slices();
         for lane in &mut self.lanes {
-            let chars = lane.demod.process_chars(samples);
+            let mut chars = Vec::new();
+            if lane.fresh {
+                lane.fresh = false;
+                chars.extend(lane.demod.process_chars(a));
+                chars.extend(lane.demod.process_chars(b));
+            }
+            chars.extend(lane.demod.process_chars(samples));
             if chars.iter().any(|c| c.prob >= ACTIVE_PROB) {
                 lane.idle_s = 0.0;
             } else {
@@ -136,6 +152,10 @@ impl RttyMulti {
             }
         }
         self.lanes.retain(|l| l.idle_s < IDLE_S);
+        let keep = (PREROLL_S * RATE) as usize;
+        self.past.extend(samples.iter().copied());
+        let extra = self.past.len().saturating_sub(keep);
+        self.past.drain(..extra);
         out
     }
 
@@ -180,7 +200,7 @@ impl RttyMulti {
             if self.lanes.iter().any(|l| near(l.centre_hz)) || self.lanes.len() >= MAX_CHANNELS {
                 continue;
             }
-            self.lanes.push(Lane { centre_hz: centre, demod: new_demod(centre, self.shift_hz, self.baud), idle_s: 0.0 });
+            self.lanes.push(Lane { centre_hz: centre, demod: new_demod(centre, self.shift_hz, self.baud), idle_s: 0.0, fresh: true });
         }
     }
 }
@@ -263,6 +283,28 @@ mod tests {
             testo.extend(rx.process_chars(blocco).iter().map(|c| c.ch));
         }
         assert!(testo.matches("IU3ABC").count() >= 9, "{} {testo}", testo.matches("IU3ABC").count());
+    }
+
+    /// Una chiamata breve dopo il silenzio: il canale nasce a trasmissione gia' iniziata, ma rilegge l'audio passato e il nominativo c'e'
+    /// tutte e due le volte (senza, il primo andava perso).
+    #[test]
+    fn un_canale_nuovo_legge_anche_l_inizio_del_cq() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 170.0, baud: 45.45, reverse: false };
+        let mut audio = vec![0.0_f32; 10_800];
+        audio.extend(modulate("IU3ABC IU3ABC TEST ".as_bytes(), p, 0.2));
+        audio.extend(vec![0.0_f32; 2 * 12_000]);
+        let n = audio.len();
+        for (a, r) in audio.iter_mut().zip(rumore(n, 0.3, 3)) {
+            *a += r;
+        }
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        let mut testo = String::new();
+        for blocco in audio.chunks(1200) {
+            for l in multi.process(blocco) {
+                testo.extend(l.chars.iter().map(|c| c.ch));
+            }
+        }
+        assert!(testo.matches("IU3ABC").count() >= 2, "{testo}");
     }
 
     #[test]
