@@ -1980,7 +1980,7 @@ export async function clearDigiBand(): Promise<void> {
 export interface DigiSnapshot {
   /** `snr_db`: rapporto segnale/rumore del modo (RTTY quello dello squelch, PSK come fldigi, CW in 3 kHz); `imd_db` e `quality` (0-100) solo
    * in PSK; `wpm` la velocita' capita in CW; `radio_lsb`: la radio e' in LSB (RTTY invertito da solo). */
-  rx: { listening: boolean; level_db: number; freq_hz: number; squelch_open: boolean; snr_db?: number; imd_db?: number; quality?: number; wpm?: number; radio_lsb?: boolean };
+  rx: { listening: boolean; level_db: number; freq_hz: number; squelch_open: boolean; /** Segnale presente sulla frequenza di ricezione (indipendente dallo squelch). */ carrier?: boolean; snr_db?: number; imd_db?: number; quality?: number; wpm?: number; radio_lsb?: boolean };
   /** `open`: trasmissione aperta a levetta (resta in trasmissione, il testo scritto parte mentre si scrive). */
   tx: { state: string; progress: number; elapsed_s: number; total_s: number; message: string | null; open?: boolean };
   settings: DigiSettings;

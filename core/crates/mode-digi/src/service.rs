@@ -572,6 +572,9 @@ pub struct RxStatus {
     pub wpm: Option<f32>,
     /// La radio e' in LSB: in RTTY mark e space sono gia' invertiti da soli.
     pub radio_lsb: bool,
+    /// C'e' un segnale sulla frequenza di ricezione (misura di `presence` con isteresi, indipendente dallo squelch): la macro <TXE>
+    /// aspetta che cada prima di trasmettere.
+    pub carrier: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -1066,6 +1069,14 @@ fn tx_monitor(inner: &Arc<Inner>, port: &Arc<dyn DigiTxPort>, total: f32) {
     inner.tx_event();
 }
 
+/// Segnale presente con isteresi: si accende sopra la soglia alta, si spegne sotto quella bassa.
+fn carrier_present((value, (on, off)): (Option<f32>, (f32, f32)), was: bool) -> bool {
+    match value {
+        Some(v) if v.is_finite() => v >= if was { off } else { on },
+        _ => false,
+    }
+}
+
 enum Demod {
     Psk(Box<PskDemodulator>),
     Rtty(Box<RttyDemodulator>),
@@ -1349,6 +1360,7 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
                 rx.level_db = peak_db;
                 rx.freq_hz = demod.frequency();
                 rx.squelch_open = demod.signal().1;
+                rx.carrier = carrier_present(demod.presence(), rx.carrier);
                 rx.snr_db = demod.snr_db();
                 (rx.imd_db, rx.quality, rx.wpm) = demod.extras();
                 rx.radio_lsb = lsb;
@@ -1364,6 +1376,16 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// La portante per <TXE>: soglia alta per accendersi, bassa per spegnersi, niente misura = niente segnale.
+    #[test]
+    fn carrier_has_hysteresis() {
+        assert!(!carrier_present((Some(10.0), (11.0, 6.0)), false));
+        assert!(carrier_present((Some(12.0), (11.0, 6.0)), false));
+        assert!(carrier_present((Some(8.0), (11.0, 6.0)), true));
+        assert!(!carrier_present((Some(5.0), (11.0, 6.0)), true));
+        assert!(!carrier_present((None, (11.0, 6.0)), true));
+    }
 
     /// Tutta la banda e la radio che si sposta: di poco nella stessa banda i toni si spostano (al contrario in USB, uguale in LSB);
     /// un salto oltre la banda audio, un cambio di banda o una frequenza fuori dalle bande ripuliscono l'elenco.
