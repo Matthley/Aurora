@@ -1280,6 +1280,7 @@ export const NL_UI: Record<string, string> = {
   "digi.band.verified": "Bevestigd: meerdere keren gehoord met zekere tekens",
   "digi.band.view": "Paneel Signalen",
   "digi.band.wfCalls": "Roepnamen op de waterval",
+  "digi.band.wfWords": "Tekst op de waterval",
   "digi.bar.compact": "Balk van één rij (Ctrl en Shift wisselen van rij)",
   "digi.bar.emptyHint": "rechtsklik om een macro toe te wijzen",
   "digi.bar.extended": "Uitgebreide balk (4 rijen)",

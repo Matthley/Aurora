@@ -193,6 +193,7 @@ export const digiBandStrings = {
     'Esvazia a lista e o histórico dos sinais e tira os indicativos da cascata: os sinais que ainda lá estão voltam sozinhos.',
   ],
   'digi.band.wfCalls': ['Nominativi sulla cascata', 'Callsigns on the waterfall', 'Rufzeichen im Wasserfall', 'Indicatifs sur la cascade', 'Indicativos en la cascada', 'Indicativos na cascata'],
+  'digi.band.wfWords': ['Testo sulla cascata', 'Text on the waterfall', 'Text im Wasserfall', 'Texte sur la cascade', 'Texto en la cascada', 'Texto na cascata'],
   'digi.band.resize': [
     'Trascina per cambiare l’altezza del pannello',
     'Drag to change the height of the panel',

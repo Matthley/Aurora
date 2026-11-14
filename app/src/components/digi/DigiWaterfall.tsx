@@ -5,6 +5,7 @@ import type { SpectrumRow } from '../../lib/digiSpectrum';
 import type { DigiNotch } from '../../api/client';
 import { addNotch } from '../../lib/digiNotches';
 import { WaterfallNotches } from './WaterfallNotches';
+import type { WaterfallLabel } from '../../lib/digiBand';
 
 interface Props {
   /** Il tratto di frequenza audio mostrato (Hz). */
@@ -37,7 +38,9 @@ interface Props {
   /** Cambia l'altezza della cascata (si trascina la barra sul bordo alto). */
   onHeight?(px: number): void;
   /** I nominativi dei segnali di tutta la banda, scritti sopra la loro traccia (`cq`: chiama CQ; `sure`: verificato). */
-  labels?: { hz: number; text: string; cq: boolean; sure: boolean; color?: number }[];
+  labels?: WaterfallLabel[];
+  /** «Testo sulla cascata»: sotto ogni nominativo le ultime parole del suo canale (di base si'). */
+  showWords?: boolean;
   /** Le finestre RX in piu': un indicatore numerato per ognuna, che si trascina. */
   extraRx?: { id: number; freq_hz: number }[];
   onExtraMove?(id: number, hz: number, commit: boolean): void;
@@ -58,7 +61,7 @@ const PALETTE = Array.from({ length: 256 }, (_, i) => paletteColor(i));
 const SCALE_H = 22;
 
 /** La cascata della pagina dei modi testuali: scala in Hz in alto, righe che scorrono, bandierine e clic per sintonizzare. */
-export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandHz = 0, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, labels = [], notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
+export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandHz = 0, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, labels = [], showWords = true, notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
   const t = useT();
   const wrap = useRef<HTMLDivElement>(null);
   const flow = useRef<HTMLCanvasElement>(null);
@@ -319,10 +322,29 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandH
         .sort((a, b) => a.hz - b.hz)
         .map((l, i, all) => {
           const prev = all[i - 1];
-          const low = prev !== undefined && xOf(l.hz) - xOf(prev.hz) < 70 && i % 2 === 1;
+          const low = prev !== undefined && xOf(l.hz) - xOf(prev.hz) < (showWords ? 150 : 70) && i % 2 === 1;
+          const x = xOf(l.hz);
+          // la riga delle parole non invade le vicine: larga quanto lo spazio fino all'etichetta piu' vicina della stessa altezza
+          const sameRow = [all[i - 2], all[i + 2], ...(low ? [] : [all[i - 1], all[i + 1]].filter((n) => n !== undefined && Math.abs(xOf(n.hz) - x) >= (showWords ? 150 : 70)))];
+          const gap = Math.min(...sameRow.filter((n) => n !== undefined).map((n) => Math.abs(xOf(n.hz) - x)), Infinity);
+          const maxW = Math.max(60, Math.min(210, gap - 8, 2 * Math.min(x, width - x) - 4));
+          const words = showWords && l.words ? l.words : null;
+          const tip = l.history ? `${l.text}
+${l.history}` : l.text;
           return (
-            <span key={`${l.text}-${Math.round(l.hz)}`} className={`digi-wf-call${l.cq ? ' digi-wf-call--cq' : ''}${l.sure ? '' : ' digi-wf-call--maybe'}${l.color !== undefined ? ` digi-wf-call--station radar-c${l.color}` : ''}`} style={{ left: xOf(l.hz), top: SCALE_H + (low ? 42 : 22) }} aria-hidden="true">
-              {l.text}
+            <span key={`${l.text}-${Math.round(l.hz)}`} className={`digi-wf-label${l.quiet ? ' digi-wf-label--quiet' : ''}`} style={{ left: x, top: SCALE_H + (low ? (showWords ? 52 : 42) : 22) }} title={tip} onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.stopPropagation();
+              onPick(Math.round(l.hz * 10) / 10, e.shiftKey, true);
+            }}>
+              <span className={`digi-wf-call${l.cq ? ' digi-wf-call--cq' : ''}${l.sure ? '' : ' digi-wf-call--maybe'}${l.color !== undefined ? ` digi-wf-call--station radar-c${l.color}` : ''}`}>{l.text}</span>
+              {words ? (
+                <span className="digi-wf-words" style={{ maxWidth: maxW }}>
+                  {words.map((w, k) => (
+                    <span key={k} className={`digi-wf-w--${w.kind}${w.unsure ? ' digi-wf-w--unsure' : ''}`}>{w.text}</span>
+                  ))}
+                </span>
+              ) : null}
             </span>
           );
         })}

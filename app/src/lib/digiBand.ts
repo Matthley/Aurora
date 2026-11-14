@@ -1,15 +1,21 @@
 import type { DigiSignal } from '../api/schemas';
 import { onDigi } from './digiBus';
+import { GONE_MS, QUIET_MS, TextHistory, tailChunks, type WordChunk } from './wfText';
 
 /** I segnali di tutta la banda (evento `band` dei modi testuali): restano anche lasciando la pagina. */
 let signals: DigiSignal[] = [];
 let mode = '';
+/** Lo storico del testo di ogni canale: le ultime parole sulla cascata e il suggerimento degli ultimi minuti. */
+export const bandText = new TextHistory();
 const listeners = new Set<() => void>();
 
 onDigi((ev) => {
   if (ev.kind !== 'band') return;
   signals = ev.signals ?? [];
   mode = ev.mode ?? '';
+  const now = Date.now();
+  for (const sg of signals) bandText.update(sg.id, sg.text, now);
+  bandText.keep(new Set(signals.map((sg) => sg.id)));
   for (const l of listeners) l();
 });
 
@@ -61,16 +67,25 @@ export interface WaterfallLabel {
   sure: boolean;
   /** Il colore della stazione (indice `radar-c0`...), lo stesso dell'elenco di Aurora BIGScan; senza: rosso. */
   color?: number;
+  /** Le ultime parole del canale (riga sotto il nominativo); assenti se il testo e' troppo incerto o il canale tace da tempo. */
+  words?: WordChunk[];
+  /** Il canale tace da un po': la riga sbiadisce. */
+  quiet?: boolean;
+  /** Il testo degli ultimi minuti del canale (suggerimento). */
+  history?: string;
 }
 
 /**
  * Le etichette dei nominativi sulla cascata: un segnale ha la sua finche' il nominativo si sente. Quelli non piu' sentiti da oltre 75 s
  * (`stale`, lo dice il core) restano nell'elenco dei segnali ma non sulla cascata.
  */
-export function waterfallLabels(list: DigiSignal[]): WaterfallLabel[] {
+export function waterfallLabels(list: DigiSignal[], text: TextHistory = bandText, now = Date.now()): WaterfallLabel[] {
   const all = list.flatMap((sig) => {
     const c = mainCall({ ...sig, calls: sig.calls.filter((x) => x.stale !== true && x.gone !== true) });
-    return c ? [{ hz: sig.freq_hz, text: c.call, cq: c.role === 'cq', sure: c.verified, snr: sig.snr_db }] : [];
+    if (!c) return [];
+    const idle = text.idle(sig.id, now);
+    const words = idle < GONE_MS ? tailChunks(sig.text, sig.unsure, sig.calls.map((x) => x.call)) : null;
+    return [{ hz: sig.freq_hz, text: c.call, cq: c.role === 'cq', sure: c.verified, snr: sig.snr_db, words: words ?? undefined, quiet: idle >= QUIET_MS, history: text.history(sig.id, now) || undefined }];
   });
   // lo stesso nominativo letto da due canali vicini: un'etichetta sola, quella del canale piu' forte
   const best = new Map<string, (typeof all)[number]>();
@@ -78,7 +93,7 @@ export function waterfallLabels(list: DigiSignal[]): WaterfallLabel[] {
     const old = best.get(l.text);
     if (!old || l.snr > old.snr) best.set(l.text, l);
   }
-  return [...best.values()].map(({ hz, text, cq, sure }) => ({ hz, text, cq, sure }));
+  return [...best.values()].map(({ snr: _snr, ...l }) => l);
 }
 
 /** Una stazione del Radar: un nominativo verificato, una riga sola anche se piu' canali lo hanno letto. */

@@ -55,6 +55,20 @@
   font: 700 12px/16px Consolas, "Cascadia Mono", monospace; letter-spacing: 0.02em; white-space: nowrap; pointer-events: none;
   box-shadow: 0 0 0 1px #ffffff55, 0 1px 4px rgb(0 0 0 / 0.6); text-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
 }
+/* etichetta con il nominativo e, sotto, le ultime parole del canale («Testo sulla cascata») */
+.digi-wf-label { position: absolute; z-index: 4; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; transition: opacity 0.6s ease; }
+.digi-wf-label .digi-wf-call { position: static; transform: none; }
+.digi-wf-label--quiet .digi-wf-words { opacity: 0.4; }
+.digi-wf-words {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; border-radius: 3px; background: rgb(0 0 20 / 0.62);
+  color: #e6edf8; font: 400 11px/14px Consolas, "Cascadia Mono", monospace; transition: opacity 0.8s ease; pointer-events: none;
+}
+.digi-wf-w--call { color: #ffd54f; font-weight: 700; }
+.digi-wf-w--key { color: #7ee8a8; font-weight: 700; }
+.digi-wf-w--unsure { opacity: 0.45; }
+html[data-theme='light'] .digi-wf-words { background: rgb(255 255 255 / 0.85); color: #0b1322; }
+html[data-theme='light'] .digi-wf-w--call { color: #a15c00; }
+html[data-theme='light'] .digi-wf-w--key { color: #0b7a3e; }
 /* chi chiama CQ: lo stesso rosso con il bordo bianco pieno, cosi' si riconosce al volo */
 .digi-wf-call--cq { box-shadow: 0 0 0 2px #ffffff, 0 1px 4px rgb(0 0 0 / 0.6); }
 /* Aurora BIGScan: l'etichetta ha il colore della stazione, lo stesso del pallino nell'elenco (scritta scura sulle tinte chiare) */

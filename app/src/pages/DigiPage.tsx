@@ -88,6 +88,8 @@ interface Views {
   signals: boolean;
   /** I nominativi di tutta la banda scritti sulla cascata. */
   wfCalls: boolean;
+  /** «Testo sulla cascata»: le ultime parole di ogni canale sotto il nominativo (assente nelle viste salvate prima: si'). */
+  wfWords?: boolean;
   /** Aurora BIGScan: anche chi risponde (dopo DE o TU), non solo chi chiama CQ. */
   radarAnswering: boolean;
 }
@@ -1290,6 +1292,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         { label: t('digi.mi.waterfall'), checked: views.waterfall, onSelect: () => setView({ waterfall: !views.waterfall }) },
         { label: t('digi.band.view'), checked: views.signals, onSelect: () => setView({ signals: !views.signals }) },
         { label: t('digi.band.wfCalls'), checked: views.wfCalls, onSelect: () => setView({ wfCalls: !views.wfCalls }) },
+        { label: t('digi.band.wfWords'), checked: views.wfWords !== false, onSelect: () => setView({ wfWords: views.wfWords === false }) },
         { label: t('digi.mi.statusBar'), checked: views.statusBar, onSelect: () => setView({ statusBar: !views.statusBar }) },
         'sep' as const,
         { label: t('digi.mi.echoRx'), checked: views.echoRx === true, onSelect: () => setView({ echoRx: !(views.echoRx === true) }) },
@@ -1529,7 +1532,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           <BandSignals signals={band} showWpm={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} emptyText={isPsk ? t('digi.band.emptyPsk') : t('digi.band.empty')} validation={s.band_validation ?? 'normal'} onValidation={(v) => save({ band_validation: v })} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} />
         ) : null}
         {views.waterfall ? (
-          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? bandLabels : []} notches={notches} onNotches={setNotches}
+          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? bandLabels : []} showWords={views.wfWords !== false} notches={notches} onNotches={setNotches}
             extraRx={extras}
             onExtraMove={(id, hz, commit) => {
               const next = extras.map((x) => (x.id === id ? { ...x, freq_hz: hz } : x));
@@ -1646,6 +1649,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             <button type="button" role="menuitemcheckbox" aria-checked={views.wfCalls} onClick={() => { setView({ wfCalls: !views.wfCalls }); setWfMenu(null); }}>
               <span className="digi-st-menu-check" aria-hidden="true">{views.wfCalls ? '✓' : ''}</span>
               {t('wfm.calls')}
+            </button>
+            <button type="button" role="menuitemcheckbox" aria-checked={views.wfWords !== false} onClick={() => { setView({ wfWords: views.wfWords === false }); setWfMenu(null); }}>
+              <span className="digi-st-menu-check" aria-hidden="true">{views.wfWords !== false ? '✓' : ''}</span>
+              {t('digi.band.wfWords')}
             </button>
             <button type="button" role="menuitemcheckbox" aria-checked={views.wideWaterfall} onClick={() => { setView({ wideWaterfall: !views.wideWaterfall }); setWfMenu(null); }}>
               <span className="digi-st-menu-check" aria-hidden="true">{views.wideWaterfall ? '✓' : ''}</span>
