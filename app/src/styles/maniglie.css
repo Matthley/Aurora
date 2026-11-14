@@ -109,3 +109,8 @@ html:root:root .digi-wf-grip::before { top: 5px; }
 
 /* finestra di trasmissione unica: niente riga fra il testo gia' trasmesso e la casella dove si scrive */
 html:root:root .digi-txhist { border-bottom: 0; padding-bottom: 0; }
+
+/* il tasto F1-F12 sui pulsanti delle macro: piu' grande e ben leggibile */
+html:root:root .digi-key-hint { font-size: 10px; font-weight: 700; opacity: 0.85; right: 4px; bottom: 2px; }
+html:root:root[data-theme='light'] .digi-key-hint { opacity: 0.8; }
+html:root:root .digi-key--blank .digi-key-hint { opacity: 0.55; }
