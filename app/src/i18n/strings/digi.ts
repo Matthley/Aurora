@@ -226,8 +226,6 @@ export const digiStrings = {
   'digi.save': ['Salva', 'Save', 'Speichern', 'Enregistrer', 'Guardar', 'Guardar'],
   'digi.saveError': ['Non salvato: valori non validi o Aurora non risponde.', 'Not saved: invalid values or Aurora is not answering.', 'Nicht gespeichert: ungültige Werte oder Aurora antwortet nicht.', 'Non enregistré : valeurs invalides ou Aurora ne répond pas.', 'No guardado: valores no válidos o Aurora no responde.', 'Não guardado: valores inválidos ou o Aurora não responde.'],
   'digi.bar.title': ['Barra dei comandi', 'Control bar', 'Befehlsleiste', 'Barre de commandes', 'Barra de comandos', 'Barra de comandos'],
-  'digi.bar.extended': ['Barra estesa (4 righe)', 'Extended bar (4 rows)', 'Erweiterte Leiste (4 Zeilen)', 'Barre étendue (4 lignes)', 'Barra extendida (4 filas)', 'Barra estendida (4 linhas)'],
-  'digi.bar.compact': ['Barra a una riga (Ctrl e Shift cambiano riga)', 'One-row bar (Ctrl and Shift change row)', 'Einzeilige Leiste (Strg und Umschalt wechseln die Zeile)', 'Barre à une ligne (Ctrl et Maj changent de ligne)', 'Barra de una fila (Ctrl y Mayús cambian de fila)', 'Barra de uma linha (Ctrl e Shift mudam de linha)'],
   'digi.bar.emptyHint': ['clic destro per assegnare una macro', 'right-click to assign a macro', 'Rechtsklick, um ein Makro zuzuweisen', 'clic droit pour affecter une macro', 'clic derecho para asignar una macro', 'clique direito para atribuir uma macro'],
   'digi.edit.title': ['Modifica macro', 'Edit user macro', 'Makro bearbeiten', 'Modifier la macro', 'Editar macro', 'Editar macro'],
   'digi.edit.macro': ['Tasto', 'Key', 'Taste', 'Touche', 'Tecla', 'Tecla'],
