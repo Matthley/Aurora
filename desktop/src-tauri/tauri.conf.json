@@ -28,6 +28,7 @@
       "../../app/dist": "dist",
       "hamlib-bundle": "hamlib",
       "cty": "cty",
+      "contest": "contest",
       "demo-sstv": "demo-sstv"
     },
     "publisher": "Tiziano Cassone (IU3WJQ)",

@@ -1,0 +1,495 @@
+103 Italian provinces
+
+I1:
+AL = AL
+AT = AT
+BI = BI
+CN = CN
+GE = GE
+IM = IM
+NO = NO
+SP = SP
+SV = SV
+TO = TO
+VB = VB
+VC = VC
+
+IK1:
+AL = AL
+AT = AT
+BI = BI
+CN = CN
+GE = GE
+IM = IM
+NO = NO
+SP = SP
+SV = SV
+TO = TO
+VB = VB
+VC = VC
+
+IZ1:
+AL = AL
+AT = AT
+BI = BI
+CN = CN
+GE = GE
+IM = IM
+NO = NO
+SP = SP
+SV = SV
+TO = TO
+VB = VB
+VC = VC
+
+IW1:
+AL = AL
+AT = AT
+BI = BI
+CN = CN
+GE = GE
+IM = IM
+NO = NO
+SP = SP
+SV = SV
+TO = TO
+VB = VB
+VC = VC
+
+IX1:
+AO = AO
+
+I2:
+BG = BG
+BS = BS
+CO = CO
+CR = CR
+LC = LC
+LO = LO
+MI = MI
+MN = MN
+PV = PV
+SO = SO
+VA = VA
+
+IK2:
+BG = BG
+BS = BS
+CO = CO
+CR = CR
+LC = LC
+LO = LO
+MI = MI
+MN = MN
+PV = PV
+SO = SO
+VA = VA
+
+IZ2:
+BG = BG
+BS = BS
+CO = CO
+CR = CR
+LC = LC
+LO = LO
+MI = MI
+MN = MN
+PV = PV
+SO = SO
+VA = VA
+
+IW2:
+BG = BG
+BS = BS
+CO = CO
+CR = CR
+LC = LC
+LO = LO
+MI = MI
+MN = MN
+PV = PV
+SO = SO
+VA = VA
+   
+I3:
+BL = BL 
+PD = PD 
+RO = RO 
+TV = TV 
+VE = VE 
+VR = VR 
+VI = VI 
+
+I3:
+BL = BL 
+PD = PD 
+RO = RO 
+TV = TV 
+VE = VE 
+VR = VR 
+VI = VI 
+
+IK3:
+BL = BL 
+PD = PD 
+RO = RO 
+TV = TV 
+VE = VE 
+VR = VR 
+VI = VI 
+
+IZ3:
+BL = BL 
+PD = PD 
+RO = RO 
+TV = TV 
+VE = VE 
+VR = VR 
+VI = VI 
+   
+IN3:
+BZ = BZ
+TN = TN
+
+IV3:
+GO = GO
+PN = PN
+TS = TS
+UD = UD
+
+IW3:
+BL = BL 
+PD = PD 
+RO = RO 
+TV = TV 
+VE = VE 
+VR = VR 
+VI = VI 
+BZ = BZ
+TN = TN
+GO = GO
+PN = PN
+TS = TS
+UD = UD
+
+I4:
+BO = BO
+FE = FE
+FO = FO, FC
+MO = MO
+PR = PR
+PC = PC
+RA = RA
+RE = RE
+RN = RN
+
+IK4:
+BO = BO
+FE = FE
+FO = FO, FC
+MO = MO
+PR = PR
+PC = PC
+RA = RA
+RE = RE
+RN = RN
+
+IZ4:
+BO = BO
+FE = FE
+FO = FO, FC
+MO = MO
+PR = PR
+PC = PC
+RA = RA
+RE = RE
+RN = RN
+
+IW4:
+BO = BO
+FE = FE
+FO = FO, FC
+MO = MO
+PR = PR
+PC = PC
+RA = RA
+RE = RE
+RN = RN
+   
+I5:
+AR = AR
+FI = FI
+GR = GR
+LI = LI
+LU = LU
+MS = MS
+PI = PI
+PO = PO
+PT = PT
+SI = SI
+
+IK5:
+AR = AR
+FI = FI
+GR = GR
+LI = LI
+LU = LU
+MS = MS
+PI = PI
+PO = PO
+PT = PT
+SI = SI
+
+
+IZ5:
+AR = AR
+FI = FI
+GR = GR
+LI = LI
+LU = LU
+MS = MS
+PI = PI
+PO = PO
+PT = PT
+SI = SI
+
+
+IW5:
+AR = AR
+FI = FI
+GR = GR
+LI = LI
+LU = LU
+MS = MS
+PI = PI
+PO = PO
+PT = PT
+SI = SI
+
+I6:
+AN = AN
+AP = AP
+AQ = AQ
+CH = CH
+MC = MC
+PS = PS, PU
+PE = PE
+TE = TE
+
+I6:
+AN = AN
+AP = AP
+AQ = AQ
+CH = CH
+MC = MC
+PS = PS, PU
+PE = PE
+TE = TE
+
+I6:
+AN = AN
+AP = AP
+AQ = AQ
+CH = CH
+MC = MC
+PS = PS, PU
+PE = PE
+TE = TE
+
+IZ6:
+AN = AN
+AP = AP
+AQ = AQ
+CH = CH
+MC = MC
+PS = PS, PU
+PE = PE
+TE = TE
+
+IW6:
+AN = AN
+AP = AP
+AQ = AQ
+CH = CH
+MC = MC
+PS = PS, PU
+PE = PE
+TE = TE
+   
+I7:
+BA = BA
+BR = BR
+FG = FG
+LE = LE
+MT = MT
+TA = TA
+
+
+IK7:
+BA = BA
+BR = BR
+FG = FG
+LE = LE
+MT = MT
+TA = TA
+
+IZ7:
+BA = BA
+BR = BR
+FG = FG
+LE = LE
+MT = MT
+TA = TA
+
+IW7:
+BA = BA
+BR = BR
+FG = FG
+LE = LE
+MT = MT
+TA = TA
+
+I8:
+AV = AV
+BN = BN
+CB = CB
+CE = CE
+CS = CS
+CZ = CZ
+IS = IS
+KR = KR
+NA = NA
+PZ = PZ
+RC = RC
+SA = SA
+VV = VV
+
+I8:
+AV = AV
+BN = BN
+CB = CB
+CE = CE
+CS = CS
+CZ = CZ
+IS = IS
+KR = KR
+NA = NA
+PZ = PZ
+RC = RC
+SA = SA
+VV = VV
+
+IK8:
+AV = AV
+BN = BN
+CB = CB
+CE = CE
+CS = CS
+CZ = CZ
+IS = IS
+KR = KR
+NA = NA
+PZ = PZ
+RC = RC
+SA = SA
+VV = VV
+
+IZ8:
+AV = AV
+BN = BN
+CB = CB
+CE = CE
+CS = CS
+CZ = CZ
+IS = IS
+KR = KR
+NA = NA
+PZ = PZ
+RC = RC
+SA = SA
+VV = VV
+
+IW8:
+AV = AV
+BN = BN
+CB = CB
+CE = CE
+CS = CS
+CZ = CZ
+IS = IS
+KR = KR
+NA = NA
+PZ = PZ
+RC = RC
+SA = SA
+VV = VV
+
+I0:
+FR = FR
+LT = LT
+PG = PG
+RI = RI
+RM = RM, ROMA
+TR = TR
+VT = VT
+
+IK0:
+FR = FR
+LT = LT
+PG = PG
+RI = RI
+RM = RM, ROMA
+TR = TR
+VT = VT
+
+IZ0:
+FR = FR
+LT = LT
+PG = PG
+RI = RI
+RM = RM, ROMA
+TR = TR
+VT = VT
+
+IW0:
+FR = FR
+LT = LT
+PG = PG
+RI = RI
+RM = RM, ROMA
+TR = TR
+VT = VT
+   
+IT9:
+CL = CL
+CT = CT
+EN = EN
+ME = ME
+PA = PA
+RG = RG
+SR = SR
+TP = TP
+AG = AG
+
+IW9:
+CL = CL
+CT = CT
+EN = EN
+ME = ME
+PA = PA
+RG = RG
+SR = SR
+TP = TP
+AG = AG
+   
+IS0:
+CA = CA
+NU = NU
+SS = SS
+OR = OR
+
+IW0:
+CA = CA
+NU = NU
+SS = SS
+OR = OR

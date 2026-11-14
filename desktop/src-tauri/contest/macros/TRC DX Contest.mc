@@ -1,0 +1,76 @@
+[Macros]
+nItems=13
+
+Name0=F1
+Label0=AutoCQ
+Text0=<AUTOCQ><ACQDELAY:seconds>
+
+Name1=F2
+Label1=QRZ?
+Text1=<TX>QRZ QRZ  de <MYCALL> k <RXANDCLEAR>
+
+Name2=F4
+Label2=AGAIN NR
+Text2=<TX>  AGN NR AGN NR <CALL> de <MYCALL> K <RXANDCLEAR>
+
+
+Name3=F6
+Label3=Prev Nr
+Text3=<TX>  <PREVNRS>  <PREVNRS> <PREVNRS> <PREVNRS><RXANDCLEAR>
+
+
+Name4=F8
+Label4=MY NR AG
+Text4=<TX> <NRS>  <NRS>  <NRS>  <NRS>  <NRS>  <NRS>  de <MYCALL> <RXANDCLEAR>
+
+
+Name5=F9
+Label5=QSO B4
+Text5=<TX>  <CALL> de  <MYCALL> QSO B4  ON  <QSOBEFORETIME> <RXANDCLEAR>
+
+Name6=F10
+Label6=AGAIN
+Text6=<TX>AGN AGN k..<RXANDCLEAR>
+
+Name7=F11
+Label7=73 *EE
+Text7=<TX>73 *EE<RXANDCLEAR>
+
+
+Name8=F12
+Label8=Modes
+Text8=
+
+
+Name9=F5
+Label9=CFM QSO
+Text9=<TX> CFM TU <CALL> de <MYCALL> 73 QRZ?<SAVEQSO><RXANDCLEAR><AUTOCQ><ACQDELAY:seconds> <CR><LF><CR><LF>
+
+
+Name10=F7
+Label10=CallMyCall
+Text10=<TX> <CALL> <CALL> de <MYCALL> <MYCALL> <RXANDCLEAR>
+
+
+Name12=F3
+Label12=H/M
+Text12=<TX><FIXSTARTTIME> <CALL> TU <RSTS> <NRS>  <NRS>  <NRS> <CALL><RXANDCLEAR>
+
+
+
+BkColor0=5748297
+BkColor1=2377947
+BkColor2=255
+BkColor3=4227327
+BkColor4=4210816
+BkColor5=8421376
+BkColor6=65535
+BkColor7=255
+BkColor8=255
+BkColor9=65535
+BkColor10=8454143
+BkColor11=13160660
+BkColor12=8421376
+Name11=AutoCqText
+Label11=AutoCQ
+Text11=<TX>CQ TRC de <MYCALL> <MYCALL> <MYCALL> K<RXANDCLEAR>

@@ -1,0 +1,86 @@
+[Macros]
+nItems=15
+
+Name0=F1
+Label0=AutoCQ
+Text0=<AUTOCQ><ACQDELAY:seconds>
+
+Name1=F2
+Label1=QRZ?
+Text1=<TX>QRZ QRZ  de <MYCALL> k <RXANDCLEAR>
+
+Name2=F4
+Label2=AGAIN NR
+Text2=<TX>  AGN NR AGN NR <CALL> de <MYCALL> K <RXANDCLEAR>
+
+
+Name3=F5
+Label3=CFM QSO
+Text3=<TX> CFM TU <CALL> de <MYCALL> 73 QRZ?<SAVEQSO><RXANDCLEAR><AUTOCQ><ACQDELAY:seconds> <CR><LF><CR><LF>
+
+
+Name4=F7
+Label4=CallMyCall
+Text4=<TX> <CALL> <CALL> de <MYCALL> <MYCALL> <RXANDCLEAR>
+
+
+Name5=F9
+Label5=QSO B4
+Text5=<TX>  <CALL> de  <MYCALL> QSO B4  ON  <QSOBEFORETIME> <RXANDCLEAR>
+
+Name6=F10
+Label6=AGAIN
+Text6=<TX>AGN AGN k..<RXANDCLEAR>
+
+Name7=F11
+Label7=73 *EE
+Text7=<TX>TNX 73  *EE<RXANDCLEAR>
+
+
+Name8=F12
+Label8=*EE
+Text8=<TX> *EE<RXANDCLEAR>
+
+
+Name9=F6
+Label9=Prev Nr
+Text9=<TX>  <PREVNRS>  <PREVNRS> <PREVNRS> <PREVNRS><RXANDCLEAR>
+
+
+Name10=F8
+Label10=MY NR AG
+Text10=<TX> <NRS> NLB  <NRS> NLB <NRS> NLB  <NRS> NLB  <NRS> NLB <NRS> NLB  de <MYCALL> <RXANDCLEAR>
+
+
+Name11=F3
+Label11=H/M
+Text11=<TX><FIXSTARTTIME> <CALL> <GA> TU <RSTS> <NRS> NLB  <NRS> NLB   <NRS> NLB  <CALL><RXANDCLEAR>
+
+
+Name12=Ctrl-F6
+Label12=REDUCE  ALC
+Text12=<TX><WAVE:CQ-UBA-CONTEST.wav>
+
+
+
+BkColor0=5748297
+BkColor1=2377947
+BkColor2=255
+BkColor3=65535
+BkColor4=8454143
+BkColor5=8421376
+BkColor6=65535
+BkColor7=255
+BkColor8=1554920
+BkColor9=4227327
+BkColor10=4210816
+BkColor11=8421376
+BkColor12=32768
+Name13=AutoCqText
+Label13=AutoCQ
+Text13=<WAVE:CQ-CONTEST.wav>
+BkColor13=255
+Name14=Ctrl-F10
+Label14=CALL WAV
+Text14=<WAVE:MyCall3.wav>
+BkColor14=8454016
