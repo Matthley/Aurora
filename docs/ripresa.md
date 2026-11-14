@@ -2,6 +2,11 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-14 notte fonda (0.11.259 pubblicata, sito aggiornato)
+
+- **0.11.259** (2026-11-14T22:12:47Z): barra delle macro dei modi testuali con una sola riga F1-F12 (`ControlBar.tsx`; tolte righe Ctrl/Shift, ingranaggio e voce `digi.bar.extended`), Guida aggiornata.
+- Stazioni deboli accanto alle forti in BIGScan RTTY: provati il residuo spettrale con conferma nel tempo e la cancellazione della forte (SIC) - nessun guadagno sul banco, non tenuti (patch in scratchpad della sessione: `residuo-rtty.patch`, `sic-rtty.patch`). Ipotesi: fronti reali arrotondati, servirebbe stimare la forma dei fronti.
+
 ## Stato al 2026-11-14 tarda sera (0.11.258 pubblicata, sito aggiornato)
 
 - **0.11.258** (2026-11-14T19:20:08Z): punteggio, statistiche e Cabrillo del contest dei modi testuali (`contest/src/punti_testo.rs`, `GET /api/v1/contest-testo/punteggio` e `/cabrillo`, `ContestStatsDialog.tsx`; codici moltiplicatori 0-5 scelti in Aurora, i 135 predefiniti hanno punti a zero); cattura dello scambio senza l'eco; BIGScan RTTY: canali storti spostati sul segnale vero (`rtty_multi.rs`), fine parola dopo 1 s (`skim/rtty.rs`), verifica alla prima lettura certa dopo CQ (`calls.rs`) -> ritardo 9 -> 6 s, presenza 46 -> 52%; split: registro di ogni comando e avviso «split acceso fuori da Aurora» (`hamlib_rig.rs`, `rd.splitExternal`), Doppler solo con la pagina Satelliti aperta; niente falsi blocchi con la finestra in secondo piano (`crash.rs` `BACKGROUND`).
