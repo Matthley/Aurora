@@ -11,6 +11,7 @@
 //! interruzioni; poi i nominativi falsi (nell'elenco come CQ ma di nessuno che chiama CQ). Stampa una riga RIEPILOGO e i trovati per
 //! fascia di velocita'.
 //! - `CW_BANCO_SEMI`: quante bande diverse (di base 2); `CW_BANCO_DURATA`: secondi d'audio per banda (di base 240);
+//! - `CW_BANCO_SEME`: il primo seme (di base 1000);
 //! - `CW_DEBUG=1`: stampa anche i canali alla fine di ogni banda.
 //!
 //! `CARGO_BUILD_JOBS=2 nice cargo test --release -j 2 -p mode-digi --test bigscan_cw_sintetico -- --ignored --nocapture --test-threads=1`
@@ -266,12 +267,16 @@ struct Snap {
     radar: HashMap<String, f32>,
     /// Tutti i nominativi verificati, con qualunque ruolo.
     verified: HashSet<String>,
+    /// Frequenze dei canali aperti e il loro testo (per `CW_DEBUG`).
+    lanes: Vec<(f32, String)>,
 }
 
 fn snapshot(d: &dyn BandDecoder, t: f64) -> Snap {
     let mut radar = HashMap::new();
     let mut verified = HashSet::new();
-    for ch in &d.channels() {
+    let chans = d.channels();
+    let lanes = chans.iter().map(|c| (c.freq_hz, c.text.clone())).collect();
+    for ch in &chans {
         for c in &ch.calls {
             let latest = ch
                 .calls
@@ -293,7 +298,7 @@ fn snapshot(d: &dyn BandDecoder, t: f64) -> Snap {
             }
         }
     }
-    Snap { t, radar, verified }
+    Snap { t, radar, verified, lanes }
 }
 
 /// I conti di una o piu' bande.
@@ -337,16 +342,21 @@ fn misura_banda(seed: u64, n_runner: usize, dur_s: f64, conti: &mut Conti) {
         }
     }
     eprintln!("banda {seed}: {:.0} s di calcolo per {dur_s:.0} s d'audio, canali al massimo {max_lanes}", started.elapsed().as_secs_f64());
-    println!("{:<9} {:>6} {:>4} {:>5} {:>4} {:>6} {:>6} {:>5}", "call", "Hz", "WPM", "S/N", "QSB", "ritardo", "%pres", "drop");
+    println!("{:<9} {:>6} {:>4} {:>5} {:>4} {:>6} {:>6} {:>5} {:>6}", "call", "Hz", "WPM", "S/N", "QSB", "ritardo", "%pres", "drop", "%lane");
     let runner_calls: HashSet<&str> = runners.iter().map(|r| r.st.call.as_str()).collect();
     for r in &runners {
         let Some(&first) = r.cq_end.first() else { continue };
         let call = r.st.call.as_str();
         let active = |t: f64| t >= first && t <= r.last_s + 30.0;
         let first_band = snaps.iter().find(|s| s.t >= first - 2.0 && s.radar.contains_key(call)).map(|s| s.t);
-        let (mut n, mut pres, mut drops, mut was) = (0, 0, 0, false);
+        let (mut n, mut pres, mut drops, mut was, mut lane) = (0, 0, 0, false, 0);
+        let mut testo = String::new();
         for s in snaps.iter().filter(|s| active(s.t)) {
             n += 1;
+            if let Some(l) = s.lanes.iter().filter(|l| (f64::from(l.0) - r.st.hz).abs() < 15.0).min_by(|a, b| (f64::from(a.0) - r.st.hz).abs().total_cmp(&(f64::from(b.0) - r.st.hz).abs())) {
+                lane += 1;
+                testo.clone_from(&l.1);
+            }
             let p = s.radar.contains_key(call);
             if p {
                 pres += 1;
@@ -368,7 +378,7 @@ fn misura_banda(seed: u64, n_runner: usize, dur_s: f64, conti: &mut Conti) {
             conti.ritardi.push((fb - first).max(0.0));
         }
         println!(
-            "{:<9} {:>6.0} {:>4.0} {:>5.1} {:>4.0} {:>6} {:>5.0}% {:>5}",
+            "{:<9} {:>6.0} {:>4.0} {:>5.1} {:>4.0} {:>6} {:>5.0}% {:>5} {:>5.0}%",
             call,
             r.st.hz,
             r.st.wpm,
@@ -376,8 +386,13 @@ fn misura_banda(seed: u64, n_runner: usize, dur_s: f64, conti: &mut Conti) {
             r.st.qsb_db,
             first_band.map(|fb| format!("{:.0} s", (fb - first).max(0.0))).unwrap_or_else(|| "-".into()),
             pct,
-            drops
+            drops,
+            if n > 0 { 100.0 * f64::from(lane) / f64::from(n) } else { 0.0 }
         );
+        if std::env::var_os("CW_DEBUG").is_some() && first_band.is_none() {
+            let tail: String = testo.chars().rev().take(120).collect::<Vec<char>>().into_iter().rev().collect();
+            println!("      {tail}");
+        }
     }
     let in_radar: HashSet<&String> = snaps.iter().flat_map(|s| s.radar.keys()).collect();
     let falsi: Vec<&&String> = in_radar.iter().filter(|c| !runner_calls.contains(c.as_str())).collect();
@@ -389,7 +404,9 @@ fn misura_banda(seed: u64, n_runner: usize, dur_s: f64, conti: &mut Conti) {
     if std::env::var_os("CW_DEBUG").is_some() {
         for ch in dec.channels() {
             let v: Vec<String> = ch.calls.iter().map(|c| format!("{}:{:?}{}", c.call, c.role, if c.verified() { "v" } else { "" })).collect();
-            println!("   {:7.1} Hz {:4.0} WPM {:5.1} dB {v:?}", ch.freq_hz, ch.wpm, ch.snr_db);
+            let tail: String = ch.text.chars().rev().take(90).collect::<Vec<char>>().into_iter().rev().collect();
+            println!("   {:7.1} Hz {:4.0} WPM {:5.1} dB {v:?}
+      {tail}", ch.freq_hz, ch.wpm, ch.snr_db);
         }
     }
 }
@@ -401,8 +418,9 @@ fn banda_cw_sintetica() {
     let dur: f64 = std::env::var("CW_BANCO_DURATA").ok().and_then(|s| s.parse().ok()).unwrap_or(240.0);
     let n_runner: usize = std::env::var("CW_BANCO_RUNNER").ok().and_then(|s| s.parse().ok()).unwrap_or(16);
     let mut conti = Conti::default();
+    let primo: u64 = std::env::var("CW_BANCO_SEME").ok().and_then(|s| s.parse().ok()).unwrap_or(1_000);
     for s in 0..semi {
-        misura_banda(1_000 + s, n_runner, dur, &mut conti);
+        misura_banda(primo + s, n_runner, dur, &mut conti);
     }
     conti.ritardi.sort_by(f64::total_cmp);
     let mediana = conti.ritardi.get(conti.ritardi.len() / 2).map(|m| format!("{m:.0} s")).unwrap_or_else(|| "-".into());
