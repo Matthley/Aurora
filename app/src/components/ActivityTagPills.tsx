@@ -1,5 +1,5 @@
 import { useT, type Key } from '../i18n';
-import { CQ_TAG_LIST, STATE_TAG_LIST, useFilters } from '../lib/filters';
+import { CONTINENTS, CQ_TAG_LIST, STATE_TAG_LIST, useFilters } from '../lib/filters';
 import { ensureHighlightFor } from '../lib/highlightFor';
 
 /**
@@ -16,6 +16,9 @@ export function ActivityTagPills() {
     set({ tags: on ? [...tags, tag] : tags.filter((x) => x !== tag) });
     if (on) void ensureHighlightFor(tag);
   };
+  const toggleCont = (code: string) =>
+    set({ hideContinents: f.hideContinents.includes(code) ? f.hideContinents.filter((c) => c !== code) : [...f.hideContinents, code] });
+  const list = (text: string, upper: boolean) => text.split(',').map((x) => (upper ? x.trim().toUpperCase() : x.trim())).filter(Boolean);
   return (
     <div className="bfl-pills" role="group" aria-label={t('bfl.title')}>
       <button type="button" className={tags.length === 0 ? 'bfl-pill bfl-pill--on' : 'bfl-pill'} aria-pressed={tags.length === 0} onClick={() => set({ tags: [] })}>
@@ -41,6 +44,16 @@ export function ActivityTagPills() {
       <button type="button" className={f.hideOwnContinent ? 'bfl-pill bfl-pill--on' : 'bfl-pill'} aria-pressed={f.hideOwnContinent} onClick={() => set({ hideOwnContinent: !f.hideOwnContinent })}>
         {t('bfl.notMyCont')}
       </button>
+      <span className="bfl-break" aria-hidden="true" />
+      {/* continenti, paesi e nominativi da nascondere (gli stessi filtri di Impostazioni > Filtri; valgono anche per le Automazioni) */}
+      <span className="bfl-group" title={t('fil.continents')}>{t('bfl.hide')}</span>
+      {CONTINENTS.map((code) => (
+        <button key={code} type="button" className={f.hideContinents.includes(code) ? 'bfl-pill bfl-pill--hidden' : 'bfl-pill'} aria-pressed={f.hideContinents.includes(code)} title={`${t('fil.continents')}: ${t(`cont.${code}` as Key)}`} onClick={() => toggleCont(code)}>
+          {code}
+        </button>
+      ))}
+      <input type="text" className="bfl-input" defaultValue={f.hideCountries.join(', ')} key={`c-${f.hideCountries.join(',')}`} placeholder={t('bfl.hideCountries')} aria-label={t('fil.countries')} title={t('fil.countries')} onBlur={(e) => set({ hideCountries: list(e.target.value, false) })} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+      <input type="text" className="bfl-input" defaultValue={f.hideCalls.join(', ')} key={`k-${f.hideCalls.join(',')}`} placeholder={t('bfl.hideCalls')} aria-label={t('fil.calls')} title={t('fil.calls')} onBlur={(e) => set({ hideCalls: list(e.target.value, true) })} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
     </div>
   );
 }
