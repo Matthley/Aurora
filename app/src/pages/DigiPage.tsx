@@ -43,6 +43,7 @@ import { DigiTxBox } from '../components/DigiTxBox';
 import { RttySettingsDialog } from '../components/digi/RttySettingsDialog';
 import { useDigiTxLive } from '../lib/digiTxLive';
 import { createLatestSequencer, restartBox } from '../lib/macroRestart';
+import { TxMenu } from '../components/digi/TxMenu';
 import { RowAverager, seekSignal, snapToPair, snapToPeak, type SpectrumRow } from '../lib/digiSpectrum';
 import { bandOf } from '../lib/format';
 import { effectiveMacros, macroNameForKey, runMacro, type Macro, type MacroAction, type MacroContext } from '../lib/macroLang';
@@ -284,6 +285,15 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const sending = snap.tx.state === 'sending';
   // <RXANDCLEAR>: pulizia della finestra di trasmissione rimandata alla fine della trasmissione
   const clearAfterTx = useRef(false);
+  // il menu del tasto destro nella finestra di trasmissione
+  const [txMenu, setTxMenu] = useState<{ x: number; y: number } | null>(null);
+  // il testo nuovo della finestra di trasmissione (tastiera e menu): mentre si trasmette parte subito, e il Backspace toglie solo quello
+  // che non e' ancora partito
+  const txEdit = (v: string) => {
+    const next = views.capsOnly ? v.toUpperCase() : v;
+    if (sending || txLive.progress.queued > 0) txLive.edit(next);
+    else setTx(next);
+  };
   // macro ripremute ancora in viaggio verso il motore: finche' ce n'e' una, la fine della trasmissione di prima non pulisce
   const macroInflight = useRef(0);
   const wasSending = useRef(false);
@@ -1521,7 +1531,16 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             <DigiRxLive box={rxBox} underlineSent={views.underlineSent} showSent={views.echoRx === true} paused={rxPaused} search={searchOpen ? search : ''} />
           </pre>
           <div className="digi-split" role="separator" aria-orientation="horizontal" title={t('digi.split.tip')} onPointerDown={dragSplit} />
-          <div className="digi-txwrap" style={{ flex: `${1 - rxFrac} 1 0` }}>
+          <div
+            className="digi-txwrap"
+            style={{ flex: `${1 - rxFrac} 1 0` }}
+            onContextMenu={(e) => {
+              // tasto destro nella finestra di trasmissione: Pulisci tutto, Taglia, Copia, Incolla
+              e.preventDefault();
+              setTxMenu({ x: e.clientX, y: e.clientY });
+            }}
+          >
+            {txMenu ? <TxMenu at={txMenu} box={txBox.current} text={tx} onText={txEdit} onClearAll={clearTxWindow} onClose={() => setTxMenu(null)} /> : null}
             {txSent !== '' ? (
               <div ref={txSentBox} className={`digi-txhist${views.slashedZero ? ' digi-zero' : ''}`} aria-label={t('digi.tx.sentTitle')} title={t('digi.tx.sentTitle')}>
                 {txSent}
@@ -1535,12 +1554,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               sending={sending}
               label={t('digi.tx.title')}
               placeholder={snap.tx.open ? t('digi.tx.openHint') : undefined}
-              onText={(v) => {
-                const next = views.capsOnly ? v.toUpperCase() : v;
-                // mentre si trasmette quello che si scrive parte subito (e il Backspace toglie solo quello che non e' ancora partito)
-                if (sending || txLive.progress.queued > 0) txLive.edit(next);
-                else setTx(next);
-              }}
+              onText={txEdit}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !sending) send(tx, true);
                 else if (e.key === 'Enter' && !e.shiftKey && !e.altKey) runEventSoon('OnCR');
