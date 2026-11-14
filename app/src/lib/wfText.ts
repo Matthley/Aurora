@@ -73,6 +73,8 @@ export function tailChunks(text: string, unsure: number[], calls: string[] = [],
 
 /** Quanto resta lo storico per il suggerimento (ms). */
 export const HISTORY_MS = 180_000;
+/** Quanti caratteri del testo recente mostra il suggerimento sul nominativo della cascata. */
+export const HISTORY_CHARS = 110;
 /** Dopo quanto senza testo nuovo la riga sbiadisce, e dopo quanto sparisce (ms). */
 export const QUIET_MS = 20_000;
 export const GONE_MS = 60_000;
@@ -124,15 +126,20 @@ export class TextHistory {
     return t ? now - t.changed : Infinity;
   }
 
-  /** Il testo degli ultimi minuti, spazi ripetuti ridotti. */
-  history(id: number, now = Date.now()): string {
+  /** Il testo degli ultimi minuti, spazi ripetuti ridotti, al piu' gli ultimi `max` caratteri (da inizio parola, con «…» davanti): nel
+   * suggerimento della cascata basta l'ultimo scambio, non tutta la storia (proprietario, 2026-11-14). */
+  history(id: number, now = Date.now(), max = HISTORY_CHARS): string {
     const t = this.tracks.get(id);
     if (!t) return '';
-    return t.parts
+    const all = t.parts
       .filter((p) => now - p.at <= HISTORY_MS)
       .map((p) => p.text)
       .join('')
       .replace(/\s+/g, ' ')
       .trim();
+    if (all.length <= max) return all;
+    const tail = all.slice(all.length - max);
+    const cut = tail.indexOf(' ');
+    return `…${cut >= 0 && cut < 20 ? tail.slice(cut + 1) : tail}`;
   }
 }
