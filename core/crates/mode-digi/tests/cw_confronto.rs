@@ -733,3 +733,83 @@ fn tasto_a_mano_nominativi() {
         println!("tasto a mano {snr:>4} dB: nominativi verificati giusti {giusti}/30, sbagliati {sbagliati}");
     }
 }
+
+/// Runner e chiamante sulla stessa frequenza (contest, pile-up): si alternano «CQ TEST <runner> <runner>», «<chiamante>», «<chiamante>
+/// 5NN 001», «TU 5NN 012», «TU <runner> TEST» con velocita' diverse (il runner spesso molto piu' veloce) e ampiezze diverse (il
+/// chiamante 6 dB sotto o sopra). Un ricevitore come quelli dei canali di tutta la banda (fascio 96, AFC a 20 Hz) e quello del canale
+/// scelto (fascio 320). Stampa i caratteri sbagliati in % per coppia di velocita' e rapporto segnale/rumore (di quello del runner).
+fn alternanza(wpm_r: f64, wpm_c: f64, snr_db: f64, seed: u64, beam: usize) -> (usize, usize) {
+    let mut rng = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1);
+    let calls = ["K1XYZ", "DL2ABC", "OH3MM", "JA1QRP", "EA5AA", "S57X"];
+    let mut seq = vec![(false, 0.7)];
+    let mut sent = String::new();
+    // ogni passaggio: (velocita', ampiezza relativa, testo)
+    let mut parti: Vec<(f64, f64, String)> = Vec::new();
+    for (k, c) in calls.iter().enumerate() {
+        let amp_c = if k % 2 == 0 { 0.5 } else { 2.0 };
+        parti.push((wpm_r, 1.0, "CQ TEST IU3ABC IU3ABC".into()));
+        parti.push((wpm_c, amp_c, (*c).into()));
+        parti.push((wpm_r, 1.0, format!("{c} 5NN {:03}", 10 + k)));
+        parti.push((wpm_c, amp_c, format!("TU 5NN {}", 100 + 37 * k)));
+        parti.push((wpm_r, 1.0, "TU IU3ABC TEST".into()));
+    }
+    let mut amps: Vec<(f64, f64)> = Vec::new(); // (da secondi, ampiezza)
+    let mut t = 0.7;
+    for (wpm, a, txt) in &parti {
+        let s = chiavi(txt, |_| *wpm, &KEYER, &mut rng);
+        amps.push((t, *a));
+        t += s.iter().map(|x| x.1).sum::<f64>();
+        seq.extend(s);
+        let pausa = 0.4 + 0.5 * rng.uniform();
+        seq.push((false, pausa));
+        t += pausa;
+        sent.push_str(txt);
+        sent.push(' ');
+    }
+    seq.push((false, 2.0));
+    let amp_at = |tt: f64| amps.iter().rev().find(|(t0, _)| *t0 <= tt).map_or(1.0, |x| x.1);
+    let mut audio = suona(&seq, f64::from(TONO), |tt| AMP * amp_at(tt));
+    aggiungi_rumore(&mut audio, sigma_per_snr(AMP, snr_db), &mut rng);
+    let mut rx = CwDemodulator::new(TONO, 20.0);
+    rx.set_afc(true);
+    rx.set_afc_limit(20.0);
+    rx.set_beam(beam);
+    let mut got = Vec::new();
+    for b in audio.chunks(960) {
+        got.extend(rx.process(b));
+    }
+    let sent = sent.trim_end();
+    (errori("", sent, &got), sent.len())
+}
+
+#[test]
+#[ignore]
+fn runner_e_chiamante() {
+    const RUNS: u64 = 3;
+    let mut tot = 0.0;
+    let mut celle = 0.0;
+    // `CW_COPPIA=40,40`: solo quella coppia di velocita'
+    let scelta: Vec<f64> = std::env::var("CW_COPPIA").unwrap_or_default().split(',').filter_map(|x| x.trim().parse().ok()).collect();
+    for (wr, wc) in [(20.0, 20.0), (28.0, 22.0), (36.0, 22.0), (40.0, 25.0), (22.0, 36.0), (32.0, 32.0), (40.0, 40.0)] {
+        if scelta.len() == 2 && (scelta[0] != wr || scelta[1] != wc) {
+            continue;
+        }
+        let mut riga = format!("runner {wr:>2.0} chiamante {wc:>2.0} |");
+        for snr in [0.0, -6.0, -10.0] {
+            for beam in [96usize, 320] {
+                let (mut e, mut n) = (0, 0);
+                for r in 0..RUNS {
+                    let (ee, nn) = alternanza(wr, wc, snr, 40 + r * 13, beam);
+                    e += ee;
+                    n += nn;
+                }
+                let p = 100.0 * e as f64 / n as f64;
+                tot += p;
+                celle += 1.0;
+                riga.push_str(&format!(" {snr:>3.0} dB/{beam:<3} {p:5.1}"));
+            }
+        }
+        println!("{riga}");
+    }
+    println!("media runner e chiamante: {:.1}% di caratteri sbagliati", tot / celle);
+}
