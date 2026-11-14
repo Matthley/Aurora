@@ -1,6 +1,11 @@
-# Ripresa del lavoro (ultimo aggiornamento: 2026-11-14)
+# Ripresa del lavoro (ultimo aggiornamento: 2026-11-15)
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
+
+## Stato al 2026-11-15 (0.11.260 pubblicata, sito aggiornato)
+
+- **0.11.260** (2026-11-14T23:01:32Z): frequenza in tempo reale (Hamlib: sola frequenza ogni 160 ms in sintonia, 300 ms da ferma; `hamlib_rig.rs`), barra delle macro di nuovo a 4 righe (F1-F12 solo sulla prima, niente Ctrl/Shift), macro spostabili col trascinamento a pressione lunga (`swapMacros`, Annulla), Guida alle macro a due colonne a colori, pagina macro delle Impostazioni a gruppi, ricerca nell'elenco contest, tendina del modo dalla barra in basso, campi contest solo con contest attivo, icone in BIGScan.
+- Aperti: issue #55 (display assente, forse finestra staccata chiusa: `app/src/lib/detached.ts`); HRDLOG.NET «server non raggiungibile» da un utente (catena TLS o firewall suo); nominativi noti in BIGScan (aiutante al lavoro, prossima versione); riallineare `Aurora-fix-remoto` a `origin/main`.
 
 ## Stato al 2026-11-14 notte fonda (0.11.259 pubblicata, sito aggiornato)
 
