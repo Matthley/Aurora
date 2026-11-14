@@ -340,3 +340,9 @@ html[data-theme='light'] .digi-wingrip::before { background: #4a5a8a; }
 .digi-wf-notch-edge--r { right: -6px; }
 /* «Togli i notch» a larghezza fissa: non cambia misura quando compare o cresce il numero dei notch */
 .digi-st--notch { width: 11.5em; flex: none; justify-content: center; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* il tasto della macro nell'angolo in basso a destra del pulsante: piccolo e discreto, non copre l'etichetta */
+.digi-classica .digi-key { position: relative; }
+.digi-key-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.digi-key-hint { position: absolute; right: 3px; bottom: 1px; font-size: 8px; line-height: 1; font-weight: 500; letter-spacing: 0; opacity: 0.5; pointer-events: none; color: var(--key-ink); }
+html[data-theme='light'] .digi-key-hint { color: #1b2540; opacity: 0.55; }
+.digi-key--blank .digi-key-hint { opacity: 0.35; }

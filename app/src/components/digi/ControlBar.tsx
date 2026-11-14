@@ -18,6 +18,14 @@ interface Props {
   autoCq?: 'off' | 'on' | 'paused';
 }
 
+/** Il tasto di una macro in breve, per l'angolo del pulsante: «F1», «C-F1» (Ctrl), «S-F1» (Shift), «CS-F1» (Ctrl+Shift). */
+export function shortKey(name: string): string {
+  const m = /^(Ctrl-)?(Shift-)?(F\d+)$/.exec(name);
+  if (!m) return name;
+  const mods = `${m[1] ? 'C' : ''}${m[2] ? 'S' : ''}`;
+  return mods ? `${mods}-${m[3]}` : (m[3] ?? name);
+}
+
 /** Vero se la macro accende o spegne il CQ automatico. */
 const isAutoCqMacro = (text: string) => /<\s*(AUTOCQ|ACQ)\s*>/i.test(text);
 
@@ -82,7 +90,8 @@ export function ControlBar({ macros, extended, disabled = false, onToggleExtende
                     onEdit(name);
                   }}
                 >
-                  {blank ? '' : macro?.label}
+                  <span className="digi-key-label">{blank ? '' : macro?.label}</span>
+                  <span className="digi-key-hint" aria-hidden="true">{shortKey(name)}</span>
                 </button>
               );
             })}
