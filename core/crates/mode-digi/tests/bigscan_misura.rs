@@ -1,7 +1,9 @@
 //! Banco di prova di «tutta la banda» («BIGScan»): quanto bene il decodificatore di tutta la banda trova chi chiama CQ, rispetto a un
 //! ricevitore a canale singolo per ogni segnale, su una registrazione vera.
 //! - `AURORA_BIGSCAN_WAV`: il file WAV (mono, PCM 16 bit, qualunque frequenza); senza, la prova si salta;
-//! - `AURORA_BIGSCAN_MODE`: `rtty` (di base, 170 Hz, 45,45 baud) o `cw`.
+//! - `AURORA_BIGSCAN_MODE`: `rtty` (di base, 170 Hz, 45,45 baud) o `cw`;
+//! - `AURORA_BIGSCAN_SNAP_S`: ogni quanti secondi d'audio si fotografa l'elenco (di base 5; 1 si avvicina al rinfresco vero
+//!   dell'interfaccia e toglie al ritardo la mezza griglia delle fotografie).
 //!
 //! L'audio passa come nel servizio (ricampionatore di `mode-sstv` a 12 kHz, blocchi di 100 ms); ogni 5 s d'audio si fotografa l'elenco
 //! che mostrerebbe l'interfaccia (nominativi verificati dopo CQ, non vecchi e non spariti, come `radarStations` di `digiBand.ts`).
@@ -25,6 +27,9 @@ const RATE: f64 = 12_000.0;
 const SHIFT: f32 = 170.0;
 const BAUD: f32 = 45.45;
 const SNAP_S: f64 = 5.0;
+fn snap_s() -> f64 {
+    std::env::var("AURORA_BIGSCAN_SNAP_S").ok().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v > 0.0).unwrap_or(SNAP_S)
+}
 /// Come `band.rs`.
 const CALL_STALE_S: f64 = 75.0;
 const CALL_STALE_CQ_S: f64 = 180.0;
@@ -582,7 +587,8 @@ fn bigscan_contro_canale_singolo() {
         if cw { Box::new(CwBandDecoder::new(150.0, 4_000.0, 40)) } else { Box::new(RttyBandDecoder::new(SHIFT, BAUD, 40)) };
     let mut snaps: Vec<Snap> = Vec::new();
     let mut t = 0.0;
-    let mut next_snap = SNAP_S;
+    let snap = snap_s();
+    let mut next_snap = snap;
     let mut max_lanes = 0;
     for block in audio.chunks(1200) {
         band.process(block);
@@ -590,7 +596,7 @@ fn bigscan_contro_canale_singolo() {
         max_lanes = max_lanes.max(band.channel_count());
         if t >= next_snap {
             snaps.push(snapshot(band.as_ref(), t));
-            next_snap += SNAP_S;
+            next_snap += snap;
         }
     }
     eprintln!("tutta la banda: {:.0} s di calcolo, canali al massimo {max_lanes}", started.elapsed().as_secs_f64());
