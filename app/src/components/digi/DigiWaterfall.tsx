@@ -5,6 +5,7 @@ import type { SpectrumRow } from '../../lib/digiSpectrum';
 import type { DigiNotch } from '../../api/client';
 import { addNotch } from '../../lib/digiNotches';
 import { WaterfallNotches } from './WaterfallNotches';
+import { PileupMarks } from './PileupMarks';
 import type { WaterfallLabel } from '../../lib/digiBand';
 
 interface Props {
@@ -314,6 +315,7 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandH
       {flag(rxShown)}
       {hairlines && rxShown >= minHz && rxShown <= maxHz ? <span className="digi-wf-hair digi-wf-hair--rx" style={{ left: xOf(rxShown) }} aria-hidden="true" /> : null}
       {hairlines && split && txShown >= minHz && txShown <= maxHz ? <span className="digi-wf-hair digi-wf-hair--tx" style={{ left: xOf(txShown) }} aria-hidden="true" /> : null}
+      <PileupMarks minHz={minHz} maxHz={maxHz} top={SCALE_H} xOf={xOf} />
       {pair(rxShown, 'rx', t('digi.wf.rxTip'))}
       {pair(txShown, 'tx', t('digi.wf.txTip'))}
       {/* i nominativi di tutta la banda appena sotto la scala, sopra la traccia (la riga nuova della cascata e' in cima); due vicini si alternano in altezza */}

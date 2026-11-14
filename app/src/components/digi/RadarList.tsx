@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clearDigiBand, getClusterSpots, getDigi, getLogQsos } from '../../api/client';
 import { useT } from '../../i18n';
 import { clearBandSignals } from '../../lib/digiBand';
+import { getPileup, onPileup, pileupTarget, setPileupDx } from '../../lib/dxPileup';
 import { ColumnsMenu, MovableColGroup, MovableTh, useMovableColumns } from '../MovableColumns';
 import type { RadarStation } from '../../lib/digiBand';
 import { flagCode } from '../../lib/flags';
@@ -39,6 +40,10 @@ interface Props {
   modeName: string;
   onTune(hz: number): void;
   onCall(call: string): void;
+  /** Il nominativo nel campo del QSO: si puo' scegliere come DX del pile-up. */
+  qsoCall?: string;
+  /** Modo DXpedition: la trasmissione va dove ascolta la DX (con Lock). */
+  onPileupTx?(hz: number): void;
 }
 
 /** Le colonne del Radar: si spostano trascinando il titolo e si allargano dal bordo, come nel DX Cluster; ordine e larghezze restano ricordati. */
@@ -76,8 +81,12 @@ function freqLabel(hz: number, dialHz: number): string {
  * il suo colore. Clic: la ricezione va sulla stazione; doppio clic: ricezione sulla stazione e nominativo nel QSO. Accanto al nominativo il
  * segno del log locale: paese nuovo, gia' collegato su questa banda e modo, collegato altrove (colori dei tipi della pagina FT8).
  */
-export function RadarList({ on = true, onToggle, width, answering = false, onAnswering, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall }: Props) {
+export function RadarList({ on = true, onToggle, width, answering = false, onAnswering, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall, qsoCall = '', onPileupTx }: Props) {
   const t = useT();
+  const pileup = useSyncExternalStore(onPileup, getPileup);
+  const pileTarget = pileupTarget(pileup);
+  const fmt = (hz: number) => (dialHz > 0 ? ((dialHz + hz) / 1000).toFixed(2) : `${Math.round(hz)} Hz`);
+  const qsoDx = qsoCall.trim().toUpperCase();
   const hidden: RadarCol[] = [...(showWpm ? [] : (['wpm'] as const)), ...(showSnr ? [] : (['snr'] as const))];
   const cols = useMovableColumns({ storageKey: 'aurora.digi.radar.cols', columns: RADAR_COLUMNS, defaultEm: RADAR_COL_EM, elastic: 'call', hidden });
   const contest = useContestLog();
@@ -246,10 +255,49 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         </table>
       </div>
       ) : null}
+      {on && (pileup.dx || (qsoDx && onPileupTx)) ? (
+        <div className="radar-pileup" title={pileup.dx ? [t('radar.pileupTip'), ...pileup.worked.map((w) => `${w.call} ${fmt(w.hz)} ${new Date(w.at).toISOString().slice(11, 19)}`)].join('\n') : undefined}>
+          {pileup.dx ? (
+            <>
+              <span className="radar-pileup-text">
+                {pileup.estimateHz !== null
+                  ? t('radar.pileupListen', { call: pileup.dx, f: fmt(pileup.estimateHz) })
+                  : pileup.hintHz !== null
+                    ? t('radar.pileupHint', { call: pileup.dx, f: fmt(pileup.hintHz) })
+                    : t('radar.pileupWait', { call: pileup.dx })}
+                {pileup.drift !== 'none' ? <em> {t(pileup.drift === 'up' ? 'radar.pileupUp' : 'radar.pileupDown')}</em> : null}
+              </span>
+              {pileup.worked.length > 0 ? <small className="radar-pileup-last">{pileup.worked.slice(0, 4).map((w) => w.call).join(' · ')}</small> : null}
+              {pileTarget !== null && onPileupTx ? (
+                <button type="button" className="radar-clear" title={t('radar.pileupTxTip')} onClick={() => onPileupTx(pileTarget)}>
+                  {t('radar.pileupTx')}
+                </button>
+              ) : null}
+              <button type="button" className="radar-clear" onClick={() => setPileupDx(null)}>
+                {t('radar.pileupOff')}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="radar-clear" onClick={() => setPileupDx(qsoDx)}>
+              {t('radar.pileupFromQso', { call: qsoDx })}
+            </button>
+          )}
+        </div>
+      ) : null}
       <ColumnsMenu cols={cols} />
-      <PopupMenu at={menu} onClose={closeMenu} className="call-menu" width={220} height={90} label={menu?.s.call}>
+      <PopupMenu at={menu} onClose={closeMenu} className="call-menu" width={220} height={125} label={menu?.s.call}>
         {menu ? (
           <>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setPileupDx(menu.s.call);
+                setMenu(null);
+              }}
+            >
+              {t('radar.pileupDx')}
+            </button>
             <button
               type="button"
               role="menuitem"

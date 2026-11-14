@@ -94,3 +94,13 @@ html[data-theme='light'] .radar-switch--on { background: #0a7a52; border-color: 
 .radar-log--new-mode { background: #a5d6a7; color: #000; }
 .radar-legend { display: inline-flex; gap: 2px; cursor: help; }
 .radar-legend .radar-log { margin-left: 0; }
+/* modo DXpedition: dove ascolta la DX del pile-up */
+.radar-pileup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 4px 12px; border-top: 1px solid var(--border); font-size: 12px; }
+.radar-pileup-text { font-weight: 600; color: #ffb74d; }
+html[data-theme='light'] .radar-pileup-text { color: #b45309; }
+.radar-pileup-text em { font-weight: 400; font-style: normal; color: var(--text-muted); }
+.radar-pileup-last { color: var(--text-muted); font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.digi-wf-pile { position: absolute; bottom: 0; background: rgba(255, 167, 38, 0.16); border-left: 2px solid #ffa726; border-right: 2px solid #ffa726; pointer-events: none; z-index: 2; }
+.digi-wf-pile--hint { border-style: dashed; background: rgba(255, 167, 38, 0.08); }
+.digi-wf-pile-label { position: absolute; bottom: 4px; transform: translateX(-50%); padding: 0 4px; border-radius: 3px; background: #ffa726; color: #1a1a1a; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.digi-wf-pile-trail { position: absolute; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #ffa726; pointer-events: none; z-index: 2; }
