@@ -2,6 +2,10 @@
 
 ## Non rilasciato
 
+## 0.11.259 - 2026-11-14
+
+- Modi testuali: barra delle macro con una sola riga F1-F12 (tolte le righe Ctrl, Shift e Ctrl+Shift, l'ingranaggio e la voce del menu Vista); Guida aggiornata.
+
 ## 0.11.258 - 2026-11-14
 
 - Contest dei modi testuali: punteggio dal vivo (QSO, punti, moltiplicatori), statistiche per banda, esportazione Cabrillo; la cattura dello scambio non prende piu' il proprio numero.
