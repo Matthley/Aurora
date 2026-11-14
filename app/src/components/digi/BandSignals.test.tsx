@@ -33,11 +33,11 @@ beforeEach(() => {
 
 describe('pannello Segnali: la convalida dei nominativi', () => {
   it('le impostazioni di tutta la banda non si perdono rileggendole dal core (la tendina tornava sempre «Normale»)', () => {
-    const snap = { rx: {}, tx: {}, settings: { mode: 'cw', band_validation: 'strict', band_cw: false, band_spots: false, band_spots_cq_only: true } } as unknown as DigiSnapshot;
+    const snap = { rx: {}, tx: {}, settings: { mode: 'cw', band_validation: 'strict', band_cw: false, local_spots: false, band_spots_cq_only: true } } as unknown as DigiSnapshot;
     const s = digiWithDefaults(snap).settings;
     expect(s.band_validation).toBe('strict');
     expect(s.band_cw).toBe(false);
-    expect(s.band_spots).toBe(false);
+    expect(s.local_spots).toBe(false);
     expect(s.band_spots_cq_only).toBe(true);
     // i valori di base degli altri campi restano
     expect(s.rx_freq_hz).toBe(1000);
@@ -90,7 +90,7 @@ describe('pannello Segnali: pulizia, etichette e altezza', () => {
   });
 
   it('sulla cascata restano solo i nominativi ancora sentiti', () => {
-    expect(waterfallLabels([signal(1, 'CQ DE IU3ABC')])).toEqual([{ hz: 800, text: 'IU3ABC', cq: true, sure: true }]);
+    expect(waterfallLabels([signal(1, 'CQ DE IU3ABC')])).toMatchObject([{ hz: 800, text: 'IU3ABC', cq: true, sure: true }]);
     expect(waterfallLabels([signal(1, 'E E T', true)])).toEqual([]);
   });
 

@@ -228,7 +228,7 @@ impl BandLink {
         let kind = Kind::of(s);
         self.active.store(kind.is_some(), Ordering::Relaxed);
         let validation = Validation::from_id(&s.band_validation).unwrap_or_default();
-        let _ = self.queue.send(Msg::Config(kind, Options { spots: s.band_spots, cq_only: s.band_spots_cq_only, validation }));
+        let _ = self.queue.send(Msg::Config(kind, Options { spots: s.local_spots, cq_only: s.band_spots_cq_only, validation }));
     }
 
     /// Altro audio a 12 kHz (se il thread e' indietro il blocco si perde, solo per lui).
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn the_service_sends_the_cw_band_list_and_a_local_spot() {
-        let s = DigiSettings { mode: DigiMode::Cw, ..DigiSettings::default() };
+        let s = DigiSettings { mode: DigiMode::Cw, local_spots: true, ..DigiSettings::default() };
         let mut wave = vec![0.0; 6000];
         wave.extend(crate::cw::modulate(b"CQ CQ DE IU3ABC IU3ABC K   CQ CQ DE IU3ABC IU3ABC K", 800.0, 22.0, 0.3));
         wave.extend(vec![0.0; 12000]);
@@ -572,7 +572,7 @@ mod tests {
 
     #[test]
     fn the_service_sends_the_psk_band_list_and_a_local_spot() {
-        let s = DigiSettings { mode: DigiMode::Psk31, ..DigiSettings::default() };
+        let s = DigiSettings { mode: DigiMode::Psk31, local_spots: true, ..DigiSettings::default() };
         let mut wave = vec![0.0; 6000];
         wave.extend(crate::psk::modulate(b"cq cq cq de IU3ABC IU3ABC IU3ABC pse k  cq cq de IU3ABC IU3ABC k", 1530.0, PskMode::Psk31, 0.2));
         wave.extend(vec![0.0; 12000]);

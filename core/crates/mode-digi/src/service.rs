@@ -260,7 +260,8 @@ pub struct DigiSettings {
     /// RTTY: si decodificano tutti i segnali della banda audio («Radar» RTTY, thread a parte con limite di CPU).
     pub band_rtty: bool,
     /// Tutta la banda: i nominativi verificati vanno come spot locali nel pannello del DX Cluster di Aurora (mai in rete).
-    pub band_spots: bool,
+    /// (Prima `band_spots`, acceso di base: il nome nuovo fa ripartire tutti da spento finche' non lo si accende.)
+    pub local_spots: bool,
     /// Tutta la banda: spot locali solo delle stazioni che chiamano CQ.
     pub band_spots_cq_only: bool,
     /// Tutta la banda: livello di convalida dei nominativi (`minimal`, `normal`, `strict`, `maximum`).
@@ -352,7 +353,8 @@ impl Default for DigiSettings {
             band_cw: true,
             band_psk: true,
             band_rtty: true,
-            band_spots: true,
+            // spenti di base: gli spot locali partono solo se l'utente li accende (proprietario, 2026-11-14)
+            local_spots: false,
             band_spots_cq_only: false,
             band_validation: "normal".into(),
             passband_on: false,

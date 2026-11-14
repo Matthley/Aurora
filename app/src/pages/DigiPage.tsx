@@ -1254,8 +1254,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               radarMode
                 ? { label: t('radar.mi'), checked: radarOn, onSelect: toggleRadar }
                 : { label: t('digi.band.miPsk'), checked: s.band_psk !== false, onSelect: () => save({ band_psk: s.band_psk === false }) },
-              { label: t('digi.band.spots'), checked: s.band_spots !== false, onSelect: () => save({ band_spots: s.band_spots === false }) },
-              { label: t('digi.band.spotsCqOnly'), checked: s.band_spots_cq_only === true, disabled: s.band_spots === false, onSelect: () => save({ band_spots_cq_only: s.band_spots_cq_only !== true }) },
+              { label: t('digi.band.spots'), checked: s.local_spots === true, onSelect: () => save({ local_spots: s.local_spots !== true }) },
+              { label: t('digi.band.spotsCqOnly'), checked: s.band_spots_cq_only === true, disabled: s.local_spots !== true, onSelect: () => save({ band_spots_cq_only: s.band_spots_cq_only !== true }) },
             ]
           : []),
         'sep',

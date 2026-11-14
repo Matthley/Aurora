@@ -1918,7 +1918,7 @@ export interface DigiSettings {
   /** RTTY: Radar, tutti i segnali RTTY della banda. */
   band_rtty?: boolean;
   /** Tutta la banda: i nominativi verificati come spot locali nel pannello del DX Cluster di Aurora (mai in rete). */
-  band_spots?: boolean;
+  local_spots?: boolean;
   /** Tutta la banda: spot locali solo di chi chiama CQ. */
   band_spots_cq_only?: boolean;
   /** Tutta la banda: convalida dei nominativi (`minimal`, `normal`, `strict`, `maximum`). */

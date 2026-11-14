@@ -37,7 +37,7 @@ export function editMacros(s: Pick<DigiSettings, 'macros' | 'mode_macros' | 'mod
 export function digiWithDefaults(snap: DigiSnapshot): DigiSnapshot {
   const raw = snap.settings as Partial<DigiSettings>;
   const settings: DigiSettings = {
-    // prima tutto quello che manda il core: i campi senza un valore di base qui sotto (tutta la banda: `band_cw`, `band_psk`, `band_spots`,
+    // prima tutto quello che manda il core: i campi senza un valore di base qui sotto (tutta la banda: `band_cw`, `band_psk`, `local_spots`,
     // `band_validation`...) devono restare, se no la pagina non li vede e ogni salvataggio li rimanda al core vuoti (tornano ai valori di base)
     ...raw,
     mode: raw.mode ?? 'psk31',
