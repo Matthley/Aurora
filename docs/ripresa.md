@@ -2,6 +2,13 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-14 sera tardi (0.11.256 pubblicata, sito aggiornato)
+
+- **0.11.256** (2026-11-14T17:17:31Z): macro verificate una per una (`macroPlan.ts`, `docs/macro-verifica.md`), Guida alle macro nel menu Aiuto (`MacroGuide.tsx`, dal catalogo `macroCommands.ts`), Pausa/Cerca nella finestra RX, `<TXE>` col campo `carrier`; BIGScan: modo DXpedition (`dxPileup.ts`, `PileupMarks.tsx`), testo sulla cascata (`wfText.ts`), spot dal tasto destro (`spotPrefill.ts`), «Nel mio Cluster» (`local_spots`, prima `band_spots`, spento di base), falsi CQ con pausa di 2,5 s, banco preciso e sintonia/rilettura 2 s (ritardo 12 -> 9 s); RBN (`dx-cluster/src/rbn.rs`, server spot locale 7300, niente invio alla rete); CAT: modo del VFO di trasmissione in split (`write_split_mode`, `X`), split DX dimenticato alla riconnessione se la radio si e' spostata, ripiego USB senza modo dati (PR #58 IU0PWE); riapertura su pagina/frequenza/modo (`last_dial.rs`, `lastPage.ts`); issue #56 #59 #60 #61; HRDLOG.NET; maniglie e separatore RX/TX.
+- Rilascio fatto da una copia pulita (`Aurora-rel256`, worktree staccato) perche' nella cartella di lavoro c'erano modifiche in corso: in una copia nuova servono `desktop/src-tauri/hamlib-bundle/` e `cty/cty.dat` (ignorati da git) copiati a mano.
+- In corso: macro che ripartono da capo a ogni pressione e tasto F sui pulsanti (aiutante); maniglia della cascata sul bordo (`d67a8ed9`, gia' fatta, non pubblicata).
+- Da fare: risposte alle issue date al proprietario; prova con la radio di tutto; registrazione CW vera per il banco.
+
 ## Stato al 2026-11-14 notte (0.11.255 pubblicata, sito aggiornato)
 
 - **0.11.255** (2026-11-14T14:08:57Z): contest nei modi testuali: segni di BIGScan dal contest attivo (`logStatus.ts`, `useContestLog.ts`, `contest_valuta`: DUPE solo nella finestra della gara, NEW/B/M/BM/MULT/DXCC; B4 fuori gara), `<QSONR>` in gara = ultimo numero del contest + 1 (`contestNextSerial`), `POST /log/qsos` con `X-Aurora-Origine` e `exch_sent`/`exch_rcvd` (prima i QSO dei modi testuali entravano nel contest per caso), macro `<IGNOREBEFORE>`/`<PERIOD>` (`logWindow.ts`); BIGScan RTTY sintonia fine ±15 Hz nei canali (`rtty_multi.rs`, ritardo 12 -> 9 s; banco allineato a `band.rs`: interruzioni 5 -> 7); display della radio acceso se la radio risponde (`RadioDisplayHeader.tsx`, #55); HRDLOG.NET nominativo maiuscolo e codice senza spazi (`upload.rs`); riga fra RX e TX (`maniglie.css`); Guida aggiornata.
