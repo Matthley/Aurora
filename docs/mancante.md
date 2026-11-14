@@ -14,6 +14,14 @@ Da verificare dal vivo: display esteso e secondo VFO su radio reali (ogni modell
 
 ## Da fare, in ordine di lavoro
 
+- **M** Modi testuali, idee per la cascata e BIGScan (2026-11-14):
+  - tasto destro su un segnale della cascata: riconoscimento del modo (CW, RTTY, PSK, FT8, SSB...) con il suggerimento di come decodificarlo;
+  - storia per stazione: passando il mouse su una traccia, tutto quello che ha trasmesso negli ultimi 3 minuti (se non basta il suggerimento del testo sulla cascata);
+  - piano di banda sulla cascata (zone CW, RTTY, FT8) e memorie;
+  - sensibilita' di BIGScan Alta/Media/Bassa (piu' stazioni o meno falsi);
+  - nominativi corretti da BIGScan segnati con «?» invece di nascosti;
+  - noise blanker e riduzione del rumore a 3 livelli regolabili dalla pagina dei modi testuali (il blanker c'e' gia' nel core).
+
 - **B** Comandi senza pulsante nell'interfaccia (dal controllo del 2026-11-07): `gen_msgs` (Gen. Msgs), `show_wanted`, `jt`; testi rimasti dal vecchio pannello Comandi (`cmd.dxCall`, `cmd.cqKind`, `cmd.cap.*`, `ctl.clock`...): il proprietario ha deciso di lasciarli cosi' (2026-11-07).
 - **M** Provare dal vivo la nuova chiusura del QSO (RRR, RR73 senza risposta, ripresa dopo «Canc DX») e controllarla nei log del giorno.
 
