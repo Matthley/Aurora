@@ -127,6 +127,11 @@ impl FakeRigctld {
         self.state.split.load(Ordering::SeqCst)
     }
 
+    /// Split acceso o spento sulla radio da fuori (a mano, da un altro programma sulla condivisione).
+    pub fn set_split(&self, on: bool) {
+        self.state.split.store(on, Ordering::SeqCst);
+    }
+
     /// Risponde `RPRT code` a ogni comando (-5 = timeout della radio, -9 = comando rifiutato); 0 toglie il guasto.
     pub fn fail_with(&self, code: i32) {
         self.state.fail_code.store(code, Ordering::SeqCst);

@@ -3375,6 +3375,7 @@ export const NL_UI: Record<string, string> = {
   "rd.popover": "Vergroot radiodisplay",
   "rd.preview": "Voorbeeld met voorbeeldgegevens",
   "rd.size": "{w} × {h} punten",
+  "rd.splitExternal": "Het toestel ging in split zonder opdracht van Aurora: het toestel zelf of een programma op de gedeelde poort heeft het aangezet. «Split uit» zet het terug op simplex.",
   "rd.splitOff": "Split uit",
   "rd.splitOff.tip": "Het toestel staat in split (zendt op VFO B): zet het terug op simplex op de ontvangstfrequentie, wat de split ook heeft aangezet. Niet tijdens het zenden.",
   "rd.square": "vervangt de pictogrammen",

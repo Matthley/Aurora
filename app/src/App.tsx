@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { checkSession } from './api/client';
 import { openStream } from './api/stream';
 import { Footer } from './components/Footer';
+import { SplitExternalWatcher } from './components/SplitExternalWatcher';
 import { ModeNav } from './components/ModeNav';
 import { useT } from './i18n';
 import { useEngineOsSync } from './lib/engineOs';
@@ -270,6 +271,7 @@ export function App() {
     {settingsOpen ? <SettingsWindow embedded initialTab={route.name === 'settings' ? route.tab : undefined} onClose={() => { location.hash = beforeSettings.current; }} /> : null}
     {/* i messaggi brevi fuori da `.app-shell`: con le Impostazioni aperte (pagina sotto inert) si devono poter chiudere */}
     <Toaster />
+    {session.data ? <SplitExternalWatcher /> : null}
     {/* fuori dalla pagina principale, dopo le Impostazioni: quando sono aperte la pagina sotto e' disattivata (inert) e la locandina
         dell'aggiornamento, che stava li' dentro, restava nascosta e non cliccabile */}
     {session.data && !REMOTE ? <UpdatePoster /> : null}

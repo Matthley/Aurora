@@ -841,6 +841,7 @@ impl TciRig {
                 extras: Default::default(),
                 ptt: false,
                 split: None,
+                split_external_ms: 0,
                 failures: 0,
                 reconnect_attempt: 0,
                 ptt_blocked: false,

@@ -356,6 +356,14 @@ export const catStrings = {
   ],
   'cat.civ.useHex': ['Usa {asDec} ({dec}h)', 'Use {asDec} ({dec}h)', '{asDec} verwenden ({dec}h)', 'Utiliser {asDec} ({dec}h)', 'Usar {asDec} ({dec}h)', 'Usar {asDec} ({dec}h)'],
   'rd.splitOff': ['Spegni split', 'Split off', 'Split aus', 'Couper le split', 'Apagar split', 'Desligar split'],
+  'rd.splitExternal': [
+    'La radio è andata in split senza un comando di Aurora: l’ha acceso la radio o un programma collegato alla condivisione. «Spegni split» la riporta in simplex.',
+    'The radio went into split without a command from Aurora: the radio itself or a program connected to the sharing port turned it on. «Split off» brings it back to simplex.',
+    'Das Funkgerät ist ohne Befehl von Aurora in Split gegangen: das Funkgerät selbst oder ein Programm an der Freigabe hat ihn eingeschaltet. «Split aus» bringt es zurück auf Simplex.',
+    'La radio est passée en split sans commande d’Aurora : c’est la radio ou un programme connecté au partage qui l’a activé. «Couper le split» la remet en simplex.',
+    'La radio pasó a split sin una orden de Aurora: lo activó la propia radio o un programa conectado al uso compartido. «Apagar split» la devuelve a simplex.',
+    'O rádio entrou em split sem um comando do Aurora: foi o próprio rádio ou um programa ligado à partilha. «Desligar split» volta a simplex.',
+  ],
   'rd.splitOff.tip': [
     'La radio è in split (trasmette sul VFO B): la riporta in simplex sulla frequenza di ricezione, qualunque cosa l’abbia accesa. Non durante una trasmissione.',
     'The radio is in split (transmitting on VFO B): brings it back to simplex on the receive frequency, whatever turned it on. Not while transmitting.',

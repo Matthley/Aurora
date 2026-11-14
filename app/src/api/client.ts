@@ -833,6 +833,8 @@ export interface CatRigStatus {
   passband_hz?: number | null;
   ptt: boolean;
   split: boolean | null;
+  /** Ora (ms) dell'ultimo split acceso fuori da Aurora (radio o programma sulla condivisione); 0 = mai. */
+  split_external_ms?: number;
   failures: number;
   reconnect_attempt: number;
   ptt_blocked: boolean;

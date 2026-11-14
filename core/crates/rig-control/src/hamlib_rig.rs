@@ -135,6 +135,9 @@ pub struct RigStatus {
     pub extras: crate::extras::RigExtras,
     pub ptt: bool,
     pub split: Option<bool>,
+    /// Ora (ms) dell'ultima volta che la radio e' andata in split senza un comando di Aurora negli ultimi secondi (la radio a mano o un
+    /// programma collegato alla condivisione di `rigctld`); 0 = mai. La pagina lo mostra una volta per ogni valore nuovo.
+    pub split_external_ms: u64,
     /// Guasti di lettura consecutivi.
     pub failures: u32,
     pub reconnect_attempt: u32,
@@ -193,6 +196,10 @@ struct Inner {
     xit_split: AtomicBool,
     /// Lo Split DX e' stato spento a radio scollegata: la radio puo' averlo ancora acceso, lo si spegne appena torna.
     split_off_pending: AtomicBool,
+    /// Ultimo comando di split o del VFO B mandato da Aurora: uno split acceso poco dopo e' di Aurora, piu' tardi viene da fuori.
+    split_cmd_at: Mutex<Option<Instant>>,
+    /// Conta le letture: lo stato dello split si legge una volta ogni [`SPLIT_CHECK_EVERY`].
+    split_checks: AtomicU32,
     /// Cresce a ogni comando: una lettura iniziata prima di un comando non ne cancella l'effetto.
     epoch: AtomicU64,
     /// Conta i cambi di frequenza chiesti: un cambio che ne vede arrivare uno piu' recente non insiste sulla sua frequenza.
@@ -273,7 +280,42 @@ enum Step {
     Level(Level),
 }
 
+/// Lo stato dello split si rilegge una lettura ogni tante (un comando in piu' sulla seriale, FT-2000 compresa).
+const SPLIT_CHECK_EVERY: u32 = 3;
+/// Uno split acceso entro questo tempo da un comando di Aurora e' di Aurora.
+const SPLIT_OWN_GRACE: Duration = Duration::from_secs(15);
+
 impl Inner {
+    /// Segna (e scrive nel registro) un comando di split o del VFO B mandato da Aurora, con il motivo: cosi' il registro dice chi ha
+    /// acceso lo split, e la lettura periodica distingue uno split di Aurora da uno acceso fuori.
+    fn split_command(&self, what: &str, reason: &str) {
+        tracing::info!("split: {what} ({reason})");
+        if let Ok(mut at) = self.split_cmd_at.lock() {
+            *at = Some(Instant::now());
+        }
+    }
+
+    /// Aurora ha mandato un comando di split da poco.
+    fn split_commanded_recently(&self) -> bool {
+        self.split_cmd_at.lock().ok().and_then(|at| *at).is_some_and(|t| t.elapsed() < SPLIT_OWN_GRACE)
+    }
+
+    /// Lo split letto dalla radio. Acceso senza un comando di Aurora negli ultimi secondi e con Aurora che lo sapeva spento: viene da fuori
+    /// (la radio a mano, un programma collegato alla condivisione). Si scrive un avviso e lo si segna per la pagina.
+    fn observe_split(&self, on: bool) {
+        let known = self.status.lock().ok().and_then(|s| s.split);
+        if on && known != Some(true) && !self.split_commanded_recently() {
+            tracing::warn!(
+                "split acceso fuori da Aurora (radio o programma collegato alla condivisione): nessun comando di split di Aurora negli ultimi {} s",
+                SPLIT_OWN_GRACE.as_secs()
+            );
+            self.update(|s| s.split_external_ms = now_ms());
+        }
+        if known != Some(on) {
+            self.update(|s| s.split = Some(on));
+        }
+    }
+
     fn update(&self, edit: impl FnOnce(&mut RigStatus)) {
         if let Ok(mut s) = self.status.lock() {
             edit(&mut s);
@@ -291,6 +333,7 @@ impl Inner {
             extras: crate::extras::RigExtras::default(),
             ptt: false,
             split: None,
+            split_external_ms: 0,
             failures: 0,
             reconnect_attempt: 0,
             ptt_blocked: false,
@@ -467,6 +510,7 @@ impl Inner {
             && let Ok(link) = self.connected_link()
         {
             let rx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
+            self.split_command(&format!("S 0 {rx_vfo}"), "split DX spento mentre la radio era scollegata");
             match link.client().set_split(false, rx_vfo) {
                 Ok(()) => self.update(|s| s.split = Some(false)),
                 Err(e) => tracing::warn!("split non spento dopo la riconnessione: {}", friendly_error(&e.0)),
@@ -488,6 +532,7 @@ impl Inner {
                 tracing::info!("split DX dimenticato: la radio non e' piu' sulla frequenza dello spot");
             } else {
                 let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
+                self.split_command(&format!("I {dx_tx}, S 1 {tx_vfo}"), "split DX rimesso dopo la riconnessione");
                 self.write_split_mode(&link);
                 let set = link.client().set_split_frequency(dx_tx).and_then(|()| link.client().set_split(true, tx_vfo));
                 match set {
@@ -540,6 +585,12 @@ impl Inner {
         if let Some(f) = freq {
             self.rx_dial.store(f, Ordering::SeqCst);
         }
+        // lo split della radio, ogni tante letture e solo in ricezione: chi lo accende fuori da Aurora (radio, programma sulla condivisione)
+        let split = if freq.is_some() && self.split_checks.fetch_add(1, Ordering::SeqCst) % SPLIT_CHECK_EVERY == 0 {
+            client.split().ok().map(|(on, _)| on)
+        } else {
+            None
+        };
         // i dati in piu', a turno e solo in ricezione: uno per lettura sulle seriali lente, sei sulle veloci (da 19200 baud, rete o USB senza
         // seriale), cosi' i 16 valori del display si rinfrescano in circa tre letture invece di sei
         let extras = if self.config.read_extras && freq.is_some() {
@@ -551,6 +602,9 @@ impl Inner {
             None
         };
         let fresh = self.epoch.load(Ordering::SeqCst) == epoch;
+        if fresh && let Some(on) = split {
+            self.observe_split(on);
+        }
         self.update(|s| {
             s.failures = 0;
             if fresh {
@@ -807,6 +861,7 @@ impl Inner {
             self.vfo_reversed.store(vfo_is_b(&active), Ordering::SeqCst);
         }
         let tx_vfo = if self.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
+        self.split_command(&format!("I {}, S 1 {tx_vfo}", split_tx_dial_hz(dial, audio)), "split di FT8 «Split: Radio» prima del PTT");
         self.write_split_mode(link);
         link.client().set_split_frequency(split_tx_dial_hz(dial, audio))?;
         link.client().set_split(true, tx_vfo)?;
@@ -826,10 +881,12 @@ impl Inner {
         let Some((mode, passband)) = chosen.map(|m| (m.to_string(), 0)).or(current.map(|m| (m, passband))) else {
             return;
         };
+        self.split_command(&format!("X {mode} {passband}"), "modo del VFO di trasmissione");
         if let Err(e) = link.client().set_split_mode(&mode, passband) {
             // radio o modello di Hamlib senza `X`: si copia il VFO di ricezione in quello di trasmissione (A=B, modo compreso); la frequenza
             // di trasmissione si riscrive subito dopo da chi chiama
             tracing::warn!("modo {mode} non scritto nel VFO di trasmissione ({}): copia A=B", friendly_error(&e.0));
+            self.split_command("G CPY", "copia A=B, ripiego del modo del VFO di trasmissione");
             if let Err(e) = link.client().vfo_op("CPY") {
                 tracing::warn!("copia A=B non riuscita: {}", friendly_error(&e.0));
             }
@@ -877,6 +934,7 @@ impl HamlibRig {
                 extras: crate::extras::RigExtras::default(),
                 ptt: false,
                 split: None,
+                split_external_ms: 0,
                 failures: 0,
                 reconnect_attempt: 0,
                 ptt_blocked: false,
@@ -896,6 +954,8 @@ impl HamlibRig {
             dx_split_rx: AtomicU64::new(0),
             xit_split: AtomicBool::new(false),
             split_off_pending: AtomicBool::new(false),
+            split_cmd_at: Mutex::new(None),
+            split_checks: AtomicU32::new(0),
             epoch: AtomicU64::new(0),
             qsy_seq: AtomicU64::new(0),
             meter: Mutex::new(MeterPoll::default()),
@@ -1026,6 +1086,7 @@ impl HamlibRig {
         }
         inner.epoch.fetch_add(1, Ordering::SeqCst);
         let rx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
+        inner.split_command(&format!("S 0 {rx_vfo}"), "split di FT8 tolto prima di una trasmissione libera");
         link.client().set_split(false, rx_vfo).map_err(|e| RigError(friendly_error(&e.0)))?;
         inner.xit_split.store(false, Ordering::SeqCst);
         inner.update(|s| s.split = Some(false));
@@ -1043,6 +1104,7 @@ impl HamlibRig {
         inner.epoch.fetch_add(1, Ordering::SeqCst);
         inner.tx_audio_hz.store(0, Ordering::SeqCst);
         let rx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
+        inner.split_command(&format!("S 0 {rx_vfo}"), "«Spegni split»");
         link.client().set_split(false, rx_vfo).map_err(|e| RigError(friendly_error(&e.0)))?;
         inner.xit_split.store(false, Ordering::SeqCst);
         inner.dx_split.store(false, Ordering::SeqCst);
@@ -1098,6 +1160,9 @@ impl HamlibRig {
             return Err(RigError("la radio sta trasmettendo: impostazione rifiutata".into()));
         }
         inner.epoch.fetch_add(1, Ordering::SeqCst);
+        if item == crate::extras::ExtraItem::Vfo {
+            inner.split_command("V (cambio di VFO)", "clic sull'indicatore del VFO");
+        }
         let cache = {
             let mut poll = inner.extras.lock().map_err(|_| RigError("letture della radio non disponibili".into()))?;
             poll.apply(link.client(), item).map_err(|e| RigError(friendly_error(&e.0)))?;
@@ -1114,18 +1179,22 @@ impl HamlibRig {
     /// Una stringa CAT mandata alla radio cosi' com'e' (macro `<CATCMD:...>`). Non si manda durante la trasmissione.
     pub fn send_raw_cat(&self, text: &str) -> Result<(), RigError> {
         let link = self.inner.connected_link()?;
+        self.inner.split_command(&format!("w {text}"), "comando CAT di una macro (<CATCMD>)");
         link.client().send_raw(text).map_err(|e| RigError(friendly_error(&e.0)))
     }
 
     /// La frequenza del VFO di trasmissione (split), in Hz: i satelliti la correggono col Doppler.
     pub fn set_split_frequency(&self, hz: u64) -> Result<(), RigError> {
         let link = self.inner.connected_link()?;
+        // Hamlib 4.6 `rig_set_split_freq`: con lo split spento lo ACCENDE da se' prima di scrivere il VFO B
+        self.inner.split_command(&format!("I {hz}"), "satelliti");
         link.client().set_split_frequency(hz).map_err(|e| RigError(friendly_error(&e.0)))
     }
 
     pub fn set_split(&self, on: bool, tx_vfo: &str) -> Result<(), RigError> {
         let link = self.inner.connected_link()?;
         self.inner.epoch.fetch_add(1, Ordering::SeqCst);
+        self.inner.split_command(&format!("S {} {tx_vfo}", u8::from(on)), "satelliti");
         link.client().set_split(on, tx_vfo).map_err(|e| RigError(friendly_error(&e.0)))?;
         self.inner.update(|s| s.split = Some(on));
         Ok(())
@@ -1151,6 +1220,7 @@ impl HamlibRig {
         }
         let tx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOA" } else { "VFOB" };
         let fr = |e: RigError| RigError(friendly_error(&e.0));
+        inner.split_command(&format!("I {tx_hz}, S 1 {tx_vfo}"), "split DX da uno spot del cluster");
         inner.write_split_mode(&link);
         link.client().set_split_frequency(tx_hz).map_err(fr)?;
         link.client().set_split(true, tx_vfo).map_err(fr)?;
@@ -1188,6 +1258,7 @@ impl HamlibRig {
         }
         inner.epoch.fetch_add(1, Ordering::SeqCst);
         let rx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
+        inner.split_command(&format!("S 0 {rx_vfo}"), "split DX spento");
         link.client().set_split(false, rx_vfo).map_err(|e| RigError(friendly_error(&e.0)))?;
         inner.dx_split.store(false, Ordering::SeqCst);
         inner.update(|s| s.split = Some(false));
@@ -1235,6 +1306,7 @@ impl HamlibRig {
             self.emulate_end(&link);
             let dx_split = self.inner.dx_split.swap(false, Ordering::SeqCst);
             if self.inner.config.split == SplitMode::Rig || dx_split {
+                self.inner.split_command("S 0 VFOA", "chiusura");
                 let _ = link.client().set_split(false, "VFOA");
             }
         }
@@ -1294,6 +1366,7 @@ impl Rig for HamlibRig {
         let dx_split = inner.dx_split.swap(false, Ordering::SeqCst);
         if inner.config.split == SplitMode::Rig || dx_split {
             let rx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
+            inner.split_command(&format!("S 0 {rx_vfo}"), "cambio di frequenza");
             match link.client().set_split(false, rx_vfo) {
                 Ok(()) => {
                     inner.xit_split.store(false, Ordering::SeqCst);
@@ -1675,6 +1748,40 @@ mod tests {
 
     fn split_commands(fake: &FakeRigctld) -> Vec<String> {
         fake.commands().into_iter().filter(|c| c.starts_with("F ") || c.starts_with("I ") || c.starts_with("S ")).collect()
+    }
+
+    #[test]
+    fn a_split_switched_on_outside_aurora_is_detected_and_flagged() {
+        let fake = FakeRigctld::start(28_074_000);
+        let rig = start(&fake, RigConfig::default());
+        wait_until("split letto spento", || rig.status().split == Some(false));
+        assert_eq!(rig.status().split_external_ms, 0);
+        // la radio (o un programma sulla porta condivisa) accende lo split: Aurora non ha mandato niente
+        fake.set_split(true);
+        wait_until("split acceso da fuori segnalato", || {
+            let s = rig.status();
+            s.split == Some(true) && s.split_external_ms > 0
+        });
+        // spento e riacceso da fuori: un avviso nuovo
+        let first = rig.status().split_external_ms;
+        fake.set_split(false);
+        wait_until("split letto spento", || rig.status().split == Some(false));
+        std::thread::sleep(Duration::from_millis(5));
+        fake.set_split(true);
+        wait_until("secondo avviso", || rig.status().split_external_ms > first);
+    }
+
+    #[test]
+    fn a_split_switched_on_by_aurora_is_not_flagged() {
+        let fake = FakeRigctld::start(14_074_000);
+        let rig = start(&fake, RigConfig::default());
+        wait_until("split letto spento", || rig.status().split == Some(false));
+        rig.set_dx_split(14_025_000, 14_030_000).expect("split DX");
+        // diverse letture dello split dopo il comando di Aurora
+        let checks = rig.inner.split_checks.load(Ordering::SeqCst);
+        wait_until("altre letture", || rig.inner.split_checks.load(Ordering::SeqCst) >= checks + 2 * SPLIT_CHECK_EVERY);
+        let s = rig.status();
+        assert_eq!((s.split, s.split_external_ms), (Some(true), 0));
     }
 
     #[test]
