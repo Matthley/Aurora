@@ -95,8 +95,10 @@ pub const SQUELCH_OPEN: f32 = 0.7;
 pub const SQUELCH_CLOSE: f32 = 0.5;
 /// Il cancello sempre attivo quando lo squelch statistico e' spento: le stesse regole con soglie basse (probabilita' media degli ultimi
 /// quattro caratteri). Sul solo rumore l'83 % dei caratteri ha probabilita' sotto 0,2, sul segnale i caratteri sotto 0,2 sono giusti
-/// meno di una volta su cinque (prova `taratura`): toglie la spazzatura fra le trasmissioni senza togliere testo vero.
-pub const GATE_OPEN: f32 = 0.4;
+/// meno di una volta su cinque (prova `taratura`): toglie la spazzatura fra le trasmissioni senza togliere testo vero. Apertura a 0,5
+/// invece di 0,4 (8 prove, passo 1 dB, e `tests/rtty_registrazioni.rs`): sul solo rumore da 19 a 0 caratteri al minuto, spazzatura sulle
+/// registrazioni da 92,8 a 78 caratteri al minuto con gli stessi nominativi; soglie al 10 % uguali o migliori, CER medio entro 0,6 punti.
+pub const GATE_OPEN: f32 = 0.5;
 pub const GATE_CLOSE: f32 = 0.2;
 pub(crate) const FIGS: u8 = 27;
 pub(crate) const LTRS: u8 = 31;
@@ -2333,10 +2335,11 @@ mod tests {
         let mut rx = RttyDemodulator::new(RttyParams::default());
         rx.set_prior(None);
         let mut out = Vec::new();
-        let seq = [(b'A', 200.0), (b'A', 200.0), (b'A', 200.0), (b'B', 200.0), (b'\r', 39.0), (b'U', 0.0), (b'U', 0.0), (b'U', 0.0), (b'C', 200.0), (b'D', 200.0)];
+        let seq = [(b'A', 200.0), (b'A', 200.0), (b'A', 200.0), (b'B', 200.0), (b'\r', 39.0), (b'U', 0.0), (b'U', 0.0), (b'U', 0.0), (b'C', 200.0), (b'D', 200.0), (b'E', 200.0)];
         rx.deliver(seq.iter().map(|&(c, b)| frame_di(c, b)), &mut out);
         let r: String = out.iter().map(|c| c.ch).collect();
-        assert_eq!(r, "AAAB\nCD");
+        // con l'apertura a 0,5 servono tre caratteri sicuri dopo il rumore per riaprire
+        assert_eq!(r, "AAAB\nCDE");
     }
 
     #[test]
