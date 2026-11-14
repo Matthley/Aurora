@@ -1400,7 +1400,6 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       label: t('digi.menu.view'),
       items: [
         { label: t('digi.mi.controlBar'), checked: views.controlBar, onSelect: () => setView({ controlBar: !views.controlBar }) },
-        { label: t('digi.bar.extended'), checked: views.extended, onSelect: () => setView({ extended: !views.extended }) },
         { label: t('digi.mi.log'), checked: views.log, onSelect: () => setView({ log: !views.log }) },
         { label: t('digi.mi.rotor'), checked: rotorShown, onSelect: () => setRotorShown(!rotorShown) },
         { label: t('digi.mi.waterfall'), checked: views.waterfall, onSelect: () => setView({ waterfall: !views.waterfall }) },
