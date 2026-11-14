@@ -80,6 +80,9 @@ pub fn run() {
         .on_window_event(|window, event| {
             // la finestra sta ricevendo eventi (anche durante un trascinamento lungo): e' viva, non e' un blocco
             crash::WINDOW.touch();
+            if let WindowEvent::Focused(on) = event {
+                crash::BACKGROUND.store(!*on, std::sync::atomic::Ordering::SeqCst);
+            }
             // cosa sta facendo la finestra, per il rapporto di un eventuale blocco (prima molti blocchi dicevano solo «nessuna»)
             crash::activity(match event {
                 WindowEvent::Resized(_) => "ridimensionamento della finestra",

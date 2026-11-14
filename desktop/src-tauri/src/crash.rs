@@ -64,6 +64,11 @@ impl Beat {
 pub static RUNTIME: Beat = Beat::new("runtime");
 pub static WINDOW: Beat = Beat::new("finestra");
 
+/// La finestra e' in secondo piano: Windows rallenta (fino a fermare) il thread della finestra nascosta, e il suo battito tace senza
+/// che il programma sia bloccato. In secondo piano si controlla solo il battito del motore (rapporti di «blocco» falsi dopo ore con la
+/// finestra dietro le altre, 2026-11-14).
+pub static BACKGROUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// L'ultima cosa fatta dal thread della finestra (per capire un blocco) e da quando, in ms dall'avvio.
 static ACTIVITY: Mutex<(&'static str, u64)> = Mutex::new(("nessuna", 0));
 /// Una finestra modale di Windows aperta («Salva con nome»): la finestra principale e' ferma apposta, non e' un blocco.
@@ -247,8 +252,8 @@ pub fn spawn_watchdog(app: tauri::AppHandle) {
                     // in chiusura: niente minidump ne' rapporti di blocco
                     continue;
                 }
-                if MODAL.load(Ordering::SeqCst) > 0 {
-                    // «Salva con nome» aperta: la finestra principale aspetta l'operatore
+                if MODAL.load(Ordering::SeqCst) > 0 || BACKGROUND.load(Ordering::SeqCst) {
+                    // «Salva con nome» aperta (la finestra aspetta l'operatore) o finestra in secondo piano (Windows la rallenta)
                     WINDOW.touch();
                 }
                 let beats = [(RUNTIME.name, RUNTIME.last()), (WINDOW.name, WINDOW.last())];
