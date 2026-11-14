@@ -34,6 +34,12 @@ const FINE_TUNING_HZ: f32 = 15.0;
 /// Secondi d'audio gia' passato che un canale nuovo legge appena nasce: il segnale si riconosce dopo almeno un secondo e l'inizio del
 /// CQ (spesso il nominativo) andava perso, cosi' la stazione si verificava solo al CQ seguente.
 const PREROLL_S: f32 = 2.0;
+/// Un canale il cui centro non si rivede fra i segnali per tanti secondi di fila, mentre accanto (entro `SAME_FRACTION`) se ne vede uno,
+/// e' nato storto (una coppia sbagliata fra i toni di una stazione e quelli vicini): si sposta sul segnale vero. Prima due canali a
+/// 970 e 1110 Hz tenevano occupata la stazione a 1035 Hz, che non si leggeva mai.
+const MISPLACED_S: u32 = 3;
+/// Entro questa distanza (Hz) un segnale trovato e' lo stesso del canale (passo del banco piu' scivolamento).
+const OWN_HZ: f32 = 10.0;
 
 /// Un segnale seguito.
 struct Lane {
@@ -42,6 +48,8 @@ struct Lane {
     idle_s: f32,
     /// Appena nato: legge prima l'audio passato (`PREROLL_S`).
     fresh: bool,
+    /// Secondi di fila in cui accanto si vede un segnale e al centro del canale no (`MISPLACED_S`).
+    misplaced: u32,
 }
 
 /// I caratteri nuovi di un canale.
@@ -195,13 +203,53 @@ impl RttyMulti {
             }
         }
         found.sort_by(|a, b| b.1.total_cmp(&a.1));
-        for (centre, _) in found {
+        self.recentre(&found);
+        for &(centre, _) in &found {
             let near = |c: f32| (c - centre).abs() < SAME_FRACTION * self.shift_hz;
             if self.lanes.iter().any(|l| near(l.centre_hz)) || self.lanes.len() >= MAX_CHANNELS {
                 continue;
             }
-            self.lanes.push(Lane { centre_hz: centre, demod: new_demod(centre, self.shift_hz, self.baud), idle_s: 0.0, fresh: true });
+            self.lanes.push(Lane { centre_hz: centre, demod: new_demod(centre, self.shift_hz, self.baud), idle_s: 0.0, fresh: true, misplaced: 0 });
         }
+    }
+
+    /// I canali nati storti (vedi `MISPLACED_S`) si spostano sul segnale vero accanto; se li' c'e' gia' un canale si chiudono.
+    fn recentre(&mut self, found: &[(f32, f64)]) {
+        let tol = SAME_FRACTION * self.shift_hz;
+        let mut moves: Vec<(usize, f32)> = Vec::new();
+        for (k, lane) in self.lanes.iter_mut().enumerate() {
+            let own = found.iter().any(|f| (f.0 - lane.centre_hz).abs() <= OWN_HZ);
+            // il segnale accanto piu' forte (found e' in ordine di punteggio)
+            let beside = found.iter().find(|f| (f.0 - lane.centre_hz).abs() > OWN_HZ && (f.0 - lane.centre_hz).abs() < tol);
+            match (own, beside) {
+                (false, Some(&(c, _))) => {
+                    lane.misplaced += 1;
+                    if lane.misplaced >= MISPLACED_S {
+                        moves.push((k, c));
+                    }
+                }
+                _ => lane.misplaced = 0,
+            }
+        }
+        let mut drop = vec![false; self.lanes.len()];
+        for (k, c) in moves {
+            let taken = self.lanes.iter().enumerate().any(|(q, l)| q != k && !drop[q] && (l.centre_hz - c).abs() <= OWN_HZ);
+            if taken {
+                drop[k] = true;
+                continue;
+            }
+            let l = &mut self.lanes[k];
+            l.centre_hz = c;
+            l.demod = new_demod(c, self.shift_hz, self.baud);
+            l.fresh = true;
+            l.misplaced = 0;
+            l.idle_s = 0.0;
+        }
+        let mut k = 0;
+        self.lanes.retain(|_| {
+            k += 1;
+            !drop[k - 1]
+        });
     }
 }
 
@@ -305,6 +353,33 @@ mod tests {
             }
         }
         assert!(testo.matches("IU3ABC").count() >= 2, "{testo}");
+    }
+
+    /// Un canale nato storto 65 Hz sotto una stazione (e uno 75 Hz sopra) si sposta sulla stazione dopo qualche secondo e la legge;
+    /// il secondo, ormai doppio, si chiude.
+    #[test]
+    fn un_canale_storto_si_sposta_sulla_stazione_vera() {
+        let p = RttyParams { centre_hz: 1035.0, shift_hz: 170.0, baud: 45.45, reverse: false };
+        let mut audio = modulate("CQ TEST IU3ABC IU3ABC TEST ".repeat(5).as_bytes(), p, 0.2);
+        let n = audio.len();
+        for (a, r) in audio.iter_mut().zip(rumore(n, 0.3, 9)) {
+            *a += r;
+        }
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        for c in [970.0_f32, 1110.0] {
+            multi.lanes.push(Lane { centre_hz: c, demod: new_demod(c, 170.0, 45.45), idle_s: 0.0, fresh: false, misplaced: 0 });
+        }
+        let mut testo = String::new();
+        for blocco in audio.chunks(1200) {
+            for l in multi.process(blocco) {
+                if (l.centre_hz - 1035.0).abs() < 10.0 {
+                    testo.extend(l.chars.iter().map(|c| c.ch));
+                }
+            }
+        }
+        let ch = multi.channels();
+        assert!(ch.len() == 1 && (ch[0] - 1035.0).abs() <= 10.0, "canali: {ch:?}");
+        assert!(testo.matches("IU3ABC").count() >= 3, "{testo}");
     }
 
     #[test]
