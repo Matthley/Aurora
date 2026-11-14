@@ -141,15 +141,6 @@ export const digiBandStrings = {
     'Decodifica cada señal CW de la banda de audio con su propio receptor, en un hilo aparte que usa como mucho un cuarto de núcleo: con demasiadas señales se queda con las más fuertes.',
     'Descodifica cada sinal CW da banda de áudio com o seu próprio recetor, numa thread à parte que usa no máximo um quarto de um núcleo: com sinais a mais fica com os mais fortes.',
   ],
-  'radar.localSpots': ['Nel mio Cluster', 'In my Cluster', 'In meinem Cluster', 'Dans mon Cluster', 'En mi Cluster', 'No meu Cluster'],
-  'digi.band.spotsTip': [
-    'Le stazioni che BIGScan trova compaiono anche nel pannello DX Cluster di Aurora, come se fossero spot, con la frequenza vera (serve la frequenza della radio). È solo un promemoria sul tuo PC: non vengono mandate a nessun cluster in rete. Per mandare uno spot vero: tasto destro su una stazione › Spot DX…',
-    'The stations BIGScan finds also appear in Aurora’s DX Cluster panel, as if they were spots, with the real frequency (the radio frequency is needed). It is only a reminder on your PC: they are not sent to any cluster on the network. To send a real spot: right-click a station › Spot DX…',
-    'Bestätigte Rufzeichen erscheinen im DX-Cluster-Bereich von Aurora mit der echten Frequenz (die Frequenz des Funkgeräts wird gebraucht). Sie bleiben auf deinem PC: nichts geht ins Netz.',
-    'Les indicatifs vérifiés apparaissent dans le panneau DX Cluster d’Aurora avec la vraie fréquence (il faut la fréquence de la radio). Ils restent sur ton PC : rien ne part sur le réseau.',
-    'Los indicativos verificados aparecen en el panel del DX Cluster de Aurora con la frecuencia real (hace falta la frecuencia de la radio). Se quedan en tu PC: nada sale a la red.',
-    'Os indicativos verificados aparecem no painel do DX Cluster do Aurora com a frequência real (é preciso a frequência do rádio). Ficam no teu PC: nada vai para a rede.',
-  ],
   'digi.band.emptyPsk': [
     'Nessun segnale PSK nella banda audio, per ora: compaiono qui da soli, uno per riga, quando il ricevitore li riconosce.',
     'No PSK signals in the audio band yet: they appear here by themselves, one per row, once the receiver recognises them.',

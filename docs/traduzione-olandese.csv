@@ -783,7 +783,7 @@ auto.modeDry,Dry run,Proefmodus
 auto.turnOn,Turn on,Inschakelen
 auto.turnOff,Turn off,Uitschakelen
 auto.liveOnPc,Live mode is enabled from the PC.,Live-modus wordt vanaf de pc ingeschakeld.
-auto.txClosed, Transmission is closed now: Aurora was started with AURORA_ALLOW_TX=0., Zenden is nu vergrendeld: Aurora is gestart met AURORA_ALLOW_TX=0.
+auto.txClosed," Transmission is closed now: Aurora was started with AURORA_ALLOW_TX=0."," Zenden is nu vergrendeld: Aurora is gestart met AURORA_ALLOW_TX=0."
 auto.limits,"Limits set on the PC: {cycles} replies in a row without a QSO, {perDay} per day, switched off after {dead} s with no device connected. Today: {today} replies.","Op de pc ingestelde limieten: {cycles} antwoorden achter elkaar zonder QSO, {perDay} per dag, uitgeschakeld na {dead} s zonder verbonden apparaat. Vandaag: {today} antwoorden."
 auto.rules,Rules,Regels
 auto.replyTo,Reply to CQ calls with,CQ-oproepen beantwoorden met
@@ -4703,8 +4703,6 @@ digi.band.toQso,To QSO,Naar QSO
 digi.band.close,Close,Sluiten
 digi.band.mi,All signals in the band (CW),Alle signalen in de band (CW)
 digi.band.miTip,"Decodes every CW signal in the audio band with its own receiver, in a separate thread using at most a quarter of a core: with too many signals it keeps the strongest.","Decodeert elk CW-signaal in de audioband met een eigen ontvanger, in een aparte thread die hoogstens een kwart van een kern gebruikt: bij te veel signalen blijven de sterkste."
-radar.localSpots,In my Cluster,In mijn Cluster
-digi.band.spotsTip,"The stations BIGScan finds also appear in Aurora’s DX Cluster panel, as if they were spots, with the real frequency (the radio frequency is needed). It is only a reminder on your PC: they are not sent to any cluster on the network. To send a real spot: right-click a station › Spot DX…","De stations die BIGScan vindt verschijnen ook in het DX-clusterpaneel van Aurora, alsof het spots zijn, met de echte frequentie (de frequentie van de radio is nodig). Het is alleen een geheugensteun op je pc: ze worden naar geen enkele cluster op het netwerk gestuurd. Een echte spot sturen: rechtsklik op een station › Spot DX…"
 digi.band.emptyPsk,"No PSK signals in the audio band yet: they appear here by themselves, one per row, once the receiver recognises them.","Nog geen PSK-signalen in de audioband: ze verschijnen hier vanzelf, één per regel, zodra de ontvanger ze herkent."
 digi.band.miPsk,All signals in the band (PSK),Alle signalen in de band (PSK)
 digi.band.miPskTip,"Decodes every PSK31 or PSK63 signal (the chosen mode) in the audio band with its own receiver, like a browser: a signal enters the list once the receiver recognises it as PSK.","Decodeert elk PSK31- of PSK63-signaal (de gekozen modus) in de audioband met een eigen ontvanger, zoals een browser: een signaal komt in de lijst zodra de ontvanger het als PSK herkent."
