@@ -31,7 +31,7 @@ import { takePendingSpot, textModeOfSpot } from '../lib/spotMode';
 import { getBandMode, getBandSignals, onBandSignals, cqCallOf, radarColor, radarStations, waterfallLabels } from '../lib/digiBand';
 import { MacroEditor } from '../components/digi/MacroEditor';
 import { MacroGuide } from '../components/digi/MacroGuide';
-import { digiWithDefaults as withDefaults, editMacros, type MacroScope } from '../lib/digiMacroEdit';
+import { digiWithDefaults as withDefaults, editMacros, swapMacros, type MacroScope } from '../lib/digiMacroEdit';
 import { MenuBar, type MenuDef } from '../components/digi/MenuBar';
 import { CW_BANDWIDTHS, CW_WIDE_HZ, ModeSettings, RTTY_BAUDS, RTTY_SHIFTS, roundBaud, withCurrent } from '../components/digi/ModeSettings';
 import { usePersonal } from '../lib/personal';
@@ -55,7 +55,7 @@ import { planMacro, splitAutoCq } from '../lib/macroPlan';
 import { useListenWhileOpen } from '../lib/listenWhileOpen';
 import { parseSpotSplit } from '../lib/spotSplit';
 import { browserStorage } from '../lib/theme';
-import { toast } from '../lib/toast';
+import { toast, toastAction } from '../lib/toast';
 import { useStation, useStatusPick } from '../state/station';
 import '../styles/digi.css';
 import '../styles/digi-dark.css';
@@ -1214,6 +1214,13 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     setEditing(null);
   };
 
+  // trascinamento sulla barra: i due tasti si scambiano le macro in ogni insieme (vedi swapMacros); «Annulla» rimette com'era
+  const moveMacro = (from: string, to: string) => {
+    const before = { macros: s.macros, mode_macros: s.mode_macros };
+    save(swapMacros(s, from, to));
+    toastAction(t('digi.bar.moved'), t('digi.bar.undo'), () => save(before));
+  };
+
   // le macro di fabbrica di Aurora (l'importazione da altri programmi e' stata tolta dal menu, scelta del proprietario 2026-11-11)
   const resetMacros = () => {
     importMacros('defaults').then(
@@ -1466,6 +1473,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             extended={views.extended}
             onToggleExtended={() => setView({ extended: !views.extended })}
             onRun={(m) => execute(m.text)}
+            onMove={moveMacro}
             autoCq={autoCq ? (autoCqPaused ? 'paused' : 'on') : 'off'}
             onEdit={(name) => setEditing({ name, scope: (s.mode_macros[s.mode] ?? []).some((m) => m.name === name) ? 'mode' : 'all' })}
           />

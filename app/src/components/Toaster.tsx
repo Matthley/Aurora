@@ -28,6 +28,19 @@ export function Toaster() {
             {ICON[x.kind]}
           </span>
           <span className="toast-text">{x.text}</span>
+          {x.action ? (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                x.action?.run();
+                dismiss(x.id);
+              }}
+            >
+              {x.action.label}
+            </button>
+          ) : null}
           <span className="toast-bar" aria-hidden="true" />
         </div>
       ))}

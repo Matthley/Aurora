@@ -11,6 +11,8 @@ export interface Toast {
   ms: number;
   /** Sta uscendo (animazione di uscita in corso). */
   leaving: boolean;
+  /** Un pulsante nella notifica (es. «Annulla»). */
+  action?: { label: string; run(): void };
 }
 
 /** Quanto resta una notifica: gli errori un po' di piu', per avere il tempo di leggerli. */
@@ -24,19 +26,19 @@ let nextId = 1;
 
 interface ToastState {
   toasts: Toast[];
-  push(text: string, kind?: ToastKind): number;
+  push(text: string, kind?: ToastKind, action?: Toast['action']): number;
   dismiss(id: number): void;
 }
 
 export const useToasts = create<ToastState>((set, get) => ({
   toasts: [],
-  push(text, kind = 'ok') {
+  push(text, kind = 'ok', action) {
     const id = nextId++;
     const prefs = useToastPrefs.getState().prefs;
     // un tipo spento non compare (gli errori si vedono sempre)
     if (!prefs.show[kind]) return id;
     const ms = Math.round(prefs.seconds[kind] * 1000) || TOAST_MS[kind];
-    set((s) => ({ toasts: [...s.toasts.filter((t) => t.text !== text), { id, text, kind, ms, leaving: false }].slice(-MAX) }));
+    set((s) => ({ toasts: [...s.toasts.filter((t) => t.text !== text), { id, text, kind, ms, leaving: false, action }].slice(-MAX) }));
     setTimeout(() => get().dismiss(id), ms);
     return id;
   },
@@ -50,4 +52,9 @@ export const useToasts = create<ToastState>((set, get) => ({
 /** Mostra una notifica (da qualunque punto dell'interfaccia). */
 export function toast(text: string, kind: ToastKind = 'ok'): number {
   return useToasts.getState().push(text, kind);
+}
+
+/** Una notifica con un pulsante (es. «Annulla»): il clic esegue l'azione e la chiude. */
+export function toastAction(text: string, label: string, run: () => void, kind: ToastKind = 'ok'): number {
+  return useToasts.getState().push(text, kind, { label, run });
 }

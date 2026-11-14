@@ -342,6 +342,12 @@ html[data-theme='light'] .digi-wingrip::before { background: #4a5a8a; }
 .digi-st--notch { width: 11.5em; flex: none; justify-content: center; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* il tasto della macro nell'angolo in basso a destra del pulsante: piccolo e discreto, non copre l'etichetta */
 .digi-classica .digi-key { position: relative; }
+.digi-key { touch-action: manipulation; }
+.digi-bar-keys--dragging, .digi-bar-keys--dragging .digi-key { cursor: grabbing; user-select: none; touch-action: none; }
+.digi-key.digi-key--armed { opacity: 0.55; outline: 2px solid var(--accent, #4fc3f7); outline-offset: 1px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, #4fc3f7) 35%, transparent); animation: digi-key-armed 0.9s ease-in-out infinite; }
+.digi-key.digi-key--drop { outline: 2px dashed var(--accent, #4fc3f7); outline-offset: 1px; background: color-mix(in srgb, var(--accent, #4fc3f7) 22%, var(--key-base)) !important; }
+@keyframes digi-key-armed { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent, #4fc3f7) 15%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .digi-key.digi-key--armed { animation: none; } }
 .digi-key-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .digi-key-hint { position: absolute; right: 3px; bottom: 1px; font-size: 8px; line-height: 1; font-weight: 500; letter-spacing: 0; opacity: 0.5; pointer-events: none; color: var(--key-ink); }
 html[data-theme='light'] .digi-key-hint { color: #1b2540; opacity: 0.55; }

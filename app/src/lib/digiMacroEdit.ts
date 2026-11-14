@@ -69,3 +69,17 @@ export function digiWithDefaults(snap: DigiSnapshot): DigiSnapshot {
   };
   return { ...snap, settings, rx: { ...snap.rx, freq_hz: snap.rx.freq_hz ?? 0, squelch_open: snap.rx.squelch_open ?? true } };
 }
+
+/**
+ * Due tasti della barra si scambiano le macro (trascinamento o Alt+freccia): la macro prende il tasto della nuova posizione.
+ * Regola: lo scambio si fa in OGNI insieme (quello di base e quello del modo in uso), cosi' ogni macro resta nel suo insieme
+ * (per tutti i modi o solo per questo modo) e la barra che si vede dopo e' esattamente quella di prima con i due tasti scambiati.
+ * Un tasto vuoto riceve la macro e lascia libero quello di partenza. Gli altri modi non cambiano.
+ */
+export function swapMacros(s: Pick<DigiSettings, 'macros' | 'mode_macros' | 'mode'>, a: string, b: string): Pick<DigiSettings, 'macros' | 'mode_macros'> {
+  const swap = (list: readonly DigiMacro[]) =>
+    list.map((m) => (m.name === a ? { ...m, name: b } : m.name === b ? { ...m, name: a } : m));
+  const modeSets = { ...s.mode_macros };
+  if (a !== b && modeSets[s.mode]) modeSets[s.mode] = swap(modeSets[s.mode] ?? []);
+  return { macros: a === b ? [...s.macros] : swap(s.macros), mode_macros: modeSets };
+}
