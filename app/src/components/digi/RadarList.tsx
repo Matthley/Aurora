@@ -124,6 +124,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
   const cluster = useQuery({ queryKey: ['dx-cluster'], queryFn: () => getClusterSpots(), retry: false, enabled: menu !== null }).data;
   const blocked = spotBlocked(cluster?.config.spot_via, cluster?.servers.filter((x) => x.state === 'connected').length ?? 0);
   const head: Record<RadarCol, string> = { call: t('radar.colCall'), freq: t('radar.colFreq'), wpm: 'WPM', snr: 'S/N', cq: 'CQ' };
+  const headTip: Record<RadarCol, string> = { call: t('radar.callColTip'), freq: t('radar.freqTip'), wpm: t('radar.wpmTip'), snr: t('radar.snrTip'), cq: t('radar.cqTip') };
   const cell = (c: RadarCol, s: RadarStation) => {
     switch (c) {
       case 'call': {
@@ -133,7 +134,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         return (
           <td key={c} className="radar-call">
             <span className="radar-dot" title={s.stale ? t('radar.dotStale') : t('radar.dotLive')} aria-label={s.stale ? t('radar.dotStale') : t('radar.dotLive')} />
-            {code ? <span className={`fi fi-${code} decode-flag`} aria-hidden="true" /> : null}
+            {code ? <span className={`fi fi-${code} decode-flag`} title={s.country ?? undefined} aria-hidden="true" /> : null}
             <b>{s.call}</b>
             {st && mark ? (
               <span className={`radar-log radar-log--${st.replaceAll('_', '-')}`} title={t(mark.tip)}>
@@ -145,19 +146,19 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
       }
       case 'freq':
         return (
-          <td key={c} className="radar-num">
+          <td key={c} className="radar-num" title={t('radar.freqTip')}>
             {freqLabel(s.freqHz, dialHz)}
           </td>
         );
       case 'wpm':
         return (
-          <td key={c} className="radar-num">
+          <td key={c} className="radar-num" title={t('radar.wpmTip')}>
             {s.wpm != null ? Math.round(s.wpm) : ''}
           </td>
         );
       case 'snr':
         return (
-          <td key={c} className="radar-num">
+          <td key={c} className="radar-num" title={t('radar.snrTip')}>
             {Math.round(s.snrDb)}
           </td>
         );
@@ -184,7 +185,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         {on ? (
           <span className="radar-legend" title={[source, ...LEGEND[inContest ? 'contest' : 'log'].map((k) => { const m = logMark(k, inContest); return `${m.label}: ${t(m.tip)}`; })].join('\n')}>
             {LEGEND[inContest ? 'contest' : 'log'].map((k) => (
-              <span key={k} className={`radar-log radar-log--${k.replaceAll('_', '-')}`}>
+              <span key={k} className={`radar-log radar-log--${k.replaceAll('_', '-')}`} title={`${logMark(k, inContest).label}: ${t(logMark(k, inContest).tip)}`}>
                 {logMark(k, inContest).label}
               </span>
             ))}
@@ -224,7 +225,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
             <tr>
               {cols.visible.map((c, i) => (
                 <MovableTh key={c} cols={cols} col={c} index={i}>
-                  {head[c]}
+                  <span title={headTip[c]}>{head[c]}</span>
                 </MovableTh>
               ))}
             </tr>
@@ -282,12 +283,12 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
                   {t('radar.pileupTx')}
                 </button>
               ) : null}
-              <button type="button" className="radar-clear" onClick={() => setPileupDx(null)}>
+              <button type="button" className="radar-clear" title={t('radar.pileupOffTip')} onClick={() => setPileupDx(null)}>
                 {t('radar.pileupOff')}
               </button>
             </>
           ) : (
-            <button type="button" className="radar-clear" onClick={() => setPileupDx(qsoDx)}>
+            <button type="button" className="radar-clear" title={t('radar.pileupFromQsoTip')} onClick={() => setPileupDx(qsoDx)}>
               {t('radar.pileupFromQso', { call: qsoDx })}
             </button>
           )}
@@ -300,6 +301,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
             <button
               type="button"
               role="menuitem"
+              title={t('radar.pileupDxTip')}
               onClick={() => {
                 setPileupDx(menu.s.call);
                 setMenu(null);
@@ -322,6 +324,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
             <button
               type="button"
               role="menuitem"
+              title={t('radar.copyTip')}
               onClick={() => {
                 const call = menu.s.call;
                 setMenu(null);
