@@ -104,5 +104,5 @@ html:root:root .digi-split::after {
 html:root:root .digi-split:is(:hover, :active)::after { border-top-color: var(--grip-color-hover); }
 
 /* la maniglia della cascata dei modi testuali sta sul bordo superiore, non in mezzo alla scala: non copre le frequenze */
-html:root:root .digi-wf-grip { top: -5px; height: 10px; }
+html:root:root .digi-wf-grip { top: -10px; height: 10px; }
 html:root:root .digi-wf-grip::before { top: 5px; }
