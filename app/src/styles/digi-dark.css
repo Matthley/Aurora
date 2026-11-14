@@ -95,7 +95,12 @@ button.digi-st.on, button.digi-st:active { background: #8e7bff33; border-color: 
 .digi-classica .digi-dialog input, .digi-classica .digi-dialog select, .digi-classica .digi-dialog textarea { background: #0a1324; color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
 .digi-classica .digi-cmd-list { background: #0a1324; border: 1px solid var(--border); border-radius: 8px; }
 .digi-classica .digi-cmd-list button { color: var(--text); }
-.digi-classica .digi-cmd-list button:hover, .digi-classica .digi-cmd-list button.on { background: #8e7bff40; color: #fff; }
+.digi-classica .digi-cmd-list { background: #070e1c; border-color: #3a4f80; }
+.digi-classica .digi-cmd-list button:hover { background: #8e7bff2e; color: #fff; }
+/* voce scelta: viola pieno con testo scuro (contrasto oltre 6:1), distinta dal testo della macro */
+.digi-classica .digi-cmd-list button.on { background: #a99bff; color: #071022; box-shadow: inset 3px 0 0 #2cf5a4; }
+.digi-classica .digi-cmd-list button.on b { color: #071022; }
+.digi-classica .digi-cmd-list button:focus-visible { outline: 2px solid #2cf5a4; outline-offset: -2px; }
 .digi-classica .digi-ms-grid fieldset { border-color: var(--border); }
 
 /* tema chiaro: stesso disegno, colori chiari e testo nero */
@@ -127,6 +132,12 @@ html[data-theme='light'] .digi-colpop { background: #ffffff; color: #000; }
 html[data-theme='light'] .digi-classica .digi-dialog { background: #ffffff; color: #0b1322; }
 html[data-theme='light'] .digi-classica .digi-dialog input, html[data-theme='light'] .digi-classica .digi-dialog select, html[data-theme='light'] .digi-classica .digi-dialog textarea { background: #ffffff; color: #000; }
 html[data-theme='light'] .digi-classica .sstv-btn { background: #eef2fa; color: #000; }
+/* elenco dei comandi delle macro nel tema chiaro (issue #61): fondo chiaro, testo scuro, voce scelta in viola pieno con testo bianco */
+html[data-theme='light'] .digi-classica .digi-cmd-list { background: #f5f7fc; border: 1px solid #b9c4dc; }
+html[data-theme='light'] .digi-classica .digi-cmd-list button { color: #0b1322; }
+html[data-theme='light'] .digi-classica .digi-cmd-list button:hover { background: #e3e8f7; color: #0b1322; }
+html[data-theme='light'] .digi-classica .digi-cmd-list button.on, html[data-theme='light'] .digi-classica .digi-cmd-list button.on b { background: #4b36c9; color: #ffffff; }
+html[data-theme='light'] .digi-classica .digi-cmd-list button:focus-visible { outline-color: #4b36c9; }
 
 /* Il tasto del CQ automatico acceso: rosso pieno che pulsa, cosi' si vede subito che sta chiamando; in pausa giallo fermo */
 .digi-key.digi-key--acq-on { background: #c62828 !important; border-color: #ff8a80 !important; color: #fff !important; box-shadow: 0 0 0 2px rgba(255, 138, 128, 0.55), 0 0 12px rgba(255, 82, 82, 0.6); animation: digi-acq-pulse 1.2s ease-in-out infinite; }
