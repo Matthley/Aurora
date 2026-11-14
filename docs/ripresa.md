@@ -2,6 +2,12 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-14 notte (0.11.257 pubblicata, sito aggiornato)
+
+- **0.11.257** (2026-11-14T18:09:51Z): menu Contest dei modi testuali (`contest/elenco.rs`, `contest_testo_api.rs`, `ContestListDialog.tsx`, `textContest.ts`; 135 contest in `desktop/src-tauri/contest/` copiati al primo avvio in `<dati>/contest/` con `macros/` e `dom/`; formato in `docs/contest-file.md`, convertitore `contest/examples/converti_contest.rs`); macro ripremuta che riparte da capo (`transmit_restart`, `macroRestart.ts`), tasto F sui pulsanti, menu del tasto destro nella finestra TX (`TxMenu.tsx`), finestra TX unica, BPF visibile, suggerimenti in BIGScan, testo breve sul nominativo della cascata, tolti gli spot «nel mio Cluster» dall'interfaccia (`local_spots` resta spento nel core); Hamlib macOS universale dai sorgenti (`scripts/hamlib-macos-universale.sh`, Hamlib 4.7.2 + libusb 1.0.30, cache in `macos.yml`) perche' la 0.11.256 e' uscita senza pacchetto Mac.
+- Rilascio dalla copia pulita `Aurora-rel256` (worktree): `Aurora-fix-remoto` resta la cartella di lavoro degli aiutanti; dopo il rilascio va riallineata a `origin/main`.
+- Da verificare: compilazione macOS della 0.11.257 (prima prova di Hamlib dai sorgenti); tutto con la radio.
+
 ## Stato al 2026-11-14 sera tardi (0.11.256 pubblicata, sito aggiornato)
 
 - **0.11.256** (2026-11-14T17:17:31Z): macro verificate una per una (`macroPlan.ts`, `docs/macro-verifica.md`), Guida alle macro nel menu Aiuto (`MacroGuide.tsx`, dal catalogo `macroCommands.ts`), Pausa/Cerca nella finestra RX, `<TXE>` col campo `carrier`; BIGScan: modo DXpedition (`dxPileup.ts`, `PileupMarks.tsx`), testo sulla cascata (`wfText.ts`), spot dal tasto destro (`spotPrefill.ts`), «Nel mio Cluster» (`local_spots`, prima `band_spots`, spento di base), falsi CQ con pausa di 2,5 s, banco preciso e sintonia/rilettura 2 s (ritardo 12 -> 9 s); RBN (`dx-cluster/src/rbn.rs`, server spot locale 7300, niente invio alla rete); CAT: modo del VFO di trasmissione in split (`write_split_mode`, `X`), split DX dimenticato alla riconnessione se la radio si e' spostata, ripiego USB senza modo dati (PR #58 IU0PWE); riapertura su pagina/frequenza/modo (`last_dial.rs`, `lastPage.ts`); issue #56 #59 #60 #61; HRDLOG.NET; maniglie e separatore RX/TX.

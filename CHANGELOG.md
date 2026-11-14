@@ -4,11 +4,28 @@
 
 ## 0.11.257 - 2026-11-14
 
+- Modi testuali: menu Contest (Vista › Menu Contest) con 135 contest in file `.contest` modificabili, macro e domini; il contest attivo regola doppi, numero progressivo, macro e cattura dello scambio.
+- Macro: ripremendo un tasto mentre trasmette la macro riparte da capo senza staccare il PTT; tasto F nell'angolo dei pulsanti.
+- Finestra di trasmissione unica con menu del tasto destro (Pulisci tutto, Taglia, Copia, Incolla); filtro BPF ben visibile sulla cascata.
+- Aurora BIGScan: suggerimenti su ogni elemento, testo breve sul nominativo della cascata, tolta l'opzione «nel mio Cluster».
+- Guida alle macro su una riga per comando; maniglia della cascata sopra il bordo.
+- macOS: Hamlib universale compilato dai sorgenti (la 0.11.256 era senza pacchetto per Mac).
+
 ## 0.11.256 - 2026-11-14
+
+- Macro verificate una per una e Guida alle macro nel menu Aiuto; Pausa e Cerca nella finestra RX; `<TXE>` aspetta la fine del segnale.
+- Aurora BIGScan: modo DXpedition, testo decodificato sulla cascata, spot dal tasto destro, meno falsi CQ; spot della rete RBN e server spot locale.
+- CAT: modo del VFO di trasmissione in split, split DX non piu' rimesso da solo alla riconnessione, ripiego su USB senza modo dati (PR #58); riapertura su pagina, frequenza e modo.
+- Issue #56, #59, #60, #61; correzioni HRDLOG.NET.
 
 ## 0.11.255 - 2026-11-14
 
+- Contest: DUPE solo per i QSO della gara, segni NEW/B/M/BM/MULT, `<QSONR>` che riparte da 001, QSO dei modi testuali nel log del contest; macro `<IGNOREBEFORE>` e `<PERIOD>`.
+- BIGScan RTTY piu' rapido; display della radio acceso quando la radio risponde (#55); HRDLOG.NET.
+
 ## 0.11.254 - 2026-11-14
+
+- Aurora BIGScan piu' affidabile (chi chiama CQ non sparisce, letture parziali, piccoli spostamenti della radio); macro di contest `<QSONR>`, `<NRS>`, `<NRR>`; `<TX>`/`<RX>`/`<RXANDCLEAR>`; barra sopra la finestra RX; maniglie uniformi.
 
 ## 0.11.253 - 2026-11-14
 - **RTTY: testo che scorre**: i caratteri sicuri escono uno alla volta invece che a fine parola (ritardo medio da 807 a 368 ms), e un a capo perso mentre il ricevitore taceva torna all'inizio della trasmissione seguente: niente piu' righe attaccate.

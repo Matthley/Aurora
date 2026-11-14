@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.257',
-    released: '2026-11-14T00:00:00Z',
+    released: '2026-11-14T18:09:51Z',
     kind: 'new',
     featured: true,
     title: [
@@ -45,7 +45,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.257',
-    released: '2026-11-14T00:00:00Z',
+    released: '2026-11-14T18:09:51Z',
     kind: 'changed',
     title: [
       'Filtro BPF visibile, suggerimenti in BIGScan',
