@@ -15,6 +15,8 @@ interface Props {
   txHz: number | null;
   /** La distanza fra i due triangoli di ogni coppia (Hz): lo shift dell'RTTY (mark e space) o la larghezza del segnale che si decodifica. */
   bandwidthHz: number;
+  /** Il filtro BPF acceso: la banda che lascia passare al decodificatore (Hz, centrata sulla ricezione); 0 = spento. */
+  passbandHz?: number;
   /** Split acceso: la coppia rossa della trasmissione sta altrove e il clic la sposta; con Maiusc si sposta la ricezione. */
   split?: boolean;
   /** «Show hairlines»: due righe sottili su tutta la cascata alle frequenze di ricezione (e di trasmissione in split). */
@@ -56,7 +58,7 @@ const PALETTE = Array.from({ length: 256 }, (_, i) => paletteColor(i));
 const SCALE_H = 22;
 
 /** La cascata della pagina dei modi testuali: scala in Hz in alto, righe che scorrono, bandierine e clic per sintonizzare. */
-export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, labels = [], notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
+export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandHz = 0, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, labels = [], notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
   const t = useT();
   const wrap = useRef<HTMLDivElement>(null);
   const flow = useRef<HTMLCanvasElement>(null);
@@ -298,6 +300,14 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, split = f
           </span>
         ))}
       {onNotches ? <WaterfallNotches notches={notches} minHz={minHz} maxHz={maxHz} width={width} top={SCALE_H} onChange={onNotches} /> : null}
+      {passbandHz > 0 ? (
+        <span
+          className="digi-wf-bpf"
+          style={{ left: xOf(rxShown - passbandHz / 2), width: Math.max(4, xOf(rxShown + passbandHz / 2) - xOf(rxShown - passbandHz / 2)), top: SCALE_H }}
+          title={t('digi.st.passband')}
+          aria-hidden="true"
+        />
+      ) : null}
       {flag(rxShown)}
       {hairlines && rxShown >= minHz && rxShown <= maxHz ? <span className="digi-wf-hair digi-wf-hair--rx" style={{ left: xOf(rxShown) }} aria-hidden="true" /> : null}
       {hairlines && split && txShown >= minHz && txShown <= maxHz ? <span className="digi-wf-hair digi-wf-hair--tx" style={{ left: xOf(txShown) }} aria-hidden="true" /> : null}
