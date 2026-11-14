@@ -225,6 +225,12 @@ impl CallTracker {
         }
     }
 
+    /// L'ultima parola chiusa (per le prove).
+    #[cfg(test)]
+    pub(crate) fn recent_last(&self) -> Option<String> {
+        self.recent.last().cloned()
+    }
+
     /// Fine del segnale o pausa lunga: chiude la parola in corso.
     pub fn flush(&mut self, now_s: f64) {
         self.end_word(now_s);

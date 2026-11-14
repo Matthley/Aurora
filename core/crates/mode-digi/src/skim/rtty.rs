@@ -11,6 +11,9 @@ const RATE: f64 = 12_000.0;
 const SAME_FRACTION: f32 = 0.5;
 /// Un canale senza testo da tanto si dimentica (s); `RttyMulti` chiude il suo ricevitore dopo 75 s senza caratteri credibili.
 const IDLE_S: f64 = 90.0;
+/// Silenzio (s) dopo cui la parola in corso si chiude anche senza lo spazio: il «CQ» in fondo a «R6NA R6NA CQ» dava il ruolo solo al
+/// ritorno a capo della trasmissione seguente (2 s e piu' dopo). Un carattere RTTY dura 165 ms: dentro una parola non ci sono pause cosi'.
+const WORD_PAUSE_S: f64 = 1.0;
 
 struct Lane {
     id: u32,
@@ -84,6 +87,9 @@ impl BandDecoder for RttyBandDecoder {
         let now = self.t;
         for l in self.lanes.iter_mut() {
             l.tr.trim(now);
+            if now - l.tr.last_text_s > WORD_PAUSE_S {
+                l.tr.calls.flush(l.tr.last_text_s);
+            }
         }
         let cache = &mut self.cache;
         self.lanes.retain(|l| {
@@ -206,6 +212,29 @@ mod tests {
         assert_eq!(d.multi.channels().len(), 1, "{:?}", d.multi.channels());
         d.shift(-1_000.0);
         assert!(d.channels().is_empty() && d.multi.channels().is_empty());
+    }
+
+    /// «IU3ABC IU3ABC CQ» senza spazio in fondo, poi silenzio: il CQ chiude la parola dopo un secondo e la stazione e' chi chiama
+    /// subito, senza aspettare la trasmissione seguente.
+    #[test]
+    fn a_cq_at_the_end_of_the_phrase_counts_after_a_pause() {
+        let p = RttyParams { centre_hz: 1_200.0, shift_hz: 170.0, baud: 45.45, reverse: false };
+        let mut band = vec![0.0_f32; 6_000];
+        band.extend(modulate("RYRY CQ IU3ABC IU3ABC CQ".as_bytes(), p, 0.2));
+        band.extend(vec![0.0_f32; 12_000 * 2]);
+        let n = band.len();
+        for (s, r) in band.iter_mut().zip(crate::skim::tests::noise(n, 0.02, 4)) {
+            *s += r;
+        }
+        let mut d = RttyBandDecoder::new(170.0, 45.45, 10);
+        for block in band.chunks(1_200) {
+            d.process(block);
+        }
+        let chans = d.channels();
+        let lane = chans.iter().find(|c| c.calls.iter().any(|c| c.call == "IU3ABC"));
+        let tracker = &d.lanes.iter().find(|l| (l.centre_hz - 1_200.0).abs() < 30.0).map(|l| l.tr.calls.recent_last());
+        assert!(lane.is_some(), "{chans:#?}");
+        assert_eq!(tracker.clone().flatten().as_deref(), Some("CQ"), "{chans:#?}");
     }
 
     /// Due stazioni RTTY nella banda: due canali, ognuno con il suo nominativo verificato.
