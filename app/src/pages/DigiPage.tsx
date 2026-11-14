@@ -12,6 +12,9 @@ import { DigiLog, type Qso } from '../components/digi/DigiLog';
 import { commentWithExchange, contestNextSerial, exchangeSent, readSerial, writeSerial } from '../lib/contestSerial';
 import { writeIgnoreBefore, writePeriod } from '../lib/logWindow';
 import { useContestLog } from '../lib/useContestLog';
+import { getActiveTextContest, type TextContest } from '../api/contestTesto';
+import { contestWindow, grabExchange, startSerial, withContestMacros } from '../lib/textContest';
+import { ContestEditDialog, ContestListDialog, useSelectTextContest } from '../components/digi/ContestListDialog';
 import { RxWordMenu, wordAtPoint, type WordAt, type WordTarget } from '../components/digi/RxWordMenu';
 import { isCallsign, useCallLookup } from '../components/digi/callLookup';
 import { DigiWaterfall } from '../components/digi/DigiWaterfall';
@@ -98,6 +101,8 @@ interface Views {
   rbn?: boolean;
   /** Aurora BIGScan: anche chi risponde (dopo DE o TU), non solo chi chiama CQ. */
   radarAnswering: boolean;
+  /** Il menu «Contest» (elenco dei contest dei modi testuali) nella barra dei menu. */
+  contestMenu?: boolean;
 }
 
 const DEFAULT_VIEWS: Views = { controlBar: true, extended: true, log: true, waterfall: true, statusBar: true, underlineSent: true, capsOnly: false, slashedZero: true, flashTx: true, hairlines: false, defaultRst: true, wideWaterfall: true, signals: true, wfCalls: true, radarAnswering: false };
@@ -197,6 +202,24 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const contest = useContestLog();
   const inContest = !!contest.attivo;
   const qsoSerial = inContest && contest.log ? contestNextSerial(contest.log) : serial;
+  // il contest dei modi testuali scelto dal menu Contest (vale solo fuori dalla gara della pagina Contest): macro, numero da mandare, cattura
+  const textContestQ = useQuery({ queryKey: ['contest-testo-attivo'], queryFn: getActiveTextContest, retry: false, refetchOnWindowFocus: false, staleTime: 30_000 });
+  const textContest = inContest ? null : (textContestQ.data ?? null);
+  // senza incremento automatico <NRS> manda lo scambio fisso del contest (zona, provincia)
+  const fixedNrsRef = useRef('');
+  fixedNrsRef.current = textContest && !textContest.contest.auto_inc ? textContest.contest.nrs.trim() : '';
+  const [contestList, setContestList] = useState(false);
+  const [contestEdit, setContestEdit] = useState<TextContest | null>(null);
+  const selectTextContest = useSelectTextContest();
+  // scegliendo un contest con l'incremento automatico il progressivo riparte dal suo primo numero (001 se vuoto)
+  const prevContestId = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!textContestQ.isSuccess) return;
+    const c = textContestQ.data?.contest ?? null;
+    const id = c?.id ?? null;
+    if (prevContestId.current !== undefined && prevContestId.current !== id && c?.auto_inc) setSerialState(writeSerial(browserStorage(), startSerial(c.nrs)));
+    prevContestId.current = id;
+  }, [textContestQ.isSuccess, textContestQ.data]);
   // il menu del tasto destro su una parola della finestra di ricezione
   const [wordMenu, setWordMenu] = useState<WordAt | null>(null);
   // il nominativo preso dalla ricezione va nel QSO in corso e si cercano nome, QTH, locatore e paese
@@ -422,7 +445,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const wfLabels = useMemo(() => [...bandLabels, ...rbnLabels(rbnSpots, status?.dial_hz ?? 0)], [bandLabels, rbnSpots, status?.dial_hz]);
   const toggleRadar = () => (s.mode === 'cw' ? save({ band_cw: s.band_cw === false }) : save({ band_rtty: s.band_rtty === false }));
 
-  const macros = useMemo(() => effectiveMacros(s.macros.map(toMacro), s.mode_macros[s.mode]?.map(toMacro), s.merge_macros[s.mode] !== false), [s.macros, s.mode_macros, s.merge_macros, s.mode]);
+  const macros = useMemo(() => withContestMacros(effectiveMacros(s.macros.map(toMacro), s.mode_macros[s.mode]?.map(toMacro), s.merge_macros[s.mode] !== false), textContest?.macros, textContest?.contest.merge_macros !== false), [s.macros, s.mode_macros, s.merge_macros, s.mode, textContest]);
 
   // lo spettro: la media delle righe recenti serve a Snap, Seek e Scan
   const avg = useRef(new RowAverager());
@@ -435,6 +458,17 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // l'ultimo stato, per i comandi dei tasti, la scansione e il CQ automatico (che non devono usare valori vecchi)
   const live = useRef({ snap, tx, qso, saved, startAt, status, macros, scanProps, rxHz, serial: qsoSerial, inContest });
   live.current = { snap, tx, qso, saved, startAt, status, macros, scanProps, rxHz, serial: qsoSerial, inContest };
+  // contest dei modi testuali: il numero o il dominio ricevuti dopo il nominativo del QSO vanno da soli nel numero ricevuto, se e' vuoto
+  useEffect(() => {
+    const c = textContest;
+    if (!c || !(c.contest.grab_number || c.contest.grab_state)) return;
+    return onDigiText(() => {
+      const q = live.current.qso;
+      if (q.call.trim() === '' || (q.nrr ?? '').trim() !== '') return;
+      const v = grabExchange(getDigiText().slice(-300), q.call, { number: c.contest.grab_number, domain: c.contest.grab_state ? c.domain : null });
+      if (v) setQso((x) => (x.call === q.call && (x.nrr ?? '').trim() === '' ? { ...x, nrr: v } : x));
+    });
+  }, [textContest]);
 
   const setView = (patch: Partial<Views>) => {
     const next = { ...views, ...patch };
@@ -806,7 +840,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       rsts: l.saved.rsts,
       notes: l.qso.notes,
       nrr: l.qso.nrr ?? '',
-      nrs: exchangeSent(l.qso.nrs, l.serial),
+      nrs: exchangeSent(l.qso.nrs || fixedNrsRef.current, l.serial),
       startTime: l.startAt,
       now: new Date(),
       dialHz: dial,
@@ -825,7 +859,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     }
     const dial = l.status?.dial_hz ?? 0;
     const at = l.startAt ?? new Date();
-    const nrs = exchangeSent(l.qso.nrs, l.serial);
+    const nrs = exchangeSent(l.qso.nrs || fixedNrsRef.current, l.serial);
     void addLogQso({
       call,
       date: at.toISOString().slice(0, 10),
@@ -1227,6 +1261,29 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   };
 
   // ---- i menu ----
+  // il menu Contest (dalla Vista): elenco dei contest, modifica di quello attivo, «Nessun contest» e i dati di quello attivo
+  const contestMenu = (): MenuDef => {
+    const c = textContest?.contest;
+    const w = c ? contestWindow(c, Date.now()) : null;
+    const fmt = (ms: number | null) => (ms == null ? '…' : new Date(ms).toISOString().slice(0, 16).replace('T', ' '));
+    return {
+      label: t('ctest.menu'),
+      items: [
+        { label: t('ctest.list'), onSelect: () => setContestList(true) },
+        { label: t('ctest.editActive'), disabled: !c, onSelect: () => (c ? setContestEdit(c) : undefined) },
+        { label: t('ctest.none'), checked: !c, onSelect: () => void selectTextContest(null) },
+        'sep',
+        { label: c ? t('ctest.infoActive', { name: c.name }) : t('ctest.infoNone'), disabled: true },
+        ...(c
+          ? [
+              { label: w ? t('ctest.infoWindow', { from: fmt(w.from), to: fmt(w.to) }) : t('ctest.infoNoWindow'), disabled: true },
+              { label: t('ctest.infoSerial', { nrs: c.auto_inc ? String(qsoSerial).padStart(3, '0') : c.nrs || '—' }), disabled: true },
+              { label: t('ctest.infoMacros', { n: textContest?.macros.length ?? 0 }), disabled: true },
+            ]
+          : []),
+      ],
+    };
+  };
   const slots = Array.from({ length: 20 }, (_, i) => i + 1);
   const menus: MenuDef[] = [
     {
@@ -1342,6 +1399,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         { label: t('digi.band.wfWords'), checked: views.wfWords !== false, onSelect: () => setView({ wfWords: views.wfWords === false }) },
         ...(radarMode ? [{ label: t('rbn.show'), checked: views.rbn !== false, onSelect: () => setView({ rbn: views.rbn === false }) }] : []),
         { label: t('digi.mi.statusBar'), checked: views.statusBar, onSelect: () => setView({ statusBar: !views.statusBar }) },
+        { label: t('ctest.viewMenu'), title: t('ctest.viewMenuTip'), checked: views.contestMenu === true, onSelect: () => setView({ contestMenu: views.contestMenu !== true }) },
         'sep' as const,
         { label: t('digi.mi.echoRx'), checked: views.echoRx === true, onSelect: () => setView({ echoRx: !(views.echoRx === true) }) },
         { label: t('digi.mi.underlineSent'), checked: views.underlineSent, onSelect: () => setView({ underlineSent: !views.underlineSent }) },
@@ -1354,6 +1412,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         { label: t('digi.mi.defaultRst'), checked: views.defaultRst, onSelect: () => setView({ defaultRst: !views.defaultRst }) },
       ],
     },
+    ...(views.contestMenu === true ? [contestMenu()] : []),
     {
       label: t('digi.menu.configure'),
       items: [
@@ -1668,6 +1727,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx } : undefined}
           modeName={MODE_NAMES[s.mode]}
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
+          contestName={textContest?.contest.name ?? null}
+          onContestClick={() => setContestList(true)}
           onToggleTx={() => {
             // il tasto RX/TX della barra in basso premuto mentre si trasmette ferma subito la trasmissione (come Esc); da fermi la apre
             macroSeq.current.cancel();
@@ -1694,6 +1755,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       {macroGuide ? <MacroGuide onClose={() => setMacroGuide(false)} /> : null}
       {wordMenu ? <RxWordMenu at={wordMenu} onPick={pickWord} onClose={() => setWordMenu(null)} /> : null}
       {rttyOpen ? <RttySettingsDialog settings={s} onApply={save} onClose={() => setRttyOpen(false)} /> : null}
+      {contestList ? <ContestListDialog onClose={() => setContestList(false)} /> : null}
+      {contestEdit ? <ContestEditDialog contest={contestEdit} onClose={() => setContestEdit(null)} onSaved={() => setContestEdit(null)} /> : null}
       {extras.map((x, i) => (
         <ExtraRxWindow key={x.id} id={x.id} freqHz={x.freq_hz} modeName={MODE_NAMES[s.mode]} index={i} afc={x.afc === true} onAfc={(on) => setExtras(extras.map((e) => (e.id === x.id ? { ...e, afc: on } : e)))} onClose={() => closeExtra(x.id)} onWord={takeCall} />
       ))}

@@ -48,7 +48,7 @@ describe('elenco dei contest', () => {
       fireEvent.click(screen.getByRole('button', { name: /Elimina|Delete/ }));
     });
     expect(deleteTextContest).toHaveBeenCalledWith('B');
-    fireEvent.click(screen.getAllByRole('row')[1]);
+    fireEvent.click(screen.getAllByRole('row')[1] as HTMLElement);
     expect(screen.getByRole('button', { name: /Elimina|Delete/ })).toBeDisabled();
   });
 
