@@ -208,6 +208,25 @@ export function displayModel(status: StatusLike | null | undefined): DisplayMode
   };
 }
 
+interface CatLike {
+  config: { backend: string };
+  status: { state: string; rig?: { state?: string; frequency_hz?: number | null; failures?: number } | null };
+}
+
+/**
+ * La radio risponde: CAT collegato, frequenza letta senza errori, oppure strumenti veri (non stimati dall'audio) che arrivano nello stato
+ * della stazione. Issue #60: il motore legge la radio anche quando lo stato del CAT non e' «collegato» (OmniRig mai collegato dalla scheda,
+ * stato rimasto indietro): il display restava spento, senza S-meter e senza i dati in piu', con qualunque stile.
+ */
+export function radioAnswering(cat: CatLike | undefined, meters: RadioMeters | null | undefined): boolean {
+  if (!cat) return true;
+  if (cat.config.backend === 'none') return false;
+  const rig = cat.status.rig;
+  if (cat.status.state === 'connected' || rig?.state === 'connected') return true;
+  if ((rig?.frequency_hz ?? 0) > 0 && (rig?.failures ?? 1) === 0) return true;
+  return !!meters && !meters.estimated && Object.entries(meters).some(([k, v]) => k !== 'estimated' && typeof v === 'number');
+}
+
 /** Dati di prova per le anteprime nelle Impostazioni. */
 export const DEMO_MODEL: DisplayModel = {
   dialHz: 21_074_000,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  radioAnswering,
   isFaceStyle,
   alcFraction,
   compFraction,
@@ -175,5 +176,21 @@ describe('panel styles', () => {
     expect(readRadioDisplay({ getItem: () => '{"style":"ic7610"}' }).style).toBe('ic7610');
     expect(isFaceStyle('ft2000')).toBe(true);
     expect(isFaceStyle('color')).toBe(false);
+  });
+});
+
+describe('radioAnswering (issue #60)', () => {
+  const cat = (state: string, rig: { state?: string; frequency_hz?: number | null; failures?: number } | null = null, backend = 'omnirig') => ({ config: { backend }, status: { state, rig } });
+  it('CAT collegato o frequenza letta senza errori', () => {
+    expect(radioAnswering(cat('connected'), null)).toBe(true);
+    expect(radioAnswering(cat('error', { state: 'error', frequency_hz: 14_074_000, failures: 0 }, 'hamlib'), null)).toBe(true);
+  });
+  it('strumenti veri dalla radio con lo stato del CAT indietro: il display resta acceso', () => {
+    expect(radioAnswering(cat('disconnected'), { s_points: 7 })).toBe(true);
+  });
+  it('S-meter solo stimato dall\'audio o nessun dato: radio spenta', () => {
+    expect(radioAnswering(cat('disconnected'), { s_points: 7, estimated: true })).toBe(false);
+    expect(radioAnswering(cat('error'), null)).toBe(false);
+    expect(radioAnswering(cat('connected', null, 'none'), { s_points: 7 })).toBe(false);
   });
 });

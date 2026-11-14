@@ -9,7 +9,7 @@ import { Ft2000Display, Ic7610Display } from './RigFaceDisplays';
 import { useT } from '../../i18n';
 import { usePhone } from '../../lib/phone';
 import { useMeterBallistics } from '../../lib/meterBallistics';
-import { displayModel, isFaceStyle, isSquareStyle, useRadioDisplay, type DisplayModel, type RadioDisplayStyle } from '../../lib/radioDisplay';
+import { displayModel, isFaceStyle, radioAnswering, isSquareStyle, useRadioDisplay, type DisplayModel, type RadioDisplayStyle } from '../../lib/radioDisplay';
 import { IcBlackSquare, IcBlueDisplay, IcBlueSquare, IcDualDisplay, LedLineDisplay, YaesuSquare } from './ModernDisplays';
 import { useStation } from '../../state/station';
 import { RadioDisplay } from './RadioDisplay';
@@ -47,11 +47,9 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
   const meters = useMeterBallistics(raw.meters);
   const cat = useQuery({ queryKey: ['cat'], queryFn: getCat, retry: false, refetchInterval: 3000 });
   const tuning = useTuning();
-  // la radio risponde se il CAT e' collegato, oppure se dalla radio arriva una frequenza senza errori (issue #55: CAT funzionante, FT8 a
-  // posto, ma uno stato diverso da «connected» spegneva il display di tutti gli stili)
-  const rig = cat.data?.status.rig;
-  const answering = cat.data?.status.state === 'connected' || rig?.state === 'connected' || ((rig?.frequency_hz ?? 0) > 0 && (rig?.failures ?? 1) === 0);
-  const radioOff = !!cat.data && cat.data.config.backend !== 'none' && !answering;
+  // la radio risponde se il CAT e' collegato, se arriva una frequenza senza errori (issue #55) o se arrivano strumenti veri dalla radio
+  // (issue #60: S-meter e dati in piu' spariti con il CAT che funziona ma con uno stato diverso da «collegato»)
+  const radioOff = !!cat.data && cat.data.config.backend !== 'none' && !radioAnswering(cat.data, raw.meters);
   // il display «spento» come quello vero: scuro con la radio spenta, si illumina quando la radio risponde (classe sul body, cosi' vale per
   // ogni stile e anche per il display staccato)
   useEffect(() => {
