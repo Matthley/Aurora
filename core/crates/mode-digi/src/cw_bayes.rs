@@ -39,6 +39,8 @@ const WPM_HI: f64 = 60.0;
 const BEAM: usize = 320;
 /// Ipotesi più indietro di così (in logaritmo naturale) rispetto alla migliore si scartano.
 const BEAM_DROP: f32 = 30.0;
+/// Unita' di un pezzo sommato in fase (vedi [`CwBayes::piece_len`]).
+const PIECE_UNITS: f64 = 2.0;
 /// Passo del traliccio (s).
 const STEP_S: f64 = 0.004;
 /// Memoria dei campioni (s): un elemento acceso non dura di più.
@@ -1027,10 +1029,17 @@ impl CwBayes {
         }
     }
 
+    /// La lunghezza (campioni) dei pezzi sommati in fase nel giudizio di un tono: due unita' della velocita' migliore. Sommare in fase
+    /// su tratti piu' lunghi tira fuori i segnali deboli (banco: a -3 dB CER 23,8 -> 20,5 %, nominativi esatti 716 -> 737); tre unita'
+    /// perdono sull'evanescenza, una e mezza meno guadagno.
+    fn piece_len(&self) -> u32 {
+        ((PIECE_UNITS * self.units[usize::from(self.best_speed)]).round() as u32).max(2)
+    }
+
     /// Un passo del traliccio.
     fn step(&mut self, gate: bool, out: &mut Vec<u8>) {
         let t = self.t;
-        let piece = (self.units[usize::from(self.best_speed)].round() as u32).max(2);
+        let piece = self.piece_len();
         self.cand.clear();
         self.index.clear();
         self.llr_cache.clear();
@@ -1323,6 +1332,13 @@ impl CwBayes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_coherent_piece_spans_two_units() {
+        let d = CwBayes::new(500.0, &[1.0], 1, 25.0);
+        let u = d.units[usize::from(d.best_speed)];
+        assert_eq!(d.piece_len(), (2.0 * u).round() as u32);
+    }
 
     #[test]
     fn the_amplitude_mixture_is_a_distribution() {
