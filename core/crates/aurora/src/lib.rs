@@ -721,6 +721,33 @@ const OWN_LOG_FILE: &str = "aurora_log.adi";
 /// La frequenza scelta a mano quando non c'e' una radio comandabile (CAT), ricordata al riavvio.
 const MANUAL_DIAL_FILE: &str = "frequenza-a-mano.txt";
 
+/// La frequenza del motore all'avvio. Quella scelta a mano vale solo senza CAT (sistema «Nessuno»): con una radio configurata la frequenza
+/// e' quella che la radio legge, e finche' non risponde resta 0 (la testata mostra «—»). Prima il file della frequenza a mano si leggeva
+/// sempre: una frequenza scelta in una sessione senza radio (21,0726 MHz di uno spot) restava in testata con la radio su tutt'altra banda
+/// finche' il CAT non era «collegato» (issue #55).
+fn initial_dial(backend: rig_control::cat_config::Backend, manual: Option<u64>) -> u64 {
+    if backend == rig_control::cat_config::Backend::None { manual.unwrap_or(0) } else { 0 }
+}
+
+/// La frequenza a mano si ricorda al riavvio solo senza CAT: con una radio configurata che in quel momento non risponde (spenta, in
+/// riconnessione) vale per questa sessione e la sostituisce la prima lettura della radio.
+fn keeps_manual_dial(backend: rig_control::cat_config::Backend) -> bool {
+    backend == rig_control::cat_config::Backend::None
+}
+
+/// Una lettura della frequenza della radio per il motore (testata, `dial_hz` dello stato). Un panic nella lettura non ferma chi la segue:
+/// il thread che rileggeva la radio moriva e la testata restava per sempre sull'ultima frequenza. Restituisce l'attesa prima della prossima
+/// lettura: quattro volte il tempo che e' costata (OmniRig la chiede a un processo esterno), fra 0,1 e 3 s.
+fn follow_dial_once(rig: &dyn rig_control::Rig, dial: &std::sync::atomic::AtomicU64) -> Duration {
+    let started = std::time::Instant::now();
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| rig.frequency())) {
+        Ok(Ok(hz)) if hz > 0 => dial.store(hz, std::sync::atomic::Ordering::Relaxed),
+        Ok(_) => {}
+        Err(_) => tracing::warn!("lettura della frequenza della radio interrotta da un errore interno: si riprova"),
+    }
+    (started.elapsed() * 4).clamp(Duration::from_millis(100), Duration::from_secs(3))
+}
+
 /// Da dove vengono i QSO gia' fatti: i file ADIF (`wsjtx_log.adi` di JTDX, `aurora_log.adi`), il log interno di Aurora (`logbook.db`) e, se
 /// c'e', il log di Log4OM2 (sola lettura). Lo stesso QSO presente in piu' sorgenti conta una volta sola.
 #[derive(Clone)]
@@ -2474,7 +2501,7 @@ pub async fn run(
     let rapporti = rapporti::Rapporti::avvia(&config.data_dir);
     // senza CAT la frequenza la sceglie l'operatore con le bande (`with_manual_dial`) e resta al riavvio
     let manual_file = config.data_dir.join(MANUAL_DIAL_FILE);
-    let dial_hz = Arc::new(std::sync::atomic::AtomicU64::new(std::fs::read_to_string(&manual_file).ok().and_then(|t| t.trim().parse().ok()).unwrap_or(0)));
+    let dial_hz = Arc::new(std::sync::atomic::AtomicU64::new(initial_dial(cat.backend(), std::fs::read_to_string(&manual_file).ok().and_then(|t| t.trim().parse().ok()))));
     wire_band_decoder(&digi, &cluster, &dial_hz, enrichment.as_ref().map(|(db, _)| Arc::clone(db)), &logbook, &config.data_dir);
     // QMAP: ricezione panoramica Q65 da un flusso I/Q (TCI o file); spento finche' non si sceglie la sorgente. Nominativo e locatore
     // (ipotesi AP e Doppler dell'eco) li legge dalle impostazioni della stazione a ogni uso.
@@ -2611,8 +2638,13 @@ pub async fn run(
         .with_manual_dial({
             let dial = Arc::clone(&dial_hz);
             let file = config.data_dir.join(MANUAL_DIAL_FILE);
+            let cat = Arc::clone(&cat);
             Arc::new(move |hz: u64| {
                 dial.store(hz, std::sync::atomic::Ordering::Relaxed);
+                if !keeps_manual_dial(cat.backend()) {
+                    tracing::info!("frequenza a mano (radio configurata che non risponde, non ricordata): {hz} Hz");
+                    return;
+                }
                 if let Err(e) = std::fs::write(&file, hz.to_string()) {
                     tracing::warn!("frequenza a mano non salvata: {e}");
                 }
@@ -3025,12 +3057,7 @@ pub async fn run(
         let dial = Arc::clone(&dial_hz);
         std::thread::spawn(move || {
             loop {
-                let started = std::time::Instant::now();
-                if let Ok(hz) = rig.frequency() {
-                    dial.store(hz, std::sync::atomic::Ordering::Relaxed);
-                }
-                let spent = started.elapsed();
-                std::thread::sleep((spent * 4).clamp(Duration::from_millis(100), Duration::from_secs(3)));
+                std::thread::sleep(follow_dial_once(rig.as_ref(), &dial));
             }
         });
         // gli strumenti della radio (S-meter in ricezione; potenza, ROS, ALC in trasmissione) letti dal CAT Hamlib: il CAT limita da solo il ritmo
@@ -3300,6 +3327,62 @@ fn process_name(path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_manual_dial_counts_only_without_a_cat() {
+        use rig_control::cat_config::Backend;
+        // la frequenza scelta in una sessione senza radio non finisce in testata quando la radio e' configurata
+        assert_eq!(initial_dial(Backend::Hamlib, Some(21_072_600)), 0);
+        assert_eq!(initial_dial(Backend::Omnirig, Some(21_072_600)), 0);
+        assert_eq!(initial_dial(Backend::None, Some(21_072_600)), 21_072_600);
+        assert_eq!(initial_dial(Backend::None, None), 0);
+        assert!(keeps_manual_dial(Backend::None));
+        assert!(!keeps_manual_dial(Backend::Hamlib));
+        assert!(!keeps_manual_dial(Backend::Tci));
+    }
+
+    /// Una radio che alla prima lettura va in panic e poi risponde.
+    struct FlakyRig {
+        reads: std::sync::atomic::AtomicU32,
+    }
+
+    impl rig_control::Rig for FlakyRig {
+        fn set_frequency(&self, _hz: u64) -> Result<(), rig_control::RigError> {
+            Ok(())
+        }
+        fn frequency(&self) -> Result<u64, rig_control::RigError> {
+            match self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => panic!("lettura rotta"),
+                1 => Err(rig_control::RigError("radio non collegata".into())),
+                _ => Ok(50_260_000),
+            }
+        }
+        fn set_rx_frequency(&self, _hz: u32) -> Result<(), rig_control::RigError> {
+            Ok(())
+        }
+        fn output_attenuation(&self) -> Result<u32, rig_control::RigError> {
+            Ok(0)
+        }
+        fn set_output_attenuation(&self, _tenths: u32) -> Result<(), rig_control::RigError> {
+            Ok(())
+        }
+        fn set_mode(&self, _mode: &str) -> Result<(), rig_control::RigError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn the_dial_follows_the_radio_after_a_broken_read() {
+        let rig = FlakyRig { reads: std::sync::atomic::AtomicU32::new(0) };
+        let dial = std::sync::atomic::AtomicU64::new(21_072_600);
+        let wait = follow_dial_once(&rig, &dial);
+        assert!(wait >= Duration::from_millis(100) && wait <= Duration::from_secs(3));
+        // l'errore non cambia niente, la lettura buona arriva subito in testata
+        follow_dial_once(&rig, &dial);
+        assert_eq!(dial.load(std::sync::atomic::Ordering::Relaxed), 21_072_600);
+        follow_dial_once(&rig, &dial);
+        assert_eq!(dial.load(std::sync::atomic::Ordering::Relaxed), 50_260_000);
+    }
 
     #[test]
     fn the_process_name_is_the_file_without_exe() {
