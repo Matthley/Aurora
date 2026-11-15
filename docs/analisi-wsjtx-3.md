@@ -144,3 +144,19 @@ Aurora: nessun modo Fox. **Manca**, priorita' bassa (servono chiave NCDXF per l'
 - Novita' di logica fuori dal decoder: FT4 «Best S+P» scelto una sola volta con criterio indipendente, riuso dei locatori decodificati di recente alla scelta di una stazione, «Wait» solo con corrispondenza esatta della stazione, decodificatore del codec su un thread a parte.
 - `jt9.exe` decodifica WAV da riga di comando: serve come riferimento per confrontare Aurora sugli stessi file.
 - Verifica in binario con Ghidra 12.2 su `wsjtx.exe` 3.3.0-beta6 (da `wsjtx-3.3.0-beta6-win64.exe` aperto con 7-Zip, sha256 dell'installatore `6097bf07...`; senza simboli: i nomi sono `FUN_...`): la scelta della scheda audio (`FUN_140386820`, `find_audio_device`) confronta il nome identico e, se la scheda manca, inserisce il segnaposto «Not found» senza errori e senza cercare nomi simili; `OmniRigTransceiver::do_start` (`FUN_1404b2490`) crea un solo `OmniRig::OmniRigX` per tutta la sessione e usa i gestori a eventi (`VisibleChange`, `StatusChange`, `ParamsChange`). Da qui le correzioni di Aurora 0.11.234 (uscita audio in attesa, un solo oggetto OmniRig).
+
+## 9. Riga della cascata (2026-11-15)
+
+Letti nei sorgenti GPL di WSJT-X 3.3.0-beta6: `lib/symspec.f90`, `lib/nuttal_window.f90`, `lib/flat4.f90`, `widgets/widegraph.cpp` (`dataSink2`), `widgets/plotter.cpp` (`CPlotter::draw`), `widgets/mainwindow.cpp` (chiamata a `symspec_`), `Configuration.cpp` (`LowSidelobes`).
+
+| Voce | WSJT-X | Aurora prima | Aurora ora |
+|---|---|---|---|
+| FFT | `nfft3 = 16384` a 12 kHz (0,732 Hz, 6827 canali fino a 5000 Hz) | uguale | uguale |
+| Finestra | Nuttall a 4 termini su **tutti** i 16384 campioni (1,365 s) con «Low sidelobes», predefinito `true` | gaussiana di JTDX larga 0,144 s | Nuttall su tutta la FFT, energia riportata a quella di prima (il rumore resta allo stesso livello) |
+| Valore del canale | potenza `(re^2 + im^2) / n^2` | `(|re| + |im|) / n`: oscilla fino a 3 dB con la fase | modulo `|X| / n * 4/pi` (stesso livello medio di prima) |
+| Passo | `jstep = nsps/2`, con `nsps = 6912` per la cascata: 0,288 s | 15 righe/s, il client ne fa una ogni 0,288 s mediandone 4-5 | invariato |
+| N Avg, Bins/Pixel | media della potenza su N righe; **somma** di `nbpp` canali (`m_swide[j] = nbpp * ss`) | media e somma delle ampiezze (come JTDX) | invariato |
+| dB e Flatten | `flat4`: `10 log10` della potenza, polinomio sul 10 percentile di 10 segmenti | `flat4` sulle ampiezze | invariato |
+| Colore | `y = 10 * sqrt(nbpp * navg / 15) * 10^(0,015 * Gain) * dB + Zero`, 0-254, `drawPoint` senza interpolazione | formula di JTDX `10 * 10^(0,02 * Gain) * y + 10 * Zero + 40` | invariato |
+
+La differenza che si vedeva era la finestra: con 0,144 s ogni riga mostra quasi solo il simbolo FT8 di quel momento (0,16 s), e ogni tono compare e scompare riga per riga (puntini e blocchetti); la Nuttall su 1,365 s raccoglie circa mezzo secondo e tre simboli, i toni restano larghi circa 1,4 Hz e quindi separati, e la traccia scorre continua. Il modulo al posto di `|re| + |im|` toglie la granulosita' dovuta alla fase. Restano diverse, di proposito, la media in ampiezza invece che in potenza e la formula di Gain/Zero di JTDX: cambiarle sposterebbe le regolazioni gia' fatte dall'utente.
