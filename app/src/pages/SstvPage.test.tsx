@@ -14,6 +14,7 @@ vi.mock('../api/client', () => ({
   sstvRx: vi.fn(() => Promise.resolve()),
   sstvRxPage: vi.fn(() => Promise.resolve()),
   sstvForce: vi.fn(() => Promise.resolve()),
+  sstvTune: vi.fn(() => Promise.resolve()),
   addLogQso: vi.fn(() => Promise.resolve()),
 }));
 // il compositore e le cronologie non servono qui: si guarda la disposizione della ricezione
@@ -21,7 +22,7 @@ vi.mock('../components/sstv/Composer', () => ({ Composer: () => <div data-testid
 vi.mock('../components/sstv/History', () => ({ History: () => <div data-testid="history" /> }));
 vi.mock('../components/FreqPicker', () => ({ FreqPicker: () => null }));
 vi.mock('../lib/settingsWindow', () => ({ openSettingsWindow: vi.fn() }));
-import { getCallsign, getSstv, sstvRx, type CallsignInfo } from '../api/client';
+import { getCallsign, getSstv, sstvRx, sstvTune, type CallsignInfo } from '../api/client';
 import { emitSstv } from '../lib/sstvBus';
 import { openSettingsWindow } from '../lib/settingsWindow';
 import { usePrefs } from '../lib/prefs';
@@ -65,8 +66,9 @@ describe('SstvPage, ricezione', () => {
     const spectrum = screen.getByTestId('sstv-spectrum');
     expect(stage?.contains(spectrum)).toBe(true);
     expect(stage?.querySelector('.sstv-screen')?.compareDocumentPosition(spectrum)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // niente piu' riquadro «Rx 1200»: la sintonia e' nel riquadro sotto lo spettro
     expect(within(spectrum).queryByText('Rx 1200')).toBeNull();
-    expect(spectrum.querySelector('.sstv-spec-rx')).toBeNull();
+    expect(stage?.contains(screen.getByTestId('sstv-tuning'))).toBe(true);
     // niente piu' cascata
     expect(container.querySelector('.digi-wf')).toBeNull();
     // il log e' la terza colonna, subito dopo la scheda del modo
@@ -94,18 +96,26 @@ describe('SstvPage, ricezione', () => {
     expect(openSettingsWindow).toHaveBeenCalledWith('sstv');
   });
 
-  it('draws the fixed tuning marks on the spectrum and the estimated offset when known', async () => {
+  it('draws the fixed marks on the spectrum and tells how far to move the VFO from the AFC estimate', async () => {
     vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, rows: 40, offset_hz: 35 } });
     const { container } = page();
     await screen.findByText(/^Martin 1\s+1:54$/);
-    const labels = [...container.querySelectorAll('.sstv-mark:not(.sstv-mark--found) i')].map((i) => i.textContent);
+    const labels = [...container.querySelectorAll('.sstv-mark i')].map((i) => i.textContent);
     expect(labels).toEqual(['1200', '1500', '2300']);
     expect(container.querySelectorAll('.sstv-mark--vis')).toHaveLength(3);
-    expect(container.querySelector('.sstv-mark--found')).toHaveTextContent('+35 Hz');
-    // suggerimenti al mouse su 1200, 2300 e sulla parentesi verde
-    expect(container.querySelector('.sstv-mark--sync')).toHaveAttribute('title', expect.stringContaining('1200'));
-    expect([...container.querySelectorAll('.sstv-mark--level')].map((m) => m.getAttribute('title'))[1]).toContain('2300');
-    expect(container.querySelector('.ruler-bracket--rx')).toHaveAttribute('title', expect.stringContaining('1100'));
+    expect(container.querySelector('.sstv-mark--found')).toBeNull();
+    expect(screen.getByTestId('sstv-tuning')).toHaveTextContent('Sposta il VFO di +35 Hz');
+  });
+
+  it('resets the manual tuning when the radio goes to another frequency', async () => {
+    vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, tune_hz: 50 } });
+    vi.mocked(sstvTune).mockClear();
+    page();
+    await screen.findByText(/^Martin 1\s+1:54$/);
+    const { useStation } = await import('../state/station');
+    act(() => useStation.setState({ status: { ...(useStation.getState().status ?? {}), dial_hz: 14_230_000 } as never }));
+    act(() => useStation.setState({ status: { ...(useStation.getState().status ?? {}), dial_hz: 14_233_000 } as never }));
+    expect(sstvTune).toHaveBeenCalledWith(0);
   });
 
   it('shows the FSK ID callsign next to the picture and puts it in the log', async () => {

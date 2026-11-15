@@ -1,7 +1,7 @@
 import { Icon } from '../components/Icon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getSstv, getSstvImageBlob, getSstvImages, postFrequency, sstvRx, sstvRxPage, type SstvImageEntry } from '../api/client';
+import { getSstv, getSstvImageBlob, getSstvImages, postFrequency, sstvRx, sstvRxPage, sstvTune, type SstvImageEntry } from '../api/client';
 import { FreqPicker } from '../components/FreqPicker';
 import { gotoTextMode } from '../lib/digiGoto';
 import { useListenWhileOpen } from '../lib/listenWhileOpen';
@@ -16,6 +16,7 @@ import { SstvLogCard } from '../components/sstv/LogCard';
 import { History } from '../components/sstv/History';
 import { ReceiveView } from '../components/sstv/ReceiveView';
 import { SstvSpectrum } from '../components/sstv/SstvSpectrum';
+import { SstvTuning, stepsForSyncAt } from '../components/sstv/SstvTuning';
 import { useT } from '../i18n';
 import { useGroups } from '../lib/detached';
 import { REMOTE_HOST } from '../lib/phone';
@@ -101,6 +102,14 @@ function SstvBody({ solo }: { solo: boolean }) {
   const dialHz = useStation((x) => x.status?.dial_hz ?? 0);
   // solo le bande accese nelle Impostazioni (piu' quella in uso), come nella barra dell'FT8
   const chosenBands = useBandFilter((x) => x.bands);
+  // una frequenza nuova della radio riporta a 0 la correzione di sintonia a mano: il segnale nuovo si guarda da capo
+  const lastDial = useRef(0);
+  const tuneHz = rx?.tune_hz ?? 0;
+  useEffect(() => {
+    const before = lastDial.current;
+    lastDial.current = dialHz;
+    if (before > 0 && dialHz > 0 && before !== dialHz && tuneHz !== 0) void sstvTune(0).then(refresh, refresh);
+  }, [dialHz, tuneHz, refresh]);
   const badge = sending ? 'sending' : rx?.receiving ? 'receiving' : rx?.listening ? 'listening' : 'off';
 
   return (
@@ -158,7 +167,12 @@ function SstvBody({ solo }: { solo: boolean }) {
                 setSendRequest((n) => n + 1);
               }}
               onListen={onListen}
-              spectrum={<SstvSpectrum offsetHz={rx && (rx.receiving || rx.rows > 0) ? rx.offset_hz : null} />}
+              spectrum={
+                <>
+                  <SstvSpectrum onPick={(hz) => void sstvTune(stepsForSyncAt(hz)).then(refresh, refresh)} />
+                  {rx ? <SstvTuning rx={rx} onChanged={refresh} /> : null}
+                </>
+              }
               log={<SstvLogCard dialHz={dialHz} />}
             />
           </div>

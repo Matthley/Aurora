@@ -10,10 +10,6 @@ import { drawSpectrum } from '../../render/spectrumPlot';
 /** Il tratto audio mostrato (Hz): VIS a 1100/1300, sincronismo a 1200, immagine da 1500 a 2300. */
 export const SSTV_SPEC_MIN_HZ = 300;
 export const SSTV_SPEC_MAX_HZ = 2800;
-/** Il sincronismo dell'SSTV e la larghezza fino al bianco (2300 Hz): l'etichetta Rx sta in un angolo, fuori dalla traccia. */
-const SYNC_HZ = 1200;
-const SIGNAL_HZ = 1100;
-
 /** I segni fissi di sintonia, come nei programmi SSTV: VIS (1100/1300), sincronismo (1200), nero (1500), leader (1900), bianco (2300). */
 export const SSTV_MARKS: readonly { hz: number; label: string; kind: 'sync' | 'vis' | 'level' }[] = [
   { hz: 1100, label: '1100', kind: 'vis' },
@@ -24,19 +20,13 @@ export const SSTV_MARKS: readonly { hz: number; label: string; kind: 'sync' | 'v
   { hz: 2300, label: '2300', kind: 'level' },
 ];
 
-/** Il suggerimento di un segno: il sincronismo e il bianco hanno la loro spiegazione, gli altri quella generica del tipo. */
-function markTitle(t: ReturnType<typeof useT>, m: { hz: number; kind: 'sync' | 'vis' | 'level' }): string {
-  if (m.hz === 2300) return t('sstv.mark.white');
-  const key = m.kind === 'sync' ? 'sstv.mark.sync' : m.kind === 'vis' ? 'sstv.mark.vis' : 'sstv.mark.level';
-  return t(key, { hz: m.hz });
-}
-
 /**
  * Lo spettro sottile sotto il visore SSTV: la stessa curva verde su griglia a puntini dello spettro della Stazione (`drawSpectrum`,
- * righe del core passate da `processRow` come nella cascata), il righello delle frequenze.
- * In SSTV la frequenza audio non si sceglie (il sincronismo e' sempre a 1200 Hz): la parentesi Rx e' solo un riferimento, non si trascina.
+ * righe del core passate da `processRow` come nella cascata), i segni fissi e il righello delle frequenze. Niente barra «Rx» ne' stima
+ * dello scarto: la sintonia si guarda e si corregge nel riquadro sotto (`SstvTuning`, istogramma dei livelli e cursore). Un clic su un
+ * picco dello spettro (`onPick`) porta li' il sincronismo.
  */
-export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number; /** Scarto di sintonia stimato dal VIS o dal sincronismo (Hz), se noto. */ offsetHz?: number | null }) {
+export function SstvSpectrum({ height = 46, onPick }: { height?: number; /** Clic sullo spettro: la frequenza audio cliccata (Hz). */ onPick?: (hz: number) => void }) {
   const t = useT();
   const plot = useRef<HTMLCanvasElement>(null);
   const curve = useRef<Float32Array | null>(null);
@@ -76,22 +66,24 @@ export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number
 
   return (
     <div className="sstv-spec" data-testid="sstv-spectrum">
-      <div className="sstv-spec-plot" style={{ height }}>
+      <div
+        className="sstv-spec-plot"
+        style={{ height }}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          if (!onPick || r.width <= 0) return;
+          onPick(SSTV_SPEC_MIN_HZ + ((e.clientX - r.left) / r.width) * (SSTV_SPEC_MAX_HZ - SSTV_SPEC_MIN_HZ));
+        }}
+      >
         <canvas ref={plot} className="sstv-spec-canvas" aria-hidden="true" />
         {/* i segni fissi: il sincronismo del segnale deve cadere sulla riga a 1200, il nero a 1500, il bianco a 2300 */}
         {SSTV_MARKS.map((m) => (
-          <span key={m.hz} className={`sstv-mark sstv-mark--${m.kind}`} style={{ left: `${leftPercent(m.hz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={markTitle(t, m)}>
+          <span key={m.hz} className={`sstv-mark sstv-mark--${m.kind}`} style={{ left: `${leftPercent(m.hz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={t(`sstv.mark.${m.kind}`, { hz: m.hz })} aria-hidden="true">
             {m.kind === 'vis' ? null : <i>{m.label}</i>}
           </span>
         ))}
-        {/* dove sta davvero il sincronismo ricevuto: con lo scarto stimato si vede di quanto girare la manopola */}
-        {offsetHz !== null && Math.abs(offsetHz) >= 1 ? (
-          <span className="sstv-mark sstv-mark--found" style={{ left: `${leftPercent(SYNC_HZ + offsetHz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={t('sstv.mark.found')}>
-            <i>{`${offsetHz > 0 ? '+' : ''}${Math.round(offsetHz)} Hz`}</i>
-          </span>
-        ) : null}
       </div>
-      <FrequencyRuler fMinHz={SSTV_SPEC_MIN_HZ} fMaxHz={SSTV_SPEC_MAX_HZ} decodes={[]} rxHz={SYNC_HZ} bandwidthHz={SIGNAL_HZ} rxTitle={t('sstv.mark.band')} />
+      <FrequencyRuler fMinHz={SSTV_SPEC_MIN_HZ} fMaxHz={SSTV_SPEC_MAX_HZ} decodes={[]} />
     </div>
   );
 }

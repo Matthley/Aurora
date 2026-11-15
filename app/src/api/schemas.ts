@@ -237,6 +237,8 @@ export const EventSchema = z.discriminatedUnion('type', [
     listening: z.boolean().optional(),
     message: z.string().optional(),
     call: z.string().optional(),
+    tune_hz: z.number().optional(),
+    hist: z.array(z.number()).optional(),
   }),
   WantedAlertSchema.extend({ type: z.literal('wanted') }),
   UpdateNoticeSchema.extend({ type: z.literal('update_available') }),

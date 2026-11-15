@@ -1758,6 +1758,10 @@ export interface SstvRxStatus {
   source?: string | null;
   /** L'ultimo nominativo letto dall'FSK ID dopo un'immagine. */
   last_call?: string | null;
+  /** Correzione di sintonia a mano (Hz, passi da 6,25; 0 = AFC). */
+  tune_hz?: number;
+  /** Istogramma dei livelli degli ultimi secondi: 256 cassetti da 6,25 Hz (1900 Hz = 128), valori 0-40. */
+  hist?: number[];
 }
 
 export interface SstvTxStatus {
@@ -1812,6 +1816,11 @@ export async function sstvRx(action: 'start' | 'stop' | 'cancel'): Promise<void>
 /** La pagina SSTV `id` e' aperta (battito) o e' stata lasciata: il core spegne l'ascolto quando non ne resta nessuna. */
 export async function sstvRxPage(action: 'hold' | 'release', id: string): Promise<void> {
   await sstvRxQueue(() => request(`/sstv/rx/${action}?id=${encodeURIComponent(id)}`, { method: 'POST', keepalive: true }));
+}
+
+/** Correzione di sintonia a mano in passi da 6,25 Hz (da -32 a +32): l'immagine si ridisegna subito. */
+export async function sstvTune(steps: number): Promise<void> {
+  await request('/sstv/rx/tune', jsonInit({ steps }));
 }
 
 export async function sstvForce(mode: string): Promise<void> {
