@@ -22,6 +22,28 @@ export const NOVITA_MAX = 40;
 
 export const NOVITA: readonly Novita[] = [
   {
+    version: '0.11.267',
+    released: '2026-11-15T18:30:00Z',
+    kind: 'new',
+    featured: true,
+    title: [
+      'Contest dei modi testuali con il punteggio vero',
+      'Text-mode contests with real scoring',
+      'Contests der Textmodi mit echter Punktewertung',
+      'Contests des modes texte avec le vrai score',
+      'Concursos de modos de texto con la puntuación real',
+      'Concursos dos modos de texto com a pontuação real',
+    ],
+    text: [
+      'Per 30 contest in RTTY, PSK e digitali (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY e molti altri) il punteggio segue il regolamento: ogni contest ha la sua sezione [Score] nel file .contest, con le fonti in docs/contest-regole.md. Le regole speciali si scrivono in una sezione [Script] in un linguaggio chiuso e sicuro (niente file, rete o programmi); se lo script è sbagliato Aurora mostra l’errore e usa le regole [Score]. La finestra delle statistiche mostra ritmo, QSO non ammessi, moltiplicatori nuovi e la griglia banda per moltiplicatori con quelli mancanti; la riga dell’inserimento dice se il nominativo è ammesso, doppio e quanto vale. Puoi importare ed esportare un contest in un pacchetto .zip con le sue macro. Ci sono 14 contest nuovi con le macro, le macro dei modi stanno in file .macro con le schede «Comuni» e «Solo per questo modo», e «<EXEC:...>» viene ignorato con un avviso. In CW il filtro di ricezione si vede sulla cascata, e trascinando le barre Rx/Tx non compare più «Risposta non inviata».',
+      'For 30 contests in RTTY, PSK and digital modes (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY and many more) scoring follows the rules: each contest has its own [Score] section in the .contest file, with the sources in docs/contest-regole.md. Special rules go in a [Script] section in a closed, safe language (no files, network or programs); if a script is wrong Aurora shows the error and falls back to the [Score] rules. The statistics window shows rate, disallowed QSOs, new multipliers and the band-by-multiplier grid with the missing ones; the entry line tells you whether the callsign is allowed, a dupe and how much it is worth. You can import and export a contest as a .zip package with its macros. There are 14 new contests with macros, mode macros live in .macro files with the “Common” and “Only for this mode” tabs, and “<EXEC:...>” is ignored with a notice. In CW the receive filter shows on the waterfall, and dragging the Rx/Tx bars no longer shows “Reply not sent”.',
+      'Für 30 Contests in RTTY, PSK und digitalen Modi (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY und viele mehr) folgt die Wertung dem Regelwerk: Jeder Contest hat seinen eigenen [Score]-Abschnitt in der .contest-Datei, die Quellen stehen in docs/contest-regole.md. Besondere Regeln stehen in einem [Script]-Abschnitt in einer geschlossenen, sicheren Sprache (keine Dateien, kein Netzwerk, keine Programme); ist ein Skript fehlerhaft, zeigt Aurora den Fehler und nutzt die [Score]-Regeln. Das Statistikfenster zeigt Rate, nicht zulässige QSOs, neue Multiplikatoren und das Raster Band mal Multiplikator mit den fehlenden; die Eingabezeile sagt, ob das Rufzeichen zulässig, doppelt und wie viel es wert ist. Ein Contest lässt sich als .zip-Paket mit seinen Makros importieren und exportieren. Es gibt 14 neue Contests mit Makros, die Makros der Modi liegen in .macro-Dateien mit den Reitern „Gemeinsam“ und „Nur für diesen Modus“, und „<EXEC:...>“ wird mit einem Hinweis ignoriert. In CW ist der Empfangsfilter im Wasserfall zu sehen, und beim Ziehen der Rx/Tx-Balken erscheint nicht mehr „Antwort nicht gesendet“.',
+      'Pour 30 contests en RTTY, PSK et modes numériques (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY et bien d’autres), le score suit le règlement : chaque contest a sa propre section [Score] dans le fichier .contest, avec les sources dans docs/contest-regole.md. Les règles spéciales s’écrivent dans une section [Script] en langage fermé et sûr (ni fichiers, ni réseau, ni programmes) ; si un script est erroné, Aurora affiche l’erreur et revient aux règles [Score]. La fenêtre des statistiques montre le rythme, les QSO non admis, les nouveaux multiplicateurs et la grille bande par multiplicateur avec ceux qui manquent ; la ligne de saisie indique si l’indicatif est admis, en double et ce qu’il vaut. On peut importer et exporter un contest en paquet .zip avec ses macros. Il y a 14 nouveaux contests avec leurs macros, les macros des modes sont dans des fichiers .macro avec les onglets « Communes » et « Seulement pour ce mode », et « <EXEC:...> » est ignoré avec un avertissement. En CW, le filtre de réception se voit sur la cascade, et en faisant glisser les barres Rx/Tx « Réponse non envoyée » n’apparaît plus.',
+      'Para 30 concursos en RTTY, PSK y modos digitales (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY y muchos más) la puntuación sigue el reglamento: cada concurso tiene su propia sección [Score] en el archivo .contest, con las fuentes en docs/contest-regole.md. Las reglas especiales se escriben en una sección [Script] en un lenguaje cerrado y seguro (sin archivos, red ni programas); si un script es erróneo, Aurora muestra el error y vuelve a las reglas [Score]. La ventana de estadísticas muestra el ritmo, los QSO no admitidos, los multiplicadores nuevos y la cuadrícula banda por multiplicador con los que faltan; la línea de entrada dice si el indicativo es admitido, duplicado y cuánto vale. Se puede importar y exportar un concurso en un paquete .zip con sus macros. Hay 14 concursos nuevos con macros, las macros de los modos están en archivos .macro con las fichas «Comunes» y «Solo para este modo», y «<EXEC:...>» se ignora con un aviso. En CW el filtro de recepción se ve en la cascada, y al arrastrar las barras Rx/Tx ya no aparece «Respuesta no enviada».',
+      'Para 30 concursos em RTTY, PSK e modos digitais (CQ WW RTTY, WPX RTTY, WAE, BARTG, ARRL RTTY Roundup, Russian WW, DL-DX, SP DX, EA RTTY e muitos outros) a pontuação segue o regulamento: cada concurso tem a sua secção [Score] no ficheiro .contest, com as fontes em docs/contest-regole.md. As regras especiais escrevem-se numa secção [Script] numa linguagem fechada e segura (sem ficheiros, rede ou programas); se um script estiver errado, o Aurora mostra o erro e volta às regras [Score]. A janela das estatísticas mostra o ritmo, os QSO não admitidos, os multiplicadores novos e a grelha banda por multiplicador com os que faltam; a linha de entrada diz se o indicativo é admitido, duplicado e quanto vale. Pode importar-se e exportar-se um concurso num pacote .zip com as suas macros. Há 14 concursos novos com macros, as macros dos modos estão em ficheiros .macro com os separadores «Comuns» e «Só para este modo», e «<EXEC:...>» é ignorado com um aviso. Em CW o filtro de receção vê-se na cascata, e ao arrastar as barras Rx/Tx já não aparece «Resposta não enviada».',
+    ],
+  },
+  {
     version: '0.11.266',
     released: '2026-11-15T15:51:57Z',
     kind: 'changed',
@@ -845,27 +867,6 @@ export const NOVITA: readonly Novita[] = [
       'Dans Réglages › DX Cluster tu choisis d’où part le spot : le site DXSummit ou le cluster telnet connecté, qui le porte dans tout le réseau des clusters. À côté de chaque serveur il y a nom de connexion et mot de passe ; le spot ne compte comme envoyé que quand le cluster le répète.',
       'En Ajustes › DX Cluster eliges desde dónde sale el spot: la web de DXSummit o el clúster telnet conectado, que lo lleva a toda la red de clústeres. Junto a cada servidor hay nombre de acceso y contraseña; el spot cuenta como enviado solo cuando el clúster lo repite.',
       'Em Definições › DX Cluster escolhes de onde sai o spot: o site DXSummit ou o cluster telnet ligado, que o leva a toda a rede de clusters. Ao lado de cada servidor há nome de acesso e palavra-passe; o spot só conta como enviado quando o cluster o repete.',
-    ],
-  },
-  {
-    version: '0.11.250',
-    released: '2026-11-13T19:09:28Z',
-    kind: 'changed',
-    title: [
-      'Azimut, radio all’avvio e Club Log',
-      'Bearing, radio at startup and Club Log',
-      'Azimut, Funkgerät beim Start und Club Log',
-      'Azimut, radio au démarrage et Club Log',
-      'Azimut, radio al iniciar y Club Log',
-      'Azimute, rádio ao iniciar e Club Log',
-    ],
-    text: [
-      'Passando sul nominativo il riquadro mostra azimut e distanza. «Collega la radio all’avvio» si accende da sola al primo collegamento riuscito. I messaggi di Club Log sono nella lingua dell’interfaccia. Il controllo degli spot su DXSummit cerca la stazione giusta.',
-      'Hovering over a callsign, the box shows bearing and distance. “Connect the radio when Aurora starts” turns on by itself at the first successful connection. Club Log messages are in the interface language. The DXSummit spot check looks for the right station.',
-      'Beim Überfahren eines Rufzeichens zeigt das Feld Azimut und Entfernung. „Funkgerät beim Start verbinden“ schaltet sich bei der ersten erfolgreichen Verbindung selbst ein. Club-Log-Meldungen sind in der Sprache der Oberfläche. Die Spot-Prüfung bei DXSummit sucht die richtige Station.',
-      'En survolant un indicatif, l’encadré montre azimut et distance. « Connecter la radio au démarrage » s’active tout seul à la première connexion réussie. Les messages de Club Log sont dans la langue de l’interface. Le contrôle des spots sur DXSummit cherche la bonne station.',
-      'Al pasar sobre un indicativo, el recuadro muestra azimut y distancia. «Conectar la radio al iniciar» se activa solo en la primera conexión correcta. Los mensajes de Club Log están en el idioma de la interfaz. La comprobación de spots en DXSummit busca la estación correcta.',
-      'Ao passar sobre um indicativo, a caixa mostra azimute e distância. «Ligar o rádio ao iniciar» liga-se sozinho na primeira ligação bem-sucedida. As mensagens do Club Log estão na língua da interface. A verificação dos spots no DXSummit procura a estação certa.',
     ],
   },
 ];

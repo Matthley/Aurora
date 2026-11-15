@@ -2,6 +2,20 @@
 
 ## Non rilasciato
 
+## 0.11.267 - 2026-11-15
+
+- Contest dei modi testuali: punteggio vero dai regolamenti per 30 contest (CQ WW RTTY, CQ WPX RTTY, WAE, BARTG HF e Sprint, ARRL RTTY Roundup, RAEM, SARTG, Russian WW Digital/PSK/RTTY, Ukrainian DX DIGI, Open Ukraine RTTY, DL-DX, SP DX, OK DX, EA RTTY e PSK63, XE RTTY, Alessandro Volta, SCC, JARTS, TARA, Makrothen, YU DX, Poland BPSK63, ARR PSK63, UBA PSK63), ognuno con la sua sezione `[Score]` nel file `.contest` e le fonti in `docs/contest-regole.md`.
+- Sezione `[Script]` nei file `.contest` per le regole speciali, in un linguaggio chiuso (niente file, rete o programmi, limiti di tempo e memoria); RAEM usa lo script. Uno script sbagliato mostra l'errore e si torna alle regole `[Score]`.
+- Finestra delle statistiche del contest: ritmo, QSO non ammessi, moltiplicatori nuovi, griglia banda per moltiplicatori con quelli mancanti; la riga dell'inserimento dice se il nominativo e' ammesso, doppio e quanto vale.
+- Importa ed esporta un contest (pacchetto `.zip` con il file `.contest` e le sue macro) per condividerlo con altri.
+- 14 contest nuovi con le loro macro (Eurasia Championship, GACW, IAFA, IGRY WW RTTY, Jakarta RTTY, PDC, RTTYOPS WW, TRC DIGI, UCC Party, UN DIGI, Ukrainian RTTY Championship, YB DX, YB DX RTTY, ZHAS); macro di RAEM e SARTG New Year migliorate.
+- Macro: `<EXEC:...>` riconosciuto e ignorato con un avviso chiaro, Aurora non avvia programmi esterni.
+- Macro dei modi in file `.macro` con le schede «Comuni» e «Solo per questo modo».
+- CW: il filtro di ricezione si vede sulla cascata.
+- Trascinando le barre Rx/Tx sulla cascata non compare piu' «Risposta non inviata».
+- Informazioni su tre colonne su schermo largo.
+- Guida: «Creare e condividere un contest».
+
 ## 0.11.266 - 2026-11-15
 
 - Le Impostazioni si aprono e si salvano solo dal PC dove gira Aurora: da telefono o da un altro dispositivo le loro pagine tornano alla pagina principale con un avviso, e le scritture delle impostazioni (motore, audio, orologio, cluster, frequenze, aggiornamenti, lista dei desideri) sono accettate solo dal PC. Il telefono continua a trasmettere e ricevere come prima.

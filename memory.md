@@ -1,6 +1,6 @@
 # Memoria di progetto
 
-Stato al 2026-11-15, versione 0.11.266 pubblicata (Impostazioni solo dal PC, telefono solo per trasmettere e ricevere, aggiornamenti installati solo a richiesta, client remoti che non toccano le impostazioni del PC, SSTV a schede, CW ibrido «preciso / veloce», BIGScan RTTY con stazioni deboli, WinKeyer, QTC del WAE). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
+Stato al 2026-11-15, versione 0.11.267 pubblicata (punteggio vero di 30 contest dei modi testuali, sezione [Script] in Rhai, importa ed esporta dei contest, 14 contest nuovi, EXEC ignorato, macro dei modi in file). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
 
 
 ## Decisioni del 2026-11-13/14
