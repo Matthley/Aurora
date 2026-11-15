@@ -2,6 +2,8 @@
 
 ## Non rilasciato
 
+- L'avviso «Icom con PTT dal CAT: la velocita' deve essere 115200» compare solo per i modelli che la vogliono (IC-7300, IC-7610, IC-705, IC-9700), non piu' per le Icom vecchie come l'IC-706 che arrivano a 19200 (#63).
+
 ## 0.11.261 - 2026-11-15
 
 - Ricevitore RTTY: lo squelch si apre dal primo carattere affidabile (molto meno rumore stampato fra una trasmissione e l'altra: errori nei silenzi da 10,6 a 3,0 %); Aurora BIGScan RTTY con finestra che scorre ogni mezzo secondo, spostamento e velocita' per canale e limite di carico rispettato anche dai ricevitori.

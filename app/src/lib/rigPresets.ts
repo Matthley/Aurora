@@ -74,7 +74,12 @@ export function presetApplied(c: CatConfig, p: RigPreset): boolean {
   return (Object.keys(p.aurora) as (keyof RigPreset['aurora'])[]).every((k) => c[k] === p.aurora[k]);
 }
 
-/** Radio Icom con PTT dal CAT ma velocita' diversa da 115200: la causa piu' comune della trasmissione che non parte. */
+/**
+ * Radio Icom con PTT dal CAT ma velocita' diversa da 115200: la causa piu' comune della trasmissione che non parte.
+ * Solo per i modelli noti che vogliono 115200 (IC-7300, IC-7610, IC-705, IC-9700): le Icom vecchie (IC-706, max 19200) non ci arrivano.
+ */
 export function icomBaudWarning(c: CatConfig): boolean {
-  return c.backend === 'hamlib' && c.ptt === 'cat' && c.rig_name.toLowerCase().includes('icom') && c.baud !== 115200;
+  if (c.backend !== 'hamlib' || c.ptt !== 'cat' || !c.rig_name.toLowerCase().includes('icom')) return false;
+  const p = presetFor(c.rig_name);
+  return p?.aurora.baud === 115200 && c.baud !== 115200;
 }
