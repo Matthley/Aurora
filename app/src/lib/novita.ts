@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.261',
-    released: '2026-11-15T00:00:00Z',
+    released: '2026-11-15T02:23:53Z',
     kind: 'changed',
     title: [
       'RTTY e CW: decodifica migliore',

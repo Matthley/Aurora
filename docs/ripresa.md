@@ -2,7 +2,7 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
-## Stato al 2026-11-15 mattina (0.11.261: decodifica RTTY e CW)
+## Stato al 2026-11-15 mattina (0.11.261 pubblicata 2026-11-15T02:23:53Z: decodifica RTTY e CW)
 
 - **RTTY** (banco a caratteri `core/crates/mode-digi/tests/rtty_caratteri.rs`, `docs/banco-rtty.md`): squelch che si apre dal primo carattere affidabile (`ProbSquelch::push`): CER nei silenzi 10,6 -> 3,0 %, trasmissioni separate -5 dB 9,4 -> 2,9 %, AWGN -5 dB 10,3 -> 7,6 %. BIGScan: finestra mobile ogni 0,5 s e spostamento/velocita' per canale (`tmp30515`: stazioni 16 -> 17/26, ritardo 6 -> 5 s), limite di carico anche sui ricevitori (`RttyMulti::set_max_lanes`).
 - Provati e tolti: modello per tono Rice (meglio con stazione forte vicina e fading piatto, peggio con fading selettivo e a -8/-10 dB), «3 buoni su 4» per aprire, chiusura dopo 2 deboli, prova piu' lunga in BIGScan, tono solo (falsi canali), nominativi noti (nessun guadagno).
