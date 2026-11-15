@@ -3,6 +3,9 @@ import type { FrequencyEntry } from '../api/client';
 /**
  * Frequenze di chiamata dei modi testuali e dell'SSTV dai piani di banda IARU (dal 6 m in su quelli del Band Plan ARI, https://www.ari.it/bandplan.html) (frequenza della manopola in USB, cioe' dove si sente
  * il segnale con la portante audio a circa 1000 Hz). Sono indicative: ogni regione ha le sue sezioni e i QSO si spostano dove c'e' posto.
+ * Riscontro 2026-11: HF col piano IARU Regione 1 (edizione in vigore dal 1/6/2016, ripresa dall'ARI: digimodi 3570-3600, 7040-7047,
+ * 14070-14099, 21070-21110; immagini 3735 e 7165), Regione 2 col piano ARRL (RTTY/dati 7025-7125, SSTV 3845 e 7171), Regione 3 col piano
+ * IARU R3 (PSK 7070, SSTV 7033); VHF e oltre col piano IARU R1 VHF/UHF 2020. Nessuna frequenza della tabella cade fuori dai tratti.
  * Regione: `ALL` valida ovunque, `R1`, `R2` o `R3` solo li' (come nella tabella dei modi dell'FT8).
  */
 export type TextMode = 'PSK31' | 'PSK63' | 'RTTY' | 'SSTV' | 'CW';
