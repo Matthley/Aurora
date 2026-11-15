@@ -116,6 +116,20 @@ pub(crate) async fn sstv_rx_force(State(state): State<AppState>, _: Authed, Json
     Ok(Json(json!({ "ok": true })))
 }
 
+#[derive(Deserialize)]
+pub(crate) struct TuneBody {
+    /// Passi da 6,25 Hz, da -32 a +32 (oltre si ferma al limite); 0 = sintonia dell'AFC.
+    steps: i32,
+}
+
+/// Correzione di sintonia a mano: sposta di `steps` × 6,25 Hz i livelli letti e ridisegna subito l'immagine in corso o l'ultima finita.
+#[utoipa::path(post, path = "/api/v1/sstv/rx/tune", responses((status = 200, description = "`{ok, tune_hz}`")))]
+pub(crate) async fn sstv_rx_tune(State(state): State<AppState>, _: Authed, Json(body): Json<TuneBody>) -> Result<Json<Value>, ApiError> {
+    let svc = service(&state)?;
+    let hz = blocking(move || svc.set_tune(body.steps)).await?;
+    Ok(Json(json!({ "ok": true, "tune_hz": hz })))
+}
+
 /// Butta l'immagine in arrivo (l'ascolto resta acceso).
 #[utoipa::path(post, path = "/api/v1/sstv/rx/cancel", responses((status = 200, description = "Immagine scartata")))]
 pub(crate) async fn sstv_rx_cancel(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {

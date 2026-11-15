@@ -392,6 +392,12 @@ pub struct SstvEvent {
     /// Il nominativo letto dall'FSK ID (`rx_fskid`, e `rx_done` se arrivato prima che l'immagine si chiudesse).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub call: Option<String>,
+    /// La correzione di sintonia a mano in Hz (`rx_status`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tune_hz: Option<f32>,
+    /// L'istogramma dei livelli degli ultimi secondi (`rx_status`): 256 cassetti da 6,25 Hz, 1900 Hz = 128, valori 0-40.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hist: Option<Vec<u8>>,
 }
 
 /// Un avvenimento dei modi testuali. `kind`: `rx_text` (caratteri nuovi in `text`), `rx_status` (ascolto, livello, modo, frequenza),

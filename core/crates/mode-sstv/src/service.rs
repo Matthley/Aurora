@@ -102,6 +102,10 @@ pub struct RxStatus {
     pub source: Option<String>,
     /// L'ultimo nominativo letto dall'FSK ID.
     pub last_call: Option<String>,
+    /// Correzione di sintonia a mano (Hz, passi da 6,25; 0 = AFC).
+    pub tune_hz: f32,
+    /// Istogramma dei livelli degli ultimi secondi (256 cassetti da 6,25 Hz, 1900 Hz = 128, valori 0-40).
+    pub hist: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -130,6 +134,7 @@ enum Msg {
     Force(SstvMode),
     Cancel,
     Config(DecoderConfig),
+    Tune(i32),
 }
 
 struct Inner {
@@ -257,6 +262,8 @@ impl Inner {
             sync: Some(st.sync),
             level_db: Some(st.level_db),
             offset_hz: Some(st.offset_hz),
+            tune_hz: Some(st.tune_hz),
+            hist: Some(st.hist),
             ..SstvEvent::default()
         });
     }
@@ -486,6 +493,16 @@ impl SstvService {
         let _ = self.inner.queue.send(Msg::Force(mode));
     }
 
+    /// Correzione di sintonia a mano in passi da 6,25 Hz (da -32 a +32): l'immagine in corso, o l'ultima finita, si ridisegna subito.
+    /// Ritorna la correzione in Hz.
+    pub fn set_tune(&self, steps: i32) -> f32 {
+        let steps = steps.clamp(-crate::decoder::TUNE_MAX_STEPS, crate::decoder::TUNE_MAX_STEPS);
+        let hz = steps as f32 * crate::decoder::TUNE_STEP_HZ;
+        lock(&self.inner.rx).tune_hz = hz;
+        let _ = self.inner.queue.send(Msg::Tune(steps));
+        hz
+    }
+
     /// Butta l'immagine in arrivo.
     pub fn cancel_rx(&self) {
         let _ = self.inner.queue.send(Msg::Cancel);
@@ -634,6 +651,9 @@ struct RxMemory {
     early_call: Option<(String, Instant)>,
 }
 
+/// Ogni quanto lo stato (con l'istogramma dei livelli) va all'interfaccia mentre si ascolta.
+const STATUS_EVERY: Duration = Duration::from_millis(400);
+
 fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
     let mut decoder = Decoder::new(cfg);
     let mut memory = RxMemory::default();
@@ -669,6 +689,14 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
                 }
             }
             Some(Msg::Config(c)) => decoder.set_config(c),
+            Some(Msg::Tune(steps)) => {
+                if let Some((mode, img, _live)) = decoder.set_tune(steps) {
+                    *lock(&inner.current) = Some(img.clone());
+                    inner.emit(rows_event(mode, &img, 0, img.height));
+                }
+                lock(&inner.rx).tune_hz = decoder.tune_hz();
+                last_status = Instant::now().checked_sub(STATUS_EVERY).unwrap_or_else(Instant::now);
+            }
             None => {}
         }
         for ev in events {
@@ -682,13 +710,15 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
             }
         }
         // lo stato va all'interfaccia solo con l'ascolto acceso: prima partiva un evento ogni 0,7 s verso ogni client anche in FT8
-        if last_status.elapsed() >= Duration::from_millis(700) && inner.listening.load(Ordering::Relaxed) {
+        if last_status.elapsed() >= STATUS_EVERY && inner.listening.load(Ordering::Relaxed) {
             last_status = Instant::now();
             {
                 let mut st = lock(&inner.rx);
                 st.level_db = decoder.level_db();
                 st.receiving = decoder.is_receiving();
                 st.sync = decoder.sync_quality();
+                st.tune_hz = decoder.tune_hz();
+                st.hist = decoder.histogram();
                 if let Some(off) = decoder.offset_hz() {
                     st.offset_hz = off;
                 }
