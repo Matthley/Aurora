@@ -43,6 +43,12 @@
 /* il contenuto parte sotto l'inizio dell'etichetta: non centrato ne' spinto a destra (era lo schema vecchio, etichetta a sinistra e controllo a destra) */
 .sw-panel .sx-control{min-width:0;max-width:none;justify-content:flex-start;text-align:left;flex-wrap:wrap}
 .sw-panel .sx-field input[type='text'],.sw-panel .sx-field input[type='search'],.sw-panel .sx-field input[type='password'],.sw-panel .sx-field input[type='url'],.sw-panel .sx-field select{width:100%;max-width:none}
+/* Colori e anteprima (issue #70): la regola qui sopra allarga ogni tendina al 100% e la tendina del suono schiacciava a zero il selettore
+   del colore, che non si poteva piu' cliccare. Tendina stretta, anteprima e colore a misura fissa, sempre sulla stessa riga */
+.sw-panel .jt-colors .sx-control{flex-wrap:nowrap}
+.sw-panel .jt-colors .sx-field select.snd-select{flex:0 1 6.2rem;width:6.2rem;min-width:3.5rem}
+.sw-panel .jt-colors .jt-sample{flex:0 0 auto}
+.sw-panel .jt-colors .sx-field input[type='color']{flex:0 0 auto;width:1.8rem;min-width:1.8rem;height:1.4rem;padding:0;cursor:pointer}
 /* le caselle: quadratino e testo sulla stessa riga, il testo non in maiuscoletto */
 .sw-panel .sx-field:has(> .sx-control > input[type='checkbox']),.sw-panel .set-check.sx-field{display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:center;gap:8px}
 .sw-panel .sx-field:has(> .sx-control > input[type='checkbox']) .sx-label,.sw-panel .set-check.sx-field .sx-label{font-size:12px;letter-spacing:0;text-transform:none;opacity:1}

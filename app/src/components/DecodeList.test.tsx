@@ -18,6 +18,14 @@ const decode = (over: Partial<DecodedMessage> = {}): DecodedMessage => ({
 });
 
 describe('DecodeList', () => {
+  // issue #70: il colore scelto in Impostazioni › Colori va su tutta la riga, nella vista a testo e in quella a colonne
+  it.each([undefined, 'test.issue70.cols'])('colours the row of a new DXCC and of a CQ with the chosen colour (columns: %s)', (columnsKey) => {
+    render(<DecodeList decodes={[decode({ id: 1, tag: 'new_dxcc' }), decode({ id: 2, tag: 'cq', text: 'CQ K1ABC FN42' })]} onReply={() => {}} columnsKey={columnsKey} />);
+    expect(screen.getByRole('button', { name: /JA1XYZ/ }).style.getPropertyValue('--row-accent')).toBe('var(--tag-new-dxcc)');
+    expect(screen.getByRole('button', { name: /K1ABC/ }).style.getPropertyValue('--row-accent')).toBe('var(--tag-cq)');
+    if (columnsKey) localStorage.removeItem(columnsKey);
+  });
+
   it('shows NUOVO DXCC badge', () => {
     render(<DecodeList decodes={[decode({ tag: 'new_dxcc' })]} onReply={() => {}} />);
     expect(screen.getByText('NUOVO DXCC')).toBeInTheDocument();
