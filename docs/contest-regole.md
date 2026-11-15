@@ -81,6 +81,50 @@ raggiungibile il giorno della lettura).
 - Moltiplicatori per banda e per modo: paesi DXCC e oblast ucraini.
 - `[Score]`: `points=dxcc:UR=5; same_cont=1; other_cont=3`, `points_band=80:2`, `mult=dxcc/band/mode; exch/band/mode/if:dxcc:UR`.
 
+## Secondo gruppo (letti il 2026-11-15)
+
+### DL-DX RTTY Contest (DRCG)
+Fonte: il sito della DRCG (<http://drcg.de/>, indicato da <https://www.digitalrus.ru/>) non e' piu' raggiungibile; regole dal riassunto
+ARI <https://www.qsl.net/contest_ari/reg_dldx_rtty.html> (edizione 2005). Secondo <https://www.ig-ry.de/contest-cup> i contest DRCG di
+giugno e luglio sono stati sospesi per sempre: il file resta per chi rilegge i vecchi log.
+- RTTY, PSK31, PSK63, bande 80-10 m. Scambio RST + numero.
+- Punti: stesso paese 5, stazione DL 8, altro paese europeo 10, fuori Europa 15.
+- Moltiplicatori per banda: paesi DXCC e aree numeriche di W, VE, JA, VK (il primo QSO con questi paesi vale doppio).
+- `[Score]`: `points=same_dxcc=5; dxcc:DL=8; cont:EU=10; any=15`, `mult=dxcc/band; area:K,VE,JA,VK/band`.
+
+### SP DX RTTY Contest (PK RVG)
+Fonte: il sito indicato da <https://www.digitalrus.ru/> (<http://www.pkrvg.org/zbior.html>) non e' raggiungibile; regole dal riassunto ARI
+<https://www.qsl.net/contest_ari/reg_spdxrtty.html>.
+- Bande 80-10 m. Scambio RST + numero; le stazioni polacche RST + provincia (una lettera).
+- Punti: stesso paese 2, stesso continente 5, altro continente 10.
+- Moltiplicatori per banda: paesi DXCC e province polacche (16); continenti una volta sola (al massimo 6), a parte.
+- Punteggio = punti x (paesi + province) x continenti.
+- `[Score]`: `points=same_dxcc=2; same_cont=5; other_cont=10`, `mult=dxcc/band; exch/band/if:dxcc:SP; cont/product`.
+
+### OK DX RTTY Contest (CRK)
+Fonte: <http://www.crk.cz/ENG/DXCONTE.HTM> (CRK, indicato da <https://www.digitalrus.ru/>; il server rifiuta la lettura automatica),
+regole 2020 riportate da <https://cq.sk/en/ok-dx-rtty-contest-2020>.
+- Bande 80-10 m. Scambio RST + zona CQ.
+- Punti: su 10/15/20 m stesso continente 1, gli altri 2; su 40/80 m stesso continente 3, gli altri 6.
+- Moltiplicatori per banda: paesi DXCC; per chi non e' OK/OL anche ogni stazione OK diversa.
+- `[Score]`: `points=band:80,40&same_cont=3; band:80,40=6; same_cont=1; any=2`, `mult=dxcc/band; call/band/if:dxcc:OK&not_my_dxcc:OK`.
+
+### EA RTTY Contest (URE)
+Fonte: <https://concursos.ure.es/en/eartty/bases/> (URE).
+- Bande 80-10 m. Scambio: EA RST + provincia, gli altri RST + numero; EA4URE manda HQ.
+- Punti: EA con EA (anche EA6, EA8, EA9) 2, EA con DX 1, DX con DX 1, DX con EA 3.
+- Moltiplicatori per banda: entita' EADX-100, province spagnole, EA4URE (HQ), aree numeriche di W, VE, JA, VK (il primo QSO con questi
+  paesi e con EA, EA6, EA8, EA9 vale doppio: paese e area o provincia).
+- `[Score]`: `points=my_dxcc:EA,EA6,EA8,EA9&dxcc:EA,EA6,EA8,EA9=2; my_dxcc:EA,EA6,EA8,EA9=1; dxcc:EA,EA6,EA8,EA9=3; any=1`,
+  `mult=dxcc/band; exch/band/if:dxcc:EA,EA6,EA8,EA9; area:K,VE,JA,VK/band`.
+
+### Mexican (FMRE) RTTY International Contest
+Fonte: <https://rtty.fmre.mx/reglas/Rules_FMRE_RTTY_2024.pdf> (FMRE, 26a edizione, 2024).
+- Bande 80-10 m. Scambio: XE RST + stato, gli altri RST + numero.
+- Punti: con una stazione XE 4, stesso paese 2, altro paese 3.
+- Moltiplicatori per banda: i 32 stati messicani (elenco `dom/Mexico32.dom`) e i paesi DXCC.
+- `[Score]`: `points=dxcc:XE=4; same_dxcc=2; any=3`, `mult=exch/band/if:dxcc:XE; dxcc/band`; `m_sStateListFile=dom/Mexico32.dom`.
+
 ## Cosa resta approssimato
 
 - Zone CQ e ITU vengono dal database DXCC di Aurora, non dallo scambio ricevuto (un W6 che passa zona 3 conta la zona del paese).

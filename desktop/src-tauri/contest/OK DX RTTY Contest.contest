@@ -43,3 +43,8 @@ m_bSuggestDxccPfx=0
 m_bDupeNoBand=0
 m_bDupeNoMode=0
 m_iLogBarDispMode=1
+
+[Score]
+bands=80,40,20,15,10
+points=band:80,40&same_cont=3; band:80,40=6; same_cont=1; any=2
+mult=dxcc/band; call/band/if:dxcc:OK&not_my_dxcc:OK

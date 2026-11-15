@@ -34,7 +34,7 @@ m_bAutoGrabNumber=1
 m_iGrabNumberType=0
 m_bAutoGrabTime=0
 m_bAutoGrabState=0
-m_sStateListFile=
+m_sStateListFile=dom/Mexico32.dom
 m_iGrabDomainTo=1
 m_bSuggestCqZone=0
 m_bSuggestItuZone=0
@@ -43,3 +43,8 @@ m_bSuggestDxccPfx=0
 m_bDupeNoBand=0
 m_bDupeNoMode=1
 m_iLogBarDispMode=1
+
+[Score]
+bands=80,40,20,15,10
+points=dxcc:XE=4; same_dxcc=2; any=3
+mult=exch/band/if:dxcc:XE; dxcc/band

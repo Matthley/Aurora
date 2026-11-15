@@ -1,4 +1,4 @@
-//! Il punteggio dei contest del primo gruppo con i file `.contest` distribuiti (`desktop/src-tauri/contest`) e le regole di
+//! Il punteggio dei contest del primo e del secondo gruppo con i file `.contest` distribuiti (`desktop/src-tauri/contest`) e le regole di
 //! `docs/contest-regole.md`. Ogni prova ha un piccolo log con nominativi finti e il punteggio calcolato a mano dal regolamento.
 //! La stazione e' IU3ABC (Italia, EU, zona CQ 15).
 
@@ -24,8 +24,17 @@ fn dominio(file: &str) -> Dominio {
 
 /// Un piccolo database DXCC finto: (prefisso del nominativo, paese, continente, zona CQ, zona ITU), il primo che combacia.
 fn paese(call: &str) -> Option<InfoPaese> {
-    const T: [(&str, &str, &str, u8, u8); 11] = [
+    const T: [(&str, &str, &str, u8, u8); 20] = [
         ("UA9", "UA9", "AS", 17, 30),
+        ("EA8", "EA8", "AF", 33, 36),
+        ("EA", "EA", "EU", 14, 37),
+        ("XE", "XE", "NA", 6, 10),
+        ("SP", "SP", "EU", 15, 28),
+        ("OK", "OK", "EU", 15, 28),
+        ("CT", "CT", "EU", 14, 37),
+        ("ON", "ON", "EU", 14, 27),
+        ("YU", "YU", "EU", 15, 28),
+        ("SM", "SM", "EU", 14, 18),
         ("UR", "UR", "EU", 16, 29),
         ("UA", "UA", "EU", 16, 29),
         ("VE", "VE", "NA", 4, 9),
@@ -248,4 +257,76 @@ fn ukrainian_dx_digi() {
     let t = punteggio("Ukrainian DX DIGI Contest", &log, None);
     // punti 5+10+10+1+3 = 29; moltiplicatori 2+2+2+1+1 = 8; 29 x 8 = 232
     assert_eq!((t.esclusi, t.punti, t.molt, t.punteggio), (1, 29, 8, 232));
+}
+
+// --- secondo gruppo ---
+
+#[test]
+fn dl_dx_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001"), // stesso paese 5; I su 20 m
+        r("DL1ABC", "20m", 1, "001"), // stazione DL 8; DL
+        r("UA3ABC", "20m", 2, "001"), // altro paese europeo 10; UA
+        r("W1AW", "20m", 3, "001"),   // fuori Europa 15; K e K1 (doppio moltiplicatore)
+        r("W2ABC", "20m", 4, "001"),  // 15; K2
+        r("JA1ABC", "40m", 5, "001"), // 15; JA e JA1 su 40 m
+    ];
+    let t = punteggio("DL DX RTTY CONTEST", &log, None);
+    // punti 5+8+10+15+15+15 = 68; moltiplicatori 1+1+1+2+1+2 = 8; 68 x 8 = 544
+    assert_eq!((t.punti, t.molt, t.punteggio), (68, 8, 544));
+}
+
+#[test]
+fn sp_dx_rtty() {
+    let log = [
+        r("SP5ABC", "20m", 0, "R"),   // stesso continente 5; SP e provincia R su 20 m; EU
+        r("DL1ABC", "20m", 1, "001"), // 5; DL
+        r("IK2XYZ", "40m", 2, "001"), // stesso paese 2; I su 40 m
+        r("W1AW", "20m", 3, "001"),   // altro continente 10; K; NA
+    ];
+    let t = punteggio("SPDX RTTY Contest", &log, None);
+    // punti 22; paesi e province 2+1+1+1 = 5; continenti EU, NA = 2; 22 x 5 x 2 = 220
+    assert_eq!((t.punti, t.molt, t.punteggio), (22, 10, 220));
+}
+
+#[test]
+fn ok_dx_rtty() {
+    let log = [
+        r("OK1ABC", "20m", 0, "15"), // stesso continente su 20 m 1; OK e la stazione OK1ABC
+        r("OK1XYZ", "20m", 1, "15"), // 1; stazione OK1XYZ
+        r("OK1ABC", "80m", 2, "15"), // stesso continente su 80 m 3; OK e OK1ABC su 80 m
+        r("W1AW", "40m", 3, "05"),   // altro continente su 40 m 6; K
+        r("DL1ABC", "15m", 4, "14"), // 1; DL
+    ];
+    let t = punteggio("OK DX RTTY Contest", &log, None);
+    // punti 1+1+3+6+1 = 12; moltiplicatori 2+1+2+1+1 = 7; 12 x 7 = 84
+    assert_eq!((t.punti, t.molt, t.punteggio), (12, 7, 84));
+}
+
+#[test]
+fn ea_rtty() {
+    let log = [
+        r("EA4ABC", "20m", 0, "M"),   // DX con EA 3; EA e provincia M
+        r("EA8ABC", "20m", 1, "TF"),  // EA8 e' Spagna: 3; EA8 e TF
+        r("W1AW", "20m", 2, "001"),   // 1; K e K1
+        r("DL1ABC", "40m", 3, "001"), // 1; DL
+        r("IK2XYZ", "40m", 4, "001"), // 1; I
+    ];
+    let t = punteggio("EA RTTY Contest", &log, None);
+    // punti 3+3+1+1+1 = 9; moltiplicatori 2+2+2+1+1 = 8; 9 x 8 = 72
+    assert_eq!((t.punti, t.molt, t.punteggio), (9, 8, 72));
+}
+
+#[test]
+fn xe_rtty() {
+    let dom = dominio("dom/Mexico32.dom");
+    let log = [
+        r("XE1ABC", "20m", 0, "AGS"), // stazione XE 4; stato AGS e paese XE
+        r("XE2ABC", "20m", 1, "JAL"), // 4; JAL
+        r("IK2XYZ", "20m", 2, "001"), // stesso paese 2; I
+        r("W1AW", "40m", 3, "001"),   // altro paese 3; K
+    ];
+    let t = punteggio("Mexican RTTY Contest", &log, Some(&dom));
+    // punti 13; moltiplicatori AGS, XE, JAL, I, K = 5; 13 x 5 = 65
+    assert_eq!((t.punti, t.molt, t.punteggio), (13, 5, 65));
 }
