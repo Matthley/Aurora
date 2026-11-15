@@ -56,6 +56,7 @@ import { planMacro, splitAutoCq } from '../lib/macroPlan';
 import { useListenWhileOpen } from '../lib/listenWhileOpen';
 import { parseSpotSplit } from '../lib/spotSplit';
 import { browserStorage } from '../lib/theme';
+import { clearSize, readSize, writeSize } from '../lib/modeSizes';
 import { toast, toastAction } from '../lib/toast';
 import { useStation, useStatusPick } from '../state/station';
 import '../styles/digi.css';
@@ -171,6 +172,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const status = useStatusPick(['dial_hz', 'de_call', 'de_grid']);
   // il selettore delle frequenze mostra solo le bande accese nelle Impostazioni (piu' quella in uso), come nella barra dell'FT8
   const chosenBands = useBandFilter((x) => x.bands);
+  // le misure dei pannelli (cascata, RX/TX, Radar, macro, log) sono ricordate per modo: RTTY, CW e PSK hanno ciascuno le sue
+  const sizeMode = rawSnap.settings.mode;
   const rxBox = useRef<HTMLPreElement>(null);
   const txBox = useRef<HTMLTextAreaElement>(null);
   const [tx, setTx] = useState('');
@@ -195,7 +198,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   txLiveRef.current = { tx, txLive };
   // larghezza del log di lato (si allarga trascinando il bordo), ricordata fra un avvio e l'altro
   const [logW, setLogW] = useState<number>(() => {
-    const n = Number(browserStorage()?.getItem('aurora.digi.logw') ?? '');
+    const n = readSize('aurora.digi.logw', sizeMode);
     return Number.isFinite(n) && n >= 300 ? n : 432;
   });
   const [qso, setQso] = useState<Qso>(EMPTY_QSO);
@@ -237,7 +240,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // la larghezza della scheda delle macro: si regola dal bordo destro (doppio clic: quella di partenza)
   const macroBox = useRef<HTMLDivElement>(null);
   const [macroW, setMacroW] = useState<number | null>(() => {
-    const v = Number(browserStorage()?.getItem('aurora.digi.macrow'));
+    const v = readSize('aurora.digi.macrow', sizeMode);
     return Number.isFinite(v) && v >= 360 ? v : null;
   });
   // i dati che non cambiano da un QSO all'altro (nome, QTH, RST): gli stessi di Impostazioni › Stazione › Dati personali
@@ -501,14 +504,14 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // il divisore fra ricezione e trasmissione si trascina: la parte alta della colonna (0,2-0,8), ricordata
   // l'altezza della cascata si regola dalla barra sul suo bordo alto (da 50 a 400 px), ricordata
   const [wfHeight, setWfHeight] = useState<number>(() => {
-    const n = Number(browserStorage()?.getItem('aurora.digi.wfh2') ?? '');
+    const n = readSize('aurora.digi.wfh2', sizeMode);
     return Number.isFinite(n) && n >= 50 && n <= 400 ? n : 80;
   });
   const changeWfHeight = (px: number) => {
     const h = Math.round(Math.min(400, Math.max(50, px)));
     setWfHeight(h);
     try {
-      browserStorage()?.setItem('aurora.digi.wfh2', String(h));
+      writeSize('aurora.digi.wfh2', sizeMode, h);
     } catch {
       // l'altezza vale comunque finche' la pagina e' aperta
     }
@@ -518,7 +521,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   // dove sono, lo spazio che si libera resta vuoto (richiesta del proprietario, per esempio per tenere accanto la scheda del rotore)
   // larghezza del Radar (px), scelta trascinando la maniglia fra le finestre RX/TX e il Radar; resta ricordata
   const [radarW, setRadarW] = useState<number>(() => {
-    const n = Number(browserStorage()?.getItem('aurora.digi.radarw') ?? '');
+    const n = readSize('aurora.digi.radarw', sizeMode);
     return Number.isFinite(n) && n >= 220 && n <= 900 ? n : 330;
   });
   const dragRadarW = (e: React.PointerEvent) => {
@@ -534,7 +537,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       try {
-        browserStorage()?.setItem('aurora.digi.radarw', String(last));
+        writeSize('aurora.digi.radarw', sizeMode, last);
       } catch {
         // la larghezza vale comunque finche' la pagina e' aperta
       }
@@ -543,7 +546,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     window.addEventListener('pointerup', up);
   };
   const [winW, setWinW] = useState<number | null>(() => {
-    const n = Number(browserStorage()?.getItem('aurora.digi.winw') ?? '');
+    const n = readSize('aurora.digi.winw', sizeMode);
     return Number.isFinite(n) && n >= 240 ? n : null;
   });
   const dragWinW = (e: React.PointerEvent) => {
@@ -561,8 +564,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       window.removeEventListener('pointerup', up);
       try {
         if (last === null) return;
-        if (last >= col.width - 4) browserStorage()?.removeItem('aurora.digi.winw');
-        else browserStorage()?.setItem('aurora.digi.winw', String(last));
+        if (last >= col.width - 4) clearSize('aurora.digi.winw', sizeMode);
+        else writeSize('aurora.digi.winw', sizeMode, last);
       } catch {
         // la larghezza vale comunque finche' la pagina e' aperta
       }
@@ -573,15 +576,34 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const resetWinW = () => {
     setWinW(null);
     try {
-      browserStorage()?.removeItem('aurora.digi.winw');
+      clearSize('aurora.digi.winw', sizeMode);
     } catch {
       // niente da togliere
     }
   };
   const [rxFrac, setRxFrac] = useState<number>(() => {
-    const n = Number(browserStorage()?.getItem('aurora.digi.rxfrac') ?? '');
+    const n = readSize('aurora.digi.rxfrac', sizeMode);
     return Number.isFinite(n) && n >= 0.1 && n <= 0.9 ? n : 0.55;
   });
+  // cambiando modo (RTTY, CW, PSK) si riprendono le misure di quel modo
+  const firstSizeMode = useRef(sizeMode);
+  useEffect(() => {
+    if (firstSizeMode.current === sizeMode) return;
+    firstSizeMode.current = sizeMode;
+    const ok = (n: number, min: number, max = Infinity) => Number.isFinite(n) && n >= min && n <= max;
+    const logw = readSize('aurora.digi.logw', sizeMode);
+    setLogW(ok(logw, 300) ? logw : 432);
+    const macrow = readSize('aurora.digi.macrow', sizeMode);
+    setMacroW(ok(macrow, 360) ? macrow : null);
+    const wfh = readSize('aurora.digi.wfh2', sizeMode);
+    setWfHeight(ok(wfh, 50, 400) ? wfh : 80);
+    const radarw = readSize('aurora.digi.radarw', sizeMode);
+    setRadarW(ok(radarw, 220, 900) ? radarw : 330);
+    const winw = readSize('aurora.digi.winw', sizeMode);
+    setWinW(ok(winw, 240) ? winw : null);
+    const frac = readSize('aurora.digi.rxfrac', sizeMode);
+    setRxFrac(ok(frac, 0.1, 0.9) ? frac : 0.55);
+  }, [sizeMode]);
   const dragSplit = (e: React.PointerEvent) => {
     e.preventDefault();
     const box = windowsRef.current?.getBoundingClientRect();
@@ -592,7 +614,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       window.removeEventListener('pointerup', up);
       setRxFrac((f) => {
         try {
-          browserStorage()?.setItem('aurora.digi.rxfrac', String(f));
+          writeSize('aurora.digi.rxfrac', sizeMode, f);
         } catch {
           // la proporzione vale comunque finche' la pagina e' aperta
         }
@@ -1490,7 +1512,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
             onDoubleClick={() => {
               setMacroW(null);
               try {
-                browserStorage()?.removeItem('aurora.digi.macrow');
+                clearSize('aurora.digi.macrow', sizeMode);
               } catch {
                 // niente da fare
               }
@@ -1511,7 +1533,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
                 window.removeEventListener('pointermove', move);
                 window.removeEventListener('pointerup', up);
                 try {
-                  browserStorage()?.setItem('aurora.digi.macrow', String(last));
+                  writeSize('aurora.digi.macrow', sizeMode, last);
                 } catch {
                   // la misura vale comunque finche' la pagina e' aperta
                 }
@@ -1652,7 +1674,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           <div className="digi-radargrip" role="separator" aria-orientation="vertical" title={t('radar.resize')} onPointerDown={dragRadarW} onDoubleClick={() => {
             setRadarW(330);
             try {
-              browserStorage()?.removeItem('aurora.digi.radarw');
+              clearSize('aurora.digi.radarw', sizeMode);
             } catch {
               // niente da fare
             }
@@ -1690,7 +1712,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               const w = Math.round(Math.min(Math.max(px, 300), Math.max(320, window.innerWidth - 320)));
               setLogW(w);
               try {
-                browserStorage()?.setItem('aurora.digi.logw', String(w));
+                writeSize('aurora.digi.logw', sizeMode, w);
               } catch {
                 // la larghezza vale comunque finche' la pagina e' aperta
               }
