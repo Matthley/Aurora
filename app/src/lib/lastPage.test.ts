@@ -64,4 +64,16 @@ describe('lastPage', () => {
     rememberRoute(null, { name: 'map' });
     expect(rememberedTab(null)).toBeUndefined();
   });
+
+  it('a remote client does not reopen the pages that start the engine, the main PC does', () => {
+    const s = memory();
+    rememberRoute(s, { name: 'sstv' });
+    expect(lastPageToRestore(s, '', true)).toBeNull();
+    expect(lastPageToRestore(s, '')).toBe('#/sstv');
+    rememberRoute(s, { name: 'digi' });
+    expect(lastPageToRestore(s, '', true)).toBeNull();
+    expect(lastPageToRestore(s, '', false)).toBe('#/testo');
+    rememberRoute(s, { name: 'map' });
+    expect(lastPageToRestore(s, '', true)).toBe('#/mappa-dx');
+  });
 });

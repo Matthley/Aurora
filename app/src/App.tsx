@@ -63,7 +63,7 @@ const REMOTE_TOUCH = REMOTE && typeof window !== 'undefined' && window.matchMedi
 
 // all'avvio senza un indirizzo preciso si torna all'ultima pagina aperta (PSK·RTTY·CW, SSTV, Satelliti...), prima di leggere la pagina
 {
-  const restored = typeof window !== 'undefined' ? lastPageToRestore(browserStorage(), window.location.hash) : null;
+  const restored = typeof window !== 'undefined' ? lastPageToRestore(browserStorage(), window.location.hash, REMOTE) : null;
   if (restored) window.history.replaceState(null, '', restored);
 }
 

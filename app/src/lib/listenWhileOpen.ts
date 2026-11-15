@@ -29,11 +29,15 @@ function newPageId(): string {
  * Entrando si accende sempre, senza guardare lo stato in memoria: la pagina parte dai dati della visita di prima (il servizio
  * allora ascoltava), mentre uscendo l'ascolto e' stato spento. Fidandosi di quei dati vecchi l'ascolto restava spento e il CW non
  * decodificava finche' non si usciva e rientrava una seconda volta (issue #45). Accendere un ascolto gia' acceso non cambia niente.
+ *
+ * Con `enabled` falso (client remoto che non ha ancora premuto «Ascolta») non parte niente: ne' accensione ne' battito. Diventato vero,
+ * l'ascolto si accende come all'apertura.
  */
-export function useListenWhileOpen(rx: RxCommand, keepOnLeave: () => boolean, onChanged: () => void, page?: PageCommand): void {
+export function useListenWhileOpen(rx: RxCommand, keepOnLeave: () => boolean, onChanged: () => void, page?: PageCommand, enabled = true): void {
   const live = useRef({ rx, keepOnLeave, onChanged, page });
   live.current = { rx, keepOnLeave, onChanged, page };
   useEffect(() => {
+    if (!enabled) return;
     const id = newPageId();
     const done = () => live.current.onChanged();
     const hold = () => void live.current.page?.('hold', id).catch(() => undefined);
@@ -54,7 +58,7 @@ export function useListenWhileOpen(rx: RxCommand, keepOnLeave: () => boolean, on
       if (live.current.page) leave();
       else if (!live.current.keepOnLeave()) void live.current.rx('stop').catch(() => undefined);
     };
-  }, []);
+  }, [enabled]);
 }
 
 /**

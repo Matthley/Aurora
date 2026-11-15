@@ -3542,6 +3542,8 @@ export const NL_UI: Record<string, string> = {
   "rd.style.ledline": "Essentiële LED",
   "rd.style.yaesuq": "Yaesu amber dubbele ontvanger (bijna vierkant)",
   "rd.title": "Weergavestijl van de radio",
+  "remote.listen": "Luisteren",
+  "remote.listen.hint": "Vanaf dit apparaat start het luisteren niet vanzelf: druk op “Luisteren” om het aan te zetten.",
   "rep.active": "Statistieken versturen",
   "rep.activeTip": "Eén keer per dag wordt verstuurd: een willekeurige installatiecode of, als je je roepnaam hebt ingesteld, een code afgeleid van de roepnaam (de roepnaam zelf wordt nooit verstuurd), de Aurora-versie, het besturingssysteem, het land en het type computer (processor, aantal kernen en geheugen). Dit wordt gebruikt om te tellen hoeveel mensen Aurora gebruiken en om te zien op welke computers het moeite heeft.",
   "rep.ask": "Vraag me het rapport te sturen na een crash",

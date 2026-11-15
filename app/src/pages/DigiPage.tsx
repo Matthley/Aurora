@@ -41,6 +41,8 @@ import { openSettingsWindow } from '../lib/settingsWindow';
 import { readMemories, readScan, SCAN_KEY, writeMemories, type DigiMemory, type ScanProps } from '../lib/digiScan';
 import { DigiStatusBar } from '../components/digi/StatusBar';
 import { useT } from '../i18n';
+import { ListenGate } from '../components/ListenGate';
+import { REMOTE_HOST } from '../lib/phone';
 import { appendDigiNote, clearDigiText, getDigiText, onDigi, onDigiText } from '../lib/digiBus';
 import { DigiRxLive } from '../components/DigiRxText';
 import { nextHit } from '../lib/rxSearch';
@@ -674,7 +676,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
 
   // entrando nella pagina l'ascolto parte da solo (si ferma e riparte dal menu Opzioni); lasciandola (per esempio tornando all'FT8)
   // si spegne, cosi' il motore non consuma in secondo piano, salvo «Ascolto acceso all'avvio di Aurora»
-  useListenWhileOpen(digiRx, () => live.current.snap.settings.auto_receive, onChanged, digiRxPage);
+  // sul client remoto (telefono, portatile in rete) aprire la pagina non accende il motore: si ascolta solo dopo «Ascolta»
+  const [armed, setArmed] = useState(!REMOTE_HOST);
+  useListenWhileOpen(digiRx, () => live.current.snap.settings.auto_receive, onChanged, digiRxPage, armed);
 
   const caps = useRef(false);
   caps.current = views.capsOnly;
@@ -1542,6 +1546,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   return (
     <>
       <MenuBar menus={menus} />
+      {armed ? null : <ListenGate onListen={() => setArmed(true)} />}
 
       {/* macro a sinistra (colonne fisse e piu' corte), a fianco il selettore di banda con le frequenze del piano IARU */}
       <div className="digi-topline">

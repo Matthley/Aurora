@@ -10,6 +10,9 @@ const TAB_KEY = 'aurora-settings-tab';
 // tutte le pagine dei modi (PSK·RTTY·CW, SSTV, Satelliti, Fox, Contest...) e quelle comuni: riaprendo Aurora si torna li'
 const RESTORABLE = new Set(['#/statistiche', '#/mappa-dx', '#/storico', '#/propagazione', '#/impostazioni', '#/guida', '#/novita', '#/testo', '#/sstv', '#/satelliti', '#/fox', '#/contest', '#/qmap', '#/rotore', '#/esporta']);
 
+/** Le pagine che accendono il motore (ascolto dei modi testuali, SSTV): un client remoto non ci riparte da solo. */
+export const ENGINE_PAGES = new Set(['#/testo', '#/sstv']);
+
 type Store = Pick<Storage, 'getItem' | 'setItem'> | null;
 
 function read(storage: Store, key: string): string | null {
@@ -28,11 +31,15 @@ function write(storage: Store, key: string, value: string): void {
   }
 }
 
-/** All'avvio, senza un indirizzo preciso (`#/pair/...`, `#/impostazioni/rig`), si torna all'ultima pagina; la Stazione e' quella di base. */
-export function lastPageToRestore(storage: Store, hash: string): string | null {
+/**
+ * All'avvio, senza un indirizzo preciso (`#/pair/...`, `#/impostazioni/rig`), si torna all'ultima pagina; la Stazione e' quella di base.
+ * Un client remoto (telefono, portatile in rete) non riapre le pagine che accendono il motore: parte dalla Stazione.
+ */
+export function lastPageToRestore(storage: Store, hash: string, remote = false): string | null {
   if (hash !== '' && hash !== '#' && hash !== '#/') return null;
   const saved = read(storage, PAGE_KEY);
-  return saved !== null && RESTORABLE.has(saved) ? saved : null;
+  if (saved === null || !RESTORABLE.has(saved)) return null;
+  return remote && ENGINE_PAGES.has(saved) ? null : saved;
 }
 
 const HASH_OF: Record<string, string> = {

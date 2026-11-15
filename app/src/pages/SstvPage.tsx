@@ -19,6 +19,7 @@ import { SstvTuning } from '../components/sstv/SstvTuning';
 import { useT } from '../i18n';
 import { useGroups } from '../lib/detached';
 import { REMOTE_HOST } from '../lib/phone';
+import { ListenGate } from '../components/ListenGate';
 import { openSettingsWindow } from '../lib/settingsWindow';
 import { onSstv } from '../lib/sstvBus';
 import '../styles/sstv.css';
@@ -48,7 +49,9 @@ function SstvBody({ solo }: { solo: boolean }) {
   // salvo «Ascolto acceso all'avvio di Aurora»
   const keepListening = useRef(false);
   keepListening.current = snap.data?.settings.auto_receive === true;
-  useListenWhileOpen(sstvRx, () => keepListening.current, refresh, sstvRxPage);
+  // sul client remoto (telefono, portatile in rete) aprire la pagina non accende il motore: si ascolta solo dopo «Ascolta»
+  const [armed, setArmed] = useState(!REMOTE_HOST);
+  useListenWhileOpen(sstvRx, () => keepListening.current, refresh, sstvRxPage, armed);
 
   // con la pagina aperta l'ascolto resta acceso finche' l'operatore non preme «Ferma ascolto», anche mentre compone (la ricezione vive
   // nel motore e continua in sottofondo). L'accensione mandata una volta sola all'apertura poteva perdersi: motore non ancora pronto
@@ -59,11 +62,11 @@ function SstvBody({ solo }: { solo: boolean }) {
   const listening = snap.data?.rx.listening;
   const txState = snap.data?.tx.state;
   useEffect(() => {
-    if (listening !== false || !wantListen.current || txState === 'sending') return;
+    if (!armed || listening !== false || !wantListen.current || txState === 'sending') return;
     if (Date.now() - lastStart.current < 2500) return;
     lastStart.current = Date.now();
     void sstvRx('start').then(refresh, refresh);
-  }, [listening, txState, refresh]);
+  }, [armed, listening, txState, refresh]);
   const onListen = useCallback((on: boolean) => {
     wantListen.current = on;
     if (on) lastStart.current = Date.now();
@@ -150,6 +153,7 @@ function SstvBody({ solo }: { solo: boolean }) {
         )}
         {solo ? null : <DetachButton item="sstv" />}
       </header>
+      {armed ? null : <ListenGate onListen={() => setArmed(true)} />}
 
       {snap.isError ? <p className="notice">{t('set.loadError')}</p> : null}
       {data ? (

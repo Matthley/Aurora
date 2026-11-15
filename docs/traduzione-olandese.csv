@@ -7683,3 +7683,5 @@ t.1ltexjmlf2l,"the text Auto CQ repeats (if missing, that of F2)","de tekst die 
 t.1epqhlm1ww,"alert on received text: Aurora has no such alert, the macro does not run","melding bij ontvangen tekst: Aurora heeft zo’n melding niet, de macro wordt niet uitgevoerd"
 t.1v11owa6bds,has no matching event in Aurora: the macro does not run,heeft geen overeenkomstige gebeurtenis in Aurora: de macro wordt niet uitgevoerd
 t.177p19t303g,"has no matching event in Aurora: you can open it with <EDITMACRO:Hello> to edit it, but it does not run by itself","heeft geen overeenkomstige gebeurtenis in Aurora: je kunt hem openen met <EDITMACRO:Hello> om hem te bewerken, maar hij start niet vanzelf"
+remote.listen,Listen,Luisteren
+remote.listen.hint,"From this device listening does not start by itself: press “Listen” to turn it on.","Vanaf dit apparaat start het luisteren niet vanzelf: druk op “Luisteren” om het aan te zetten."

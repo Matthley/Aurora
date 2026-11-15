@@ -125,4 +125,20 @@ describe('inOrder', () => {
     await expect(queue(() => Promise.reject(new Error('rete')))).rejects.toThrow('rete');
     await expect(queue(() => Promise.resolve(7))).resolves.toBe(7);
   });
+
+  it('client remoto: nessun «start» ne battito senza il clic su «Ascolta», poi parte', () => {
+    const rx = vi.fn<RxCommand>(() => Promise.resolve());
+    const page = vi.fn<PageCommand>(() => Promise.resolve());
+    function Gated({ armed }: { armed: boolean }) {
+      useListenWhileOpen(rx, () => false, () => undefined, page, armed);
+      return null;
+    }
+    const view = render(<Gated armed={false} />);
+    expect(rx).not.toHaveBeenCalled();
+    expect(page).not.toHaveBeenCalled();
+    view.rerender(<Gated armed />);
+    expect(rx.mock.calls.map((c) => c[0])).toEqual(['start']);
+    expect(page.mock.calls.map((c) => c[0])).toEqual(['hold']);
+    view.unmount();
+  });
 });

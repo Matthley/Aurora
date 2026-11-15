@@ -211,4 +211,13 @@ export const appStrings = {
     'Watchdog de transmisión: tras estos minutos sin QSO la transmisión se detiene sola.',
     'Watchdog de transmissão: após estes minutos sem QSO a transmissão para sozinha.',
   ],
+  'remote.listen': ['Ascolta', 'Listen', 'Hören', 'Écouter', 'Escuchar', 'Ouvir'],
+  'remote.listen.hint': [
+    'Da questo dispositivo l’ascolto non parte da solo: premi «Ascolta» per accenderlo.',
+    'From this device listening does not start by itself: press “Listen” to turn it on.',
+    'Von diesem Gerät startet der Empfang nicht von selbst: Drücke „Hören“, um ihn einzuschalten.',
+    'Depuis cet appareil, l’écoute ne démarre pas toute seule : appuie sur « Écouter » pour l’allumer.',
+    'Desde este dispositivo la escucha no empieza sola: pulsa «Escuchar» para encenderla.',
+    'Neste dispositivo a escuta não começa sozinha: carrega em «Ouvir» para a ligar.',
+  ],
 } as const satisfies Record<string, Entry>;
