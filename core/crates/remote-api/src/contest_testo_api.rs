@@ -71,6 +71,31 @@ pub(crate) async fn elimina(State(state): State<AppState>, _: Authed, Path(id): 
 }
 
 #[derive(Deserialize)]
+pub(crate) struct ImportaQuery {
+    #[serde(default)]
+    nome: String,
+}
+
+/// Importa un contest: il corpo e' il pacchetto `.zip` (`.contest` con `macros/` e `dom/`) o un `.contest` da solo, `nome` il nome
+/// del file scelto. Il contest si controlla (sezioni `[Score]` e `[Script]`) e si aggiunge senza sovrascriverne un altro.
+#[utoipa::path(post, path = "/api/v1/contest-testo/importa", responses((status = 200, description = "Importato, con il suo id"), (status = 400, description = "File non valido (bad_contest)")))]
+pub(crate) async fn importa(State(state): State<AppState>, _: Authed, Query(q): Query<ImportaQuery>, body: axum::body::Bytes) -> Result<Json<Value>, ApiError> {
+    let s = service(&state)?;
+    let id = s.elenco().importa(&q.nome, &body).map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, "bad_contest").with_message(e))?;
+    Ok(Json(json!({ "ok": true, "id": id })))
+}
+
+/// Il pacchetto `.zip` di un contest con le sue macro e il suo elenco dei domini.
+#[utoipa::path(get, path = "/api/v1/contest-testo/voce/{id}/pacchetto", responses((status = 200, description = "Pacchetto zip"), (status = 404, description = "Sconosciuto (contest_unknown)")))]
+pub(crate) async fn esporta(State(state): State<AppState>, _: Authed, Path(id): Path<String>) -> Result<axum::response::Response, ApiError> {
+    use axum::response::IntoResponse;
+    let s = service(&state)?;
+    let zip = s.elenco().esporta(&id).map_err(|e| ApiError::new(StatusCode::NOT_FOUND, "contest_unknown").with_message(e))?;
+    let nome: String = contest::pacchetto::nome_pacchetto(&id).chars().filter(|c| c.is_ascii() && *c != '"' && !c.is_ascii_control()).collect();
+    Ok(([(axum::http::header::CONTENT_TYPE, "application/zip".to_string()), (axum::http::header::CONTENT_DISPOSITION, format!("attachment; filename=\"{nome}\""))], zip).into_response())
+}
+
+#[derive(Deserialize)]
 pub(crate) struct SelezionaBody {
     id: Option<String>,
 }

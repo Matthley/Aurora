@@ -16,4 +16,5 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 toml = "1.1.8"
+zip = { version = "9.3.0", default-features = false, features = ["deflate"] }
 rhai = { version = "1.27.0", default-features = false, features = ["std", "no_module", "no_custom_syntax"] }

@@ -7,9 +7,11 @@ vi.mock('../../api/contestTesto', async (importOriginal) => ({
   getTextContests: vi.fn(() => Promise.resolve({ attivo: 'B', contest: [{ id: 'A', name: 'Alfa RTTY', notes: 'RTTY', start: '', end: '' }, { id: 'B', name: 'Beta PSK', notes: 'PSK63', start: '', end: '' }], macros: [], domini: [] })),
   selectTextContest: vi.fn(() => Promise.resolve({ ok: true, attivo: 'A' })),
   deleteTextContest: vi.fn(() => Promise.resolve({ ok: true })),
+  importTextContest: vi.fn(() => Promise.resolve({ ok: true, id: 'Gamma' })),
+  exportTextContest: vi.fn(() => Promise.resolve(new Blob(['PK']))),
 }));
 vi.mock('../ConfirmHost', () => ({ askConfirm: vi.fn(() => Promise.resolve(true)) }));
-import { deleteTextContest, selectTextContest } from '../../api/contestTesto';
+import { deleteTextContest, exportTextContest, importTextContest, selectTextContest } from '../../api/contestTesto';
 import { ContestListDialog, fromLocalInput, toLocalInput } from './ContestListDialog';
 
 const dialog = (onClose = vi.fn()) => (
@@ -50,6 +52,23 @@ describe('elenco dei contest', () => {
     expect(deleteTextContest).toHaveBeenCalledWith('B');
     fireEvent.click(screen.getAllByRole('row')[1] as HTMLElement);
     expect(screen.getByRole('button', { name: /Elimina|Delete/ })).toBeDisabled();
+  });
+
+  it('Importa manda il file scelto, Esporta scarica il pacchetto del contest scelto', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:x');
+    URL.revokeObjectURL = vi.fn();
+    render(dialog());
+    const alfa = await screen.findByText('Alfa RTTY');
+    const file = new File(['[Contest]'], 'Gamma.zip');
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('ctest-import-file'), { target: { files: [file] } });
+    });
+    expect(importTextContest).toHaveBeenCalledWith(file);
+    fireEvent.click(alfa);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Esporta contest|Export contest/ }));
+    });
+    expect(exportTextContest).toHaveBeenCalledWith('A');
   });
 
   it('date del file e campo data/ora', () => {

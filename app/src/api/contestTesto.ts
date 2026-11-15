@@ -121,6 +121,26 @@ export const getActiveTextContest = () => call<ActiveTextContest | null>('/attiv
 export const getTextContest = (id: string) => call<TextContest>(`/voce/${encodeURIComponent(id)}`);
 export const saveTextContest = (c: TextContest) => (c.id ? call<{ ok: boolean; id: string }>(`/voce/${encodeURIComponent(c.id)}`, json('PUT', c)) : call<{ ok: boolean; id: string }>('/voce', json('POST', c)));
 export const deleteTextContest = (id: string) => call<{ ok: boolean }>(`/voce/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/** Importa un contest: pacchetto `.zip` (`.contest` con `macros/` e `dom/`) o `.contest` da solo; il core lo controlla e lo aggiunge. */
+export const importTextContest = async (file: File) =>
+  call<{ ok: boolean; id: string }>(`/importa?nome=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: await file.arrayBuffer() });
+/** Il pacchetto `.zip` di un contest con le sue macro e il suo elenco dei domini. */
+export async function exportTextContest(id: string): Promise<Blob> {
+  const r = await fetch(`${BASE}/voce/${encodeURIComponent(id)}/pacchetto`, { credentials: 'include' });
+  if (!r.ok) {
+    let code = 'error';
+    let detail: string | undefined;
+    try {
+      const b = (await r.json()) as { error?: string; message?: string };
+      code = b.error ?? code;
+      detail = b.message;
+    } catch {
+      // corpo assente: resta il codice generico
+    }
+    throw new ContestError(r.status, code, detail);
+  }
+  return r.blob();
+}
 /** Una riga della statistica per banda del contest attivo. */
 export interface TextContestBand {
   band: string;

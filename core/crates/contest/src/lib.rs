@@ -10,6 +10,7 @@
 //! - [`punti_testo`]: punteggio, statistica per banda e Cabrillo del contest attivo dei modi testuali;
 //! - [`regole_punti`]: le regole del punteggio dei contest dei modi testuali (sezione `[Score]`), a pezzi riusabili;
 //! - [`script`]: gli script Rhai dei casi speciali (sezione `[Script]`), con limiti e senza accesso a file, rete o processi;
+//! - [`pacchetto`]: importa ed esporta un contest (`.zip` con il `.contest`, le macro e i domini);
 //! - [`qtc`]: i QTC del WAE (chi li scambia, cosa mandare, righe del Cabrillo);
 //! - [`servizio`]: contest attivo, impostazioni per contest, log del contest e ascolto del bus.
 //!
@@ -22,6 +23,7 @@ pub mod geo;
 pub mod liste;
 pub mod punteggio;
 pub mod punti_testo;
+pub mod pacchetto;
 pub mod qtc;
 pub mod regole;
 pub mod regole_punti;

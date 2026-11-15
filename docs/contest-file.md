@@ -17,6 +17,22 @@ sovrascrivere niente; poi i file sono dell'utente: quelli cancellati non tornano
 Il codice sta in `core/crates/contest/src/elenco.rs`, le rotte in `core/crates/remote-api/src/contest_testo_api.rs`
 (`/api/v1/contest-testo`), l'interfaccia in `app/src/components/digi/ContestListDialog.tsx` e `app/src/lib/textContest.ts`.
 
+## Importa ed esporta
+
+«Importa contest…» ed «Esporta contest…» della finestra dell'elenco usano un pacchetto `.zip` (codice in
+`core/crates/contest/src/pacchetto.rs`):
+
+```
+<nome>.contest        il contest, in cima
+macros/<nome>.mc      il file di macro nominato da m_sMacrosFilename (se c'e')
+dom/<nome>.dom        l'elenco dei domini nominato da m_sStateListFile (se c'e')
+```
+
+`GET /api/v1/contest-testo/voce/{id}/pacchetto` restituisce il pacchetto; `POST /api/v1/contest-testo/importa?nome=<file>` riceve il
+pacchetto (o un `.contest` da solo) nel corpo. L'importazione controlla il contest come il salvataggio (sezioni `[Score]` e `[Script]`,
+percorsi relativi), prende dal pacchetto solo i file nominati dal contest (al massimo 64 file, 2 MB ciascuno), non sovrascrive niente:
+un contest con lo stesso nome diventa `<nome> (2)`, un file di macro diverso con lo stesso nome `macros/<nome> (2).mc`.
+
 ## Formato
 
 File di testo INI (UTF-8; si leggono anche i vecchi file Latin-1), sezione `[Contest]`, una riga `chiave=valore`. Le chiavi

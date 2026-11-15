@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useT } from '../../i18n';
 import { ContestError } from '../../api/contest';
-import { deleteTextContest, getTextContest, getTextContests, newTextContest, saveTextContest, selectTextContest, type TextContest } from '../../api/contestTesto';
+import { deleteTextContest, exportTextContest, importTextContest, getTextContest, getTextContests, newTextContest, saveTextContest, selectTextContest, type TextContest } from '../../api/contestTesto';
 import { askConfirm } from '../ConfirmHost';
 import { toast } from '../../lib/toast';
 import '../../styles/digi-contest.css';
@@ -38,7 +38,8 @@ export function useSelectTextContest() {
 
 /**
  * La finestra «Elenco dei contest»: colonne Attivo (freccia su quello attivo), Nome, Note; prima riga «Nessun contest»; pulsanti
- * Modifica…, Elimina, Aggiungi…, Seleziona, Chiudi. Doppio clic su una riga = Seleziona.
+ * Modifica…, Elimina, Aggiungi…, Importa contest…, Esporta contest…, Seleziona, Chiudi. Doppio clic su una riga = Seleziona.
+ * Importa ed esporta usano il pacchetto `.zip` del core (`.contest` con le sue macro e i domini; si importa anche un `.contest`).
  */
 export function ContestListDialog({ onClose, onSelected }: { onClose(): void; onSelected?(id: string | null): void }) {
   const t = useT();
@@ -66,6 +67,33 @@ export function ContestListDialog({ onClose, onSelected }: { onClose(): void; on
     if (!id) return;
     try {
       setEditing(await getTextContest(id));
+    } catch (e) {
+      toast(t('ctest.error', { why: why(e) }), 'error');
+    }
+  };
+  const fileRef = useRef<HTMLInputElement>(null);
+  const importFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const r = await importTextContest(file);
+      toast(t('ctest.imported', { name: r.id }), 'ok');
+      setPicked(r.id);
+      refresh();
+    } catch (e) {
+      toast(t('ctest.error', { why: why(e) }), 'error');
+    }
+  };
+  const exportOne = async (id: string | null) => {
+    if (!id) return;
+    try {
+      const blob = await exportTextContest(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${id}.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(t('ctest.exported', { name: `${id}.zip` }), 'ok');
     } catch (e) {
       toast(t('ctest.error', { why: why(e) }), 'error');
     }
@@ -136,6 +164,24 @@ export function ContestListDialog({ onClose, onSelected }: { onClose(): void; on
           <button type="button" className="glass sstv-btn" onClick={() => setEditing(newTextContest())}>
             {t('ctest.add')}
           </button>
+          <button type="button" className="glass sstv-btn" title={t('ctest.tip.import')} onClick={() => fileRef.current?.click()}>
+            {t('ctest.import')}
+          </button>
+          <button type="button" className="glass sstv-btn" title={t('ctest.tip.export')} disabled={!current} onClick={() => void exportOne(current)}>
+            {t('ctest.export')}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".zip,.contest"
+            hidden
+            data-testid="ctest-import-file"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              void importFile(f);
+            }}
+          />
           <span className="rtty-spacer" />
           <button type="button" className="glass sstv-btn" onClick={() => void choose(current)}>
             {t('ctest.select')}
