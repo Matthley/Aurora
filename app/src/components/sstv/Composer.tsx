@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode, } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, deleteSstvTxPhotos, getSstvTxFolder, getSstvTxPhoto, sstvTxPhotoUrl, sstvAbort, sstvTransmit, type SstvSnapshot } from '../../api/client';
 import { useT, type Key } from '../../i18n';
@@ -41,6 +41,23 @@ import { useStatusPick } from '../../state/station';
 import { useSstvMode } from '../../lib/sstvMode';
 
 const TEMPLATES_KEY = 'aurora.sstv.templates';
+const TAB_KEY = 'aurora.sstv.composerTab';
+
+/** Le schede del pannello a destra dell'anteprima. */
+export const COMPOSER_TABS = ['photo', 'adjust', 'layers', 'templates'] as const;
+export type ComposerTab = (typeof COMPOSER_TABS)[number];
+const tabLabel: Record<ComposerTab, Key> = { photo: 'sstv.tab.photo', adjust: 'sstv.tab.adjust', layers: 'sstv.layers', templates: 'sstv.tpl.title' };
+const tabTip: Record<ComposerTab, Key> = { photo: 'sstv.tab.photo.tip', adjust: 'sstv.tab.adjust.tip', layers: 'sstv.tab.layers.tip', templates: 'sstv.tab.templates.tip' };
+
+/** La scheda ricordata nel browser (la prima volta «Foto»). */
+function loadTab(): ComposerTab {
+  try {
+    const v = browserStorage()?.getItem(TAB_KEY);
+    return COMPOSER_TABS.find((k) => k === v) ?? 'photo';
+  } catch {
+    return 'photo';
+  }
+}
 
 export interface IncomingImage {
   blob: Blob;
@@ -79,6 +96,14 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
   const [hist, setHist] = useState(() => historyStart<Composition>({ ...emptyComposition(), layers: presetLayers('cq') }));
   const comp = hist.present;
   const [selected, setSelected] = useState<string | null>(null);
+  const [tab, setTab] = useState<ComposerTab>(loadTab);
+  useEffect(() => {
+    try {
+      browserStorage()?.setItem(TAB_KEY, tab);
+    } catch {
+      // niente memoria del browser: la scheda si sceglie di nuovo
+    }
+  }, [tab]);
   const [bg, setBg] = useState<HTMLCanvasElement | null>(null);
   const [call, setCall] = useState('');
   const [problem, setProblem] = useState('');
@@ -216,6 +241,7 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
       }
       setProblem('');
       setBg(img);
+      setTab('photo');
       setHist((h) => historyPush(h, { ...h.present, background: { ...h.present.background, zoom: 1, panX: 0, panY: 0 } }));
     },
     [t],
@@ -316,6 +342,7 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
         const mid = boxPoint(box, l.rotation, 0, 0);
         if (pointInRotatedRect(p.x, p.y, mid.x, mid.y, box.w, box.h, l.rotation)) {
           setSelected(l.id);
+          setTab('layers');
           drag.current = { kind: 'move', id: l.id, dx: p.x - l.x * W, dy: p.y - l.y * H, before };
           return;
         }
@@ -512,32 +539,13 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
         </div>
       </div>
 
-      <div className="sstv-editor">
-        {/* da sinistra: foto di sfondo (o il livello scelto), anteprima, livelli e modelli */}
-        <aside className="sstv-panel sstv-panel--photo">
-          {sel ? <LayerInspector layer={sel} patch={patchSel} /> : <BackgroundInspector background={comp.background} hasPhoto={bg !== null} patch={patchBg} onFolderPhoto={(b) => void takeFile(b)} onPick={() => fileInput.current?.click()} onRemove={() => setBg(null)} />}
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void takeFile(f);
-              e.target.value = '';
-            }}
-          />
-          {sel ? (
-            <button type="button" className="glass sstv-btn sstv-wide" onClick={() => setSelected(null)}>
-              {t('sstv.bg.title')}
-            </button>
-          ) : null}
-        </aside>
+      <div className="sstv-editor" style={{ '--sstv-art-w': `min(520px, calc(38vh / var(--ui-zoom, 1) * ${W} / ${H}))` } as CSSProperties}>
+        {/* a sinistra l'anteprima; a destra il pannello a schede, alto quanto l'anteprima */}
         <div className="sstv-center">
           <div
             ref={stage}
             className={`sstv-artboard${dropping ? ' sstv-artboard--drop' : ''}`}
-            style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(38vh / var(--ui-zoom, 1) * ${W} / ${H}))` }}
+            style={{ aspectRatio: `${W} / ${H}` }}
             onDragOver={(e) => {
               if ([...e.dataTransfer.items].some((i) => i.kind === 'file')) {
                 e.preventDefault();
@@ -591,108 +599,152 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
           ) : null}
         </div>
 
-        <aside className="sstv-panel sstv-panel--layers">
-          <h3>{t('sstv.layers')}</h3>
-          <div className="sstv-add">
-            <button type="button" className="glass sstv-btn" onClick={() => add(textLayer('{MYCALL}'))}>
-              {t('sstv.add.text')}
-            </button>
-            <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('rect', { fill: { kind: 'solid', color: '#000000' }, opacity: 0.55, stroke: 0 }))}>
-              {t('sstv.add.rect')}
-            </button>
-            <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('ellipse'))}>
-              {t('sstv.add.ellipse')}
-            </button>
-            <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('frame'))}>
-              {t('sstv.add.frame')}
-            </button>
-            <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('bars', { y: 0.94, w: 1, h: 0.12, filled: true, stroke: 0 }))}>
-              {t('sstv.add.bars')}
-            </button>
-          </div>
-          {comp.layers.length === 0 ? <p className="sstv-hint">{t('sstv.layers.empty')}</p> : null}
-          <ol className="sstv-layers">
-            {[...comp.layers].reverse().map((l) => (
-              <li key={l.id} className={l.id === selected ? 'sstv-layer sstv-layer--on' : 'sstv-layer'}>
-                <button type="button" className="sstv-layer-name" onClick={() => setSelected(l.id)}>
-                  <span className={`sstv-layer-kind sstv-layer-kind--${l.kind}`} aria-hidden="true" />
-                  <span className={l.hidden ? 'sstv-muted' : ''}>{layerName(l)}</span>
+        <aside className="sstv-panel sstv-tabs-panel">
+          <div className="sstv-tabs-inner">
+            <div
+              className="sstv-tabs"
+              role="tablist"
+              aria-label={t('sstv.tabs.label')}
+              onKeyDown={(e) => {
+                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                if (!step) return;
+                e.preventDefault();
+                const next = COMPOSER_TABS[(COMPOSER_TABS.indexOf(tab) + step + COMPOSER_TABS.length) % COMPOSER_TABS.length];
+                if (!next) return;
+                setTab(next);
+                document.getElementById(`sstv-tab-${next}`)?.focus();
+              }}
+            >
+              {COMPOSER_TABS.map((k) => (
+                <button key={k} id={`sstv-tab-${k}`} type="button" role="tab" className="sstv-tab" aria-selected={tab === k} aria-controls="sstv-tabbody" tabIndex={tab === k ? 0 : -1} title={t(tabTip[k])} onClick={() => setTab(k)}>
+                  {t(tabLabel[k])}
                 </button>
-                {/* i comandi stanno sulla stessa riga del nome, piccoli: con tre o quattro testi la lista resta corta */}
-                <span className="sstv-layer-tools">
-                  <button type="button" title={t('sstv.layer.up')} aria-label={t('sstv.layer.up')} onClick={() => commit({ ...comp, layers: moveLayer(comp.layers, l.id, 1) })}>
-                    ▲
+              ))}
+            </div>
+            <div className="sstv-tabbody" id="sstv-tabbody" role="tabpanel" aria-labelledby={`sstv-tab-${tab}`}>
+              {tab === 'photo' ? (
+                <PhotoTab background={comp.background} hasPhoto={bg !== null} patch={patchBg} onFolderPhoto={(b) => void takeFile(b)} onPick={() => fileInput.current?.click()} />
+              ) : null}
+              {tab === 'adjust' ? <AdjustTab background={comp.background} hasPhoto={bg !== null} patch={patchBg} onRemove={() => setBg(null)} /> : null}
+              {tab === 'layers' ? (
+                <>
+                  <div className="sstv-add">
+                    <button type="button" className="glass sstv-btn" onClick={() => add(textLayer('{MYCALL}'))}>
+                      {t('sstv.add.text')}
+                    </button>
+                    <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('rect', { fill: { kind: 'solid', color: '#000000' }, opacity: 0.55, stroke: 0 }))}>
+                      {t('sstv.add.rect')}
+                    </button>
+                    <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('ellipse'))}>
+                      {t('sstv.add.ellipse')}
+                    </button>
+                    <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('frame'))}>
+                      {t('sstv.add.frame')}
+                    </button>
+                    <button type="button" className="glass sstv-btn" onClick={() => add(shapeLayer('bars', { y: 0.94, w: 1, h: 0.12, filled: true, stroke: 0 }))}>
+                      {t('sstv.add.bars')}
+                    </button>
+                  </div>
+                  {comp.layers.length === 0 ? <p className="sstv-hint">{t('sstv.layers.empty')}</p> : null}
+                  <ol className="sstv-layers">
+                    {[...comp.layers].reverse().map((l) => (
+                      <li key={l.id} className={l.id === selected ? 'sstv-layer sstv-layer--on' : 'sstv-layer'}>
+                        <button type="button" className="sstv-layer-name" aria-pressed={l.id === selected} onClick={() => setSelected(l.id === selected ? null : l.id)}>
+                          <span className={`sstv-layer-kind sstv-layer-kind--${l.kind}`} aria-hidden="true" />
+                          <span className={l.hidden ? 'sstv-muted' : ''}>{layerName(l)}</span>
+                        </button>
+                        {/* i comandi stanno sulla stessa riga del nome, piccoli: con tre o quattro testi la lista resta corta */}
+                        <span className="sstv-layer-tools">
+                          <button type="button" title={t('sstv.layer.up')} aria-label={t('sstv.layer.up')} onClick={() => commit({ ...comp, layers: moveLayer(comp.layers, l.id, 1) })}>
+                            ▲
+                          </button>
+                          <button type="button" title={t('sstv.layer.down')} aria-label={t('sstv.layer.down')} onClick={() => commit({ ...comp, layers: moveLayer(comp.layers, l.id, -1) })}>
+                            ▼
+                          </button>
+                          <button
+                            type="button"
+                            title={l.hidden ? t('sstv.layer.show') : t('sstv.layer.hide')}
+                            aria-label={l.hidden ? t('sstv.layer.show') : t('sstv.layer.hide')}
+                            aria-pressed={l.hidden}
+                            onClick={() => commit({ ...comp, layers: updateLayer(comp.layers, l.id, { hidden: !l.hidden }) })}
+                          >
+                            {l.hidden ? '○' : '◉'}
+                          </button>
+                          <button type="button" title={t('sstv.layer.dup')} aria-label={t('sstv.layer.dup')} onClick={() => commit({ ...comp, layers: duplicateLayer(comp.layers, l.id) })}>
+                            ⧉
+                          </button>
+                          <button
+                            type="button"
+                            className="sstv-danger"
+                            title={t('sstv.layer.del')}
+                            aria-label={t('sstv.layer.del')}
+                            onClick={() => {
+                              commit({ ...comp, layers: comp.layers.filter((x) => x.id !== l.id) });
+                              if (selected === l.id) setSelected(null);
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  {sel ? <LayerInspector layer={sel} patch={patchSel} /> : null}
+                </>
+              ) : null}
+              {tab === 'templates' ? (
+                <>
+                  <div className="sstv-add">
+                    {(['cq', 'reply', 'qsl'] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        className="glass sstv-btn"
+                        onClick={() => {
+                          commit({ ...comp, layers: presetLayers(k) });
+                          setSelected(null);
+                        }}
+                      >
+                        {t(`sstv.tpl.${k}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" className="glass sstv-btn sstv-wide" onClick={saveTemplate}>
+                    {t('sstv.tpl.save')}
                   </button>
-                  <button type="button" title={t('sstv.layer.down')} aria-label={t('sstv.layer.down')} onClick={() => commit({ ...comp, layers: moveLayer(comp.layers, l.id, -1) })}>
-                    ▼
-                  </button>
-                  <button
-                    type="button"
-                    title={l.hidden ? t('sstv.layer.show') : t('sstv.layer.hide')}
-                    aria-label={l.hidden ? t('sstv.layer.show') : t('sstv.layer.hide')}
-                    aria-pressed={l.hidden}
-                    onClick={() => commit({ ...comp, layers: updateLayer(comp.layers, l.id, { hidden: !l.hidden }) })}
-                  >
-                    {l.hidden ? '○' : '◉'}
-                  </button>
-                  <button type="button" title={t('sstv.layer.dup')} aria-label={t('sstv.layer.dup')} onClick={() => commit({ ...comp, layers: duplicateLayer(comp.layers, l.id) })}>
-                    ⧉
-                  </button>
-                  <button
-                    type="button"
-                    className="sstv-danger"
-                    title={t('sstv.layer.del')}
-                    aria-label={t('sstv.layer.del')}
-                    onClick={() => {
-                      commit({ ...comp, layers: comp.layers.filter((x) => x.id !== l.id) });
-                      if (selected === l.id) setSelected(null);
-                    }}
-                  >
-                    ✕
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ol>
-
-          <h3>{t('sstv.tpl.title')}</h3>
-          <div className="sstv-add">
-            {(['cq', 'reply', 'qsl'] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                className="glass sstv-btn"
-                onClick={() => {
-                  commit({ ...comp, layers: presetLayers(k) });
-                  setSelected(null);
-                }}
-              >
-                {t(`sstv.tpl.${k}`)}
-              </button>
-            ))}
+                  {templates.length > 0 ? (
+                    <>
+                      <h4>{t('sstv.tpl.mine')}</h4>
+                      <ul className="sstv-templates">
+                        {templates.map((tpl) => (
+                          <li key={tpl.name}>
+                            <button type="button" className="sstv-layer-name" onClick={() => void useTemplate(tpl)}>
+                              {tpl.name}
+                            </button>
+                            <button type="button" className="sstv-danger" title={t('sstv.tpl.delete')} onClick={() => deleteTemplate(tpl.name)}>
+                              {t('sstv.layer.del')}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           </div>
-          <button type="button" className="glass sstv-btn sstv-wide" onClick={saveTemplate}>
-            {t('sstv.tpl.save')}
-          </button>
-          {templates.length > 0 ? (
-            <>
-              <h4>{t('sstv.tpl.mine')}</h4>
-              <ul className="sstv-templates">
-                {templates.map((tpl) => (
-                  <li key={tpl.name}>
-                    <button type="button" className="sstv-layer-name" onClick={() => void useTemplate(tpl)}>
-                      {tpl.name}
-                    </button>
-                    <button type="button" className="sstv-danger" title={t('sstv.tpl.delete')} onClick={() => deleteTemplate(tpl.name)}>
-                      {t('sstv.layer.del')}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void takeFile(f);
+              e.target.value = '';
+            }}
+          />
         </aside>
-
       </div>
     </section>
   );
@@ -883,7 +935,7 @@ function TxFolderPhotos({ onPhoto }: { onPhoto: (b: Blob) => void }) {
     void client.invalidateQueries({ queryKey: ['sstv-tx-folder'] });
   };
   return (
-    <div className="sstv-field">
+    <div className="sstv-field sstv-folder">
       <span className="sstv-photos-head">
         {t('sstv.bg.fromFolder')} ({files.length})
         <span className="sstv-hist-tools">
@@ -933,34 +985,45 @@ function TxFolderPhotos({ onPhoto }: { onPhoto: (b: Blob) => void }) {
   );
 }
 
-function BackgroundInspector({ background, hasPhoto, patch, onPick, onRemove, onFolderPhoto }: { background: Background; hasPhoto: boolean; patch: (p: Partial<Background>, key: string) => void; onPick: () => void; onRemove: () => void; onFolderPhoto: (b: Blob) => void }) {
+/** Scheda «Foto»: scegliere la foto e come sta nell'immagine. */
+function PhotoTab({ background, hasPhoto, patch, onPick, onFolderPhoto }: { background: Background; hasPhoto: boolean; patch: (p: Partial<Background>, key: string) => void; onPick: () => void; onFolderPhoto: (b: Blob) => void }) {
   const t = useT();
-  const a = background.adjust;
   return (
-    <div className="sstv-inspector">
-      <h3>{t('sstv.bg.title')}</h3>
+    <>
       <button type="button" className="glass sstv-btn sstv-btn--primary sstv-wide" onClick={onPick}>
         {t('sstv.bg.load')}
       </button>
+      <p className="sstv-hint">{t('sstv.bg.dropShort')}</p>
       <TxFolderPhotos onPhoto={onFolderPhoto} />
-      <p className="sstv-hint">{t('sstv.bg.drop')}</p>
-      {/* i comandi della foto sono sempre aperti (spenti finche' non c'e' una foto): tutto in vista, sempre allo stesso posto */}
-      <div className="sstv-seg" role="group" aria-label={t('sstv.bg.fit')}>
-        <button type="button" disabled={!hasPhoto} className={background.fit === 'cover' ? 'on' : ''} onClick={() => patch({ fit: 'cover' }, 'fit')}>
-          {t('sstv.bg.cover')}
-        </button>
-        <button type="button" disabled={!hasPhoto} className={background.fit === 'contain' ? 'on' : ''} onClick={() => patch({ fit: 'contain' }, 'fit')}>
-          {t('sstv.bg.contain')}
-        </button>
+      {/* i comandi della foto sono sempre in vista (spenti finche' non c'e' una foto) */}
+      <div className="sstv-fitrow">
+        <div className="sstv-seg" role="group" aria-label={t('sstv.bg.fit')}>
+          <button type="button" disabled={!hasPhoto} className={background.fit === 'cover' ? 'on' : ''} onClick={() => patch({ fit: 'cover' }, 'fit')}>
+            {t('sstv.bg.cover')}
+          </button>
+          <button type="button" disabled={!hasPhoto} className={background.fit === 'contain' ? 'on' : ''} onClick={() => patch({ fit: 'contain' }, 'fit')}>
+            {t('sstv.bg.contain')}
+          </button>
+        </div>
       </div>
       {/* «Adatta»: la foto torna tutta dentro l'immagine (intera, centrata, senza zoom) */}
       <button type="button" className="glass sstv-btn sstv-wide" disabled={!hasPhoto} title={t('sstv.bg.fitAllTip')} onClick={() => patch({ fit: 'contain', zoom: 1, panX: 0, panY: 0 }, 'fitAll')}>
         {t('sstv.bg.fitAll')}
       </button>
+      <ColorField label={t('sstv.bg.color')} value={background.color} onChange={(color) => patch({ color }, 'color')} />
+    </>
+  );
+}
+
+/** Scheda «Ritocchi»: zoom, spostamento, luminosita', contrasto e saturazione. */
+function AdjustTab({ background, hasPhoto, patch, onRemove }: { background: Background; hasPhoto: boolean; patch: (p: Partial<Background>, key: string) => void; onRemove: () => void }) {
+  const t = useT();
+  const a = background.adjust;
+  return (
+    <>
       <Slider label={t('sstv.bg.zoom')} value={Math.round(background.zoom * 100)} min={Math.round(ZOOM_MIN * 100)} max={Math.round(ZOOM_MAX * 100)} step={5} show={`${Math.round(background.zoom * 100)} %`} disabled={!hasPhoto} onChange={(v) => patch({ zoom: v / 100 }, 'zoom')} />
       <Slider label={t('sstv.bg.panX')} value={Math.round(background.panX * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panX: v / 100 }, 'panX')} />
       <Slider label={t('sstv.bg.panY')} value={Math.round(background.panY * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panY: v / 100 }, 'panY')} />
-      <p className="sstv-hint">{t('sstv.bg.panHint')}</p>
       <Slider label={t('sstv.bg.brightness')} value={a.brightness} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, brightness: v } }, 'brightness')} />
       <Slider label={t('sstv.bg.contrast')} value={a.contrast} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, contrast: v } }, 'contrast')} />
       <Slider label={t('sstv.bg.saturation')} value={a.saturation} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, saturation: v } }, 'saturation')} />
@@ -972,7 +1035,7 @@ function BackgroundInspector({ background, hasPhoto, patch, onPick, onRemove, on
           {t('sstv.bg.remove')}
         </button>
       </div>
-      <ColorField label={t('sstv.bg.color')} value={background.color} onChange={(color) => patch({ color }, 'color')} />
-    </div>
+      <p className="sstv-hint">{t('sstv.bg.panHintShort')}</p>
+    </>
   );
 }
