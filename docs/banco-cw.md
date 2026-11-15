@@ -340,3 +340,50 @@ regge meglio il QSB lento a 0 dB, ma perde molto a 40 WPM (la finestra da 60 Hz 
 molto fra canale e BigScan sullo stesso segnale (QSB veloce 67,5 contro 25,7): l'avvio e l'inseguimento della velocita' della catena si
 agganciano male e non sempre si riprendono. Come modo «bassa latenza» nessuna delle due varianti e' pronta: quella sulla potenza perde
 171 caratteri giusti (1%) e ha il 60% di nominativi falsi in piu'; quella coerente perde il 5% dei caratteri.
+
+## Settimo giro: velocita' in parallelo nella catena coerente
+
+La sequenza a durate esplicite gira in otto copie (`speeds=8`): la prima segue il modello adattato, le altre stanno su una griglia di
+unita' fra 10 e 55 WPM con le classi legate all'unita' (la forma del pugno imparata, spostata all'unita' dell'ipotesi). Ogni copia
+accumula il suo punteggio; a ogni decisione si risale la migliore e quelle rimaste indietro di oltre 40 (logaritmo) ripartono dal suo
+stato (cambio di velocita' con penalita'). Se la migliore e' su un'unita' lontana da quella del modello (oltre il 50%) per due decisioni con
+toni, il modello si riaggancia a quell'unita'. Il giudizio di un tono somma a quello coerente il 30% di quello passo per passo sulla
+potenza (`coh_mix=0.3`). Valori di base della catena: `emit_mode=2`, `speeds=8`, `coh_mix=0.3`, `speed_drop=40`, `relock_ln=0.4`.
+
+Provati sulle righe difficili (3 semi, giusti): una sola velocita' 3058, otto 3216, piu' il 30% sulla potenza 3339 (con l'80%: 3306);
+attuale 3409. Lasciati: varianza minima delle classi 0,04, deviazione massima 1,0, riaggancio dopo 4 decisioni o mai (il tasto a mano
+migliora di poco, il salto di velocita' torna a 7,7%), 12 velocita' (+10 caratteri, calcolo +45%), otto velocita' con l'emissione sulla
+potenza (la stazione vicina si rompe, 94%).
+
+8 semi:
+
+| totali | attuale canale | catena veloce canale | attuale BigScan | catena veloce BigScan |
+|---|---|---|---|---|
+| caratteri giusti | 16728 | **16769** | 16622 | **16648** |
+| sbagliati / mancanti / inseriti | 893 / 661 / 290 | 1303 / 210 / 680 | 833 / 827 / 274 | 1338 / 296 / 683 |
+| CER medio | **10,43** | 12,44 | **10,87** | 13,10 |
+| nominativi esatti / falsi | **759 / 143** | 753 / 211 | **755 / 143** | 729 / 235 |
+| falsi sul rumore (8 min) | 0 | 0 | 0 | 0 |
+| latenza mediana / 95° | 1,25 / 2,13 s | **0,56 / 0,71 s** | 1,26 / 2,13 s | **0,57 / 0,73 s** |
+| calcolo | **11,2 ms/s** | 12,4 ms/s | **5,7 ms/s** | 12,8 ms/s |
+
+| CER % | attuale | catena veloce | attuale BigScan | catena veloce BigScan |
+|---|---|---|---|---|
+| 18-40 WPM +10, 25 WPM +3 | 0,0 | 0,1-0,2 | 0,0 | 0,1-0,6 |
+| 25 WPM 0 | 1,5 | 4,3 | 1,6 | 2,4 |
+| 25 WPM -3 | 20,1 | **18,7** | 21,7 | **19,0** |
+| 25 WPM -6 | 81,7 | 80,6 | 86,8 | **77,4** |
+| 40 WPM 0 | 8,7 | 13,1 | 11,6 | 14,7 |
+| salto 18-35 | 1,1 | 3,9 | 0,6 | 7,4 |
+| manuale +10 / +3 | 6,6 / 7,7 | 17,5 / 14,0 | 7,4 / 8,4 | 14,8 / 14,9 |
+| qsb lento / lento 0 | 5,9 / 20,8 | 6,3 / 25,2 | 5,3 / 20,5 | 6,9 / 25,6 |
+| qsb veloce | 52,4 | **51,7** | 51,1 | **47,0** |
+| crepitii | 0,0 | 3,9 | 0,0 | 17,5 |
+| vicina +20 | 1,1 | **0,9** | 1,1 | **0,7** |
+| silenzi / 0 / 32 | 0,0 / 0,9 / 0,1 | 0,3 / 7,5 / 0,3 | 0,1 / 0,9 / 0,1 | 1,3 / 8,6 / 2,9 |
+
+Esito: la catena veloce supera l'attuale sui caratteri giusti (+41 sul canale, +26 su BigScan) con meno della meta' della latenza, ma ha
+68 nominativi falsi in piu' sul canale (92 su BigScan) e 6 esatti in meno: troppe lettere inserite (680 contro 290: evanescenza veloce,
+-6 dB, tasto a mano, crepitii in BigScan). Non e' quindi ne' predefinita ne' offerta come opzione: **resta spenta**, l'interfaccia non cambia.
+Mancano: meno inserzioni (sul tasto a mano e sui crepitii perde ancora molto), e il calcolo di BigScan, che con otto copie per canale
+cresce con il numero dei canali.
