@@ -3764,7 +3764,7 @@ export const NL_UI: Record<string, string> = {
   "sdr.tci": "TCI-verbinding",
   "sdr.useAll": "TCI voor alles gebruiken",
   "sdr.useAllAsk": "CAT schakelt over naar TCI ({address}) en audio-ingang en -uitgang naar “TCI (dalla radio)” en “TCI (alla radio)”. Je vorige keuzes voor radio en audio worden vervangen. Doorgaan?",
-  "send.clublog_denied": "Club Log weigerde de toegang ({detail}); het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt",
+  "send.clublog_denied": "Club Log weigerde de toegang ({detail}); het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt. Controleer het e-mailadres, het app-wachtwoord (App Password), de roepnaam van het log en de API-sleutel, of gebruik het Club Log-token",
   "send.clublog_duplicate": "QSO met {calls} staat al op Club Log{d}",
   "send.clublog_off": "Club Log staat uit in de instellingen; het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt",
   "send.clublog_rejected": "QSO met {calls} geweigerd door Club Log: {detail}",

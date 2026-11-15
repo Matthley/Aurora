@@ -5096,7 +5096,7 @@ send.clublog_duplicate,QSO with {calls} already on Club Log{d},QSO met {calls} s
 send.clublog_rejected,QSO with {calls} rejected by Club Log: {detail},QSO met {calls} geweigerd door Club Log: {detail}
 send.clublog_rejected.plain,QSO with {calls} rejected by Club Log: invalid data,QSO met {calls} geweigerd door Club Log: ongeldige gegevens
 send.clublog_rejected_status,QSO with {calls} rejected by Club Log (reply {detail}),QSO met {calls} geweigerd door Club Log (antwoord {detail})
-send.clublog_denied,Club Log denied access ({detail}); sending is paused (the QSOs stay queued) until you change the settings,Club Log weigerde de toegang ({detail}); het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt
+send.clublog_denied,"Club Log denied access ({detail}); sending is paused (the QSOs stay queued) until you change the settings. Check the email, the application password (App Password), the log callsign and the API key, or use the Club Log token","Club Log weigerde de toegang ({detail}); het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt. Controleer het e-mailadres, het app-wachtwoord (App Password), de roepnaam van het log en de API-sleutel, of gebruik het Club Log-token"
 send.clublog_retry_http,Club Log replied {detail}: next attempt at {time} UTC,Club Log antwoordde {detail}: volgende poging om {time} UTC
 send.clublog_retry_network,{detail}: next attempt at {time} UTC,{detail}: volgende poging om {time} UTC
 send.clublog_off,Club Log is switched off in the settings; sending is paused (the QSOs stay queued) until you change the settings,Club Log staat uit in de instellingen; het verzenden staat stil (de QSO’s blijven in de wachtrij) tot je de instellingen wijzigt

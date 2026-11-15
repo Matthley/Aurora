@@ -38,7 +38,7 @@ pub fn read_reply(status: u16, body: &str) -> Outcome {
 /// - `clublog_retry_http`: 408, 429 o 5xx, servizio occupato (si riprova);
 /// - `clublog_rejected_status`: ogni altro numero, QSO rifiutato.
 pub fn read_reply_coded(status: u16, body: &str) -> (Outcome, &'static str, String) {
-    let text = short(body, 120);
+    let text = reply_text(body);
     let lower = text.to_lowercase();
     match status {
         200 if lower.contains("dupe") || lower.contains("duplicate") => (Outcome::Duplicate(text.clone()), "clublog_duplicate", text),
@@ -53,6 +53,30 @@ pub fn read_reply_coded(status: u16, body: &str) -> (Outcome, &'static str, Stri
     }
 }
 
+/// Il testo della risposta in una riga: di una pagina HTML (per esempio il 403 del firewall di Club Log) solo il titolo, non il titolo ripetuto
+/// nel corpo e la firma del server.
+fn reply_text(body: &str) -> String {
+    let lower = body.to_ascii_lowercase();
+    if let (Some(a), Some(b)) = (lower.find("<title>"), lower.find("</title>"))
+        && a + 7 <= b
+        && let Some(title) = body.get(a + 7..b)
+    {
+        return short(title, 120);
+    }
+    short(body, 120)
+}
+
+/// I campi della richiesta, senza spazi o a capo copiati per sbaglio intorno a email, password, nominativo e chiave (Club Log li rifiuterebbe
+/// con un 403 e, a forza di ripetere, bloccherebbe l'indirizzo); il nominativo in maiuscolo.
+pub fn fields<'a>(form: &'a Form<'_>, callsign: &'a str, record: &'a str) -> [(&'static str, &'a str); 5] {
+    [("email", form.email.trim()), ("password", form.password.trim()), ("callsign", callsign), ("adif", record.trim()), ("api", form.api.trim())]
+}
+
+/// Il nome del programma per Club Log, che vuole un User-Agent riconducibile a chi lo scrive: si aggiunge l'indirizzo del progetto.
+pub fn agent_name(base: &str) -> String {
+    if base.contains("+https://") { base.to_string() } else { format!("{base} (+https://github.com/wifi75/Aurora)") }
+}
+
 /// Manda un QSO (bloccante).
 pub fn upload(url: &str, form: &Form<'_>, record: &str, timeout: Duration, user_agent: &str) -> Outcome {
     upload_coded(url, form, record, timeout, user_agent).0
@@ -60,8 +84,8 @@ pub fn upload(url: &str, form: &Form<'_>, record: &str, timeout: Duration, user_
 
 /// Come [`upload`], con codice e `detail` dell'esito (vedi [`read_reply_coded`]); un errore di rete e' `clublog_retry_network` con la causa.
 pub fn upload_coded(url: &str, form: &Form<'_>, record: &str, timeout: Duration, user_agent: &str) -> (Outcome, &'static str, String) {
-    let fields = [("email", form.email), ("password", form.password), ("callsign", form.callsign), ("adif", record), ("api", form.api)];
-    match agent(timeout, user_agent).post(url).send_form(fields) {
+    let callsign = form.callsign.trim().to_uppercase();
+    match agent(timeout, &agent_name(user_agent)).post(url).send_form(fields(form, &callsign, record)) {
         Ok(mut response) => {
             let status = response.status().as_u16();
             let text = response.body_mut().read_to_string().unwrap_or_default();
@@ -80,13 +104,13 @@ pub fn upload_coded(url: &str, form: &Form<'_>, record: &str, timeout: Duration,
 
 /// La «prova» senza invio: i dati ci sono e hanno una forma credibile.
 pub fn check(form: &Form<'_>) -> Result<String, String> {
-    if !form.email.contains('@') {
+    if !form.email.trim().contains('@') {
         return Err("serve l'email registrata su Club Log".into());
     }
     if form.callsign.is_empty() {
         return Err("serve il nominativo del log (o il tuo nominativo nella scheda Generali)".into());
     }
-    if form.password.is_empty() || form.api.is_empty() {
+    if form.password.trim().is_empty() || form.api.trim().is_empty() {
         return Err("servono la password e la chiave API dell'applicazione".into());
     }
     Ok(format!(
@@ -145,7 +169,7 @@ pub fn token_body(callsign: &str, record: &str) -> String {
 pub fn upload_token(api_url: &str, token: &str, callsign: &str, record: &str, timeout: Duration, user_agent: &str) -> (Outcome, &'static str, String) {
     let url = format!("{}/qso", api_url.trim_end_matches('/'));
     let bearer = format!("Bearer {}", token.trim());
-    let request = agent(timeout, user_agent)
+    let request = agent(timeout, &agent_name(user_agent))
         .post(&url)
         .header("Authorization", &bearer)
         .header("Content-Type", "application/json")
@@ -183,7 +207,7 @@ pub fn check_token(api_url: &str, token: &str, callsign: &str, timeout: Duration
     }
     let url = format!("{}/me/usage?days=1", api_url.trim_end_matches('/'));
     let bearer = format!("Bearer {}", token.trim());
-    match agent(timeout, user_agent).get(&url).header("Authorization", &bearer).header("Accept", "application/json").call() {
+    match agent(timeout, &agent_name(user_agent)).get(&url).header("Authorization", &bearer).header("Accept", "application/json").call() {
         Ok(mut response) => {
             let status = response.status().as_u16();
             let text = response.body_mut().read_to_string().unwrap_or_default();
@@ -224,6 +248,27 @@ mod tests {
         assert_eq!(code(403, ""), ("clublog_denied", "403".to_string()), "senza testo il dettaglio e' il numero");
         assert_eq!(code(503, ""), ("clublog_retry_http", "503".to_string()));
         assert_eq!(code(404, ""), ("clublog_rejected_status", "404".to_string()));
+    }
+
+    #[test]
+    fn an_html_error_page_is_read_by_its_title() {
+        let page = "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body><center><h1>403 Forbidden</h1></center><hr><center>nginx</center></body></html>";
+        assert_eq!(read_reply_coded(403, page).2, "403 Forbidden");
+        assert_eq!(read_reply_coded(403, "Invalid API key").2, "Invalid API key", "un testo semplice resta intero");
+    }
+
+    #[test]
+    fn the_user_agent_names_the_project() {
+        assert_eq!(agent_name("Aurora/1.0"), "Aurora/1.0 (+https://github.com/wifi75/Aurora)");
+        assert_eq!(agent_name("Aurora/1.0 (+https://example.com)"), "Aurora/1.0 (+https://example.com)");
+    }
+
+    #[test]
+    fn the_fields_lose_copied_spaces() {
+        let form = Form { email: " iu3abc@example.com ", password: "segreta\r\n", callsign: "iu3abc ", api: " 0123abcd\n" };
+        let call = form.callsign.trim().to_uppercase();
+        let f = fields(&form, &call, " <CALL:5>K1ABC <EOR>\r\n");
+        assert_eq!(f, [("email", "iu3abc@example.com"), ("password", "segreta"), ("callsign", "IU3ABC"), ("adif", "<CALL:5>K1ABC <EOR>"), ("api", "0123abcd")]);
     }
 
     #[test]

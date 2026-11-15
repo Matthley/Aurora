@@ -196,6 +196,25 @@ async fn clublog_stops_on_a_credentials_error_and_restarts_when_they_change() {
 }
 
 #[tokio::test]
+async fn clublog_sends_clean_fields_and_shows_the_firewall_page_by_its_title() {
+    let page = "<html><head><title>403 Forbidden</title></head><body><h1>403 Forbidden</h1><hr>nginx</body></html>";
+    let (url, mut requests) = server(vec![("403 Forbidden", page)]).await;
+    let endpoints = Endpoints { clublog_url: format!("{url}/realtime.php"), ..Endpoints::default() };
+    let r = rig(endpoints, Config { clublog: Some(ClublogAccount { email: " iu3abc@example.com".into(), callsign: "iu3abc ".into() }), ..base() });
+    r.secrets.set(CLUBLOG_SECRET, "app-password\r\n").unwrap();
+    r.secrets.set(CLUBLOG_API_SECRET, " chiave-app ").unwrap();
+    r.bus.events().send(Event::QsoLogged(qso("DL1ABC"))).unwrap();
+    let request = timeout(Duration::from_secs(5), requests.recv()).await.expect("richiesta").unwrap();
+    assert!(request.to_lowercase().contains("(+https://github.com/wifi75/aurora)"), "User-Agent col progetto: {request}");
+    let body = decode(request.split("\r\n\r\n").nth(1).unwrap());
+    for part in ["email=iu3abc@example.com&", "password=app-password&", "callsign=IU3ABC&", "api=chiave-app"] {
+        assert!(body.contains(part), "{part}: {body}");
+    }
+    let st = wait_status(&r, "clublog", false).await;
+    assert_eq!((st.code.as_str(), st.params.get("detail").map(String::as_str)), ("clublog_denied", Some("403 Forbidden")), "{st:?}");
+}
+
+#[tokio::test]
 async fn the_test_of_wavelog_reads_the_stations_without_writing_and_lotw_needs_tqsl() {
     let (url, mut requests) = server(vec![
         ("200 OK", "<auth><status>Valid</status><rights>rw</rights></auth>"),

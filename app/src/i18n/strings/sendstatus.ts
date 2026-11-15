@@ -130,12 +130,12 @@ export const sendStatusStrings = {
     'QSO com {calls} recusado pelo Club Log (resposta {detail})',
   ],
   'send.clublog_denied': [
-    'Club Log ha negato l’accesso ({detail}); invio fermo (i QSO restano in coda) finché non cambi le impostazioni',
-    'Club Log denied access ({detail}); sending is paused (the QSOs stay queued) until you change the settings',
-    'Club Log hat den Zugang verweigert ({detail}); das Senden ist angehalten (die QSOs bleiben in der Warteschlange), bis du die Einstellungen änderst',
-    'Club Log a refusé l’accès ({detail}) ; envoi suspendu (les QSO restent en file d’attente) jusqu’à ce que tu changes les réglages',
-    'Club Log ha denegado el acceso ({detail}); envío detenido (los QSO siguen en cola) hasta que cambies los ajustes',
-    'O Club Log negou o acesso ({detail}); envio parado (os QSO ficam na fila) até alterares as definições',
+    'Club Log ha negato l’accesso ({detail}); invio fermo (i QSO restano in coda) finché non cambi le impostazioni. Controlla email, password per le applicazioni (App Password), nominativo del log e chiave API, oppure usa il token di Club Log',
+    'Club Log denied access ({detail}); sending is paused (the QSOs stay queued) until you change the settings. Check the email, the application password (App Password), the log callsign and the API key, or use the Club Log token',
+    'Club Log hat den Zugang verweigert ({detail}); das Senden ist angehalten (die QSOs bleiben in der Warteschlange), bis du die Einstellungen änderst. Prüfe E-Mail, Anwendungspasswort (App Password), Rufzeichen des Logs und API-Schlüssel, oder nutze das Club-Log-Token',
+    'Club Log a refusé l’accès ({detail}) ; envoi suspendu (les QSO restent en file d’attente) jusqu’à ce que tu changes les réglages. Vérifie l’e-mail, le mot de passe d’application (App Password), l’indicatif du log et la clé API, ou utilise le jeton Club Log',
+    'Club Log ha denegado el acceso ({detail}); envío detenido (los QSO siguen en cola) hasta que cambies los ajustes. Revisa el correo, la contraseña de aplicación (App Password), el indicativo del log y la clave API, o usa el token de Club Log',
+    'O Club Log negou o acesso ({detail}); envio parado (os QSO ficam na fila) até alterares as definições. Verifica o e-mail, a palavra-passe de aplicação (App Password), o indicativo do log e a chave API, ou usa o token do Club Log',
   ],
   'send.clublog_retry_http': [
     'Club Log ha risposto {detail}: nuovo tentativo alle {time} UTC',
