@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.266',
-    released: '2026-11-15T22:00:00Z',
+    released: '2026-11-15T15:51:57Z',
     kind: 'changed',
     featured: true,
     title: [
@@ -45,7 +45,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.266',
-    released: '2026-11-15T22:00:00Z',
+    released: '2026-11-15T15:51:57Z',
     kind: 'fixed',
     title: [
       'SSTV più stretto e token di Club Log',

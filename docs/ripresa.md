@@ -2,6 +2,11 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-15 (0.11.266 pubblicata 2026-11-15T15:51:57Z)
+
+- Impostazioni solo dal PC: rotte delle Impostazioni che sul client remoto ricadono sulla pagina principale (`isSettingsRoute`, `remoteFallback` in `lib/route.ts`), scritture delle impostazioni limitate con `settings_only_from_this_pc` (elenco in `docs/api.md`). Scelta del proprietario: il telefono resta per trasmettere e ricevere, niente altro (anche «PC lento», JT65/Q65 e profondita' di decodifica non vanno dal telefono).
+- SSTV pannello a schede largo al massimo 440 px; token Club Log sempre validato; test `ui_settings` allineato al limite di 1 MB; Gen.Msgs tolto dai README.
+
 ## Stato al 2026-11-15 (0.11.265 pubblicata 2026-11-15T14:00:59Z)
 
 - Aggiornamenti solo con «Installa» (tolto il conto alla rovescia di `UpdatePoster.tsx`; la locandina si apre solo a richiesta). Client remoti (`REMOTE_HOST` in `lib/phone.ts`): niente scritture delle impostazioni del PC, ascolto SSTV/testo solo con «Ascolta» (`ListenGate.tsx`). `POST /commands/band` con `mode` cambia il modo (`apply_mode_change`). «TX = RX» interruttore (`cw_wpm_follow_rx`). SSTV a schede. Intestazione «by IU3WJQ». README e Guida allineati al codice.
