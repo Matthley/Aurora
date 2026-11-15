@@ -174,5 +174,65 @@ Regola: si tiene solo cio' che non perde caratteri giusti ne' nominativi e non a
 | stessa, incertezza a priori 0,05 | 16714 | 748 / 143 | 10,54 | lasciata: -5 giusti, +7 falsi |
 | BigScan: spettro mediato piu' lento (0,2 invece di 0,4) per l'apertura dei canali | 16490 (BigScan) | 732 / 134 | 11,90 (BigScan) | lasciata: i canali si aprono tardi, mancanti 826 -> 1070 |
 
-Sul solo rumore nessuna prova ha stampato caratteri. L'adattamento correlato del pugno e' l'idea piu' promettente per il tasto a mano:
-va ripresa con un vincolo che non lasci allungare la pausa fra i caratteri fino a unire le lettere.
+Sul solo rumore nessuna prova ha stampato caratteri.
+
+## Quarto giro: ogni idea provata in piu' varianti
+
+Stessa regola, 8 semi, solo canale (BigScan dove detto). Partenza del canale: giusti 16719, nominativi 737 / 136 falsi.
+
+**Adattamento correlato del pugno (filtro di Kalman sui logaritmi delle medie)** — tenuto nella variante K3:
+
+| variante | giusti | nominativi esatti / falsi | CER medio |
+|---|---|---|---|
+| K1: solo linea e pausa breve | 16663 | 735 / 141 | 11,17 |
+| K2: tutte, pausa fra i caratteri al massimo 4 unita' | 16709 | 761 / 139 | 10,50 |
+| **K3: solo le pause fra i caratteri e fra le parole, correlate 0,6** | **16728** | **759 / 143** | **10,43** |
+| K4: come K3, incertezza a priori 0,07 | 16716 | 755 / 143 | 10,56 |
+| K5: come K3, correlazione 0,3 | 16716 | 756 / 142 | 10,55 |
+
+K3 su BigScan: giusti 16616 -> 16622, nominativi 733 -> 755 (falsi 138 -> 143); tasto a mano 39 -> 61 nominativi esatti su 78. Nessun
+carattere sul rumore, crepitii invariati. I nominativi falsi crescono di 7 su 938 mandati, contro 22 esatti in piu'.
+
+Da qui la partenza e' K3 (giusti 16728, nominativi 759 / 143).
+
+**Rumore dalle due spalle** (in `cw_noise`, come si combinano le due bande laterali quando sono pulite tutte e due) — lasciato:
+
+| variante | giusti | nominativi esatti / falsi | CER medio |
+|---|---|---|---|
+| media geometrica dei due lati | 16735 | 758 / 140 | 10,34 |
+| meta' aritmetica e meta' geometrica | 16751 | 758 / 144 | 10,36 |
+| media geometrica +10% | 16673 | 754 / 138 | 10,72 |
+
+Piu' caratteri giusti (fino a +23), ma sempre un nominativo esatto in meno.
+
+**Probabilita' dell'inviluppo con due tanh mescolata alla verosimiglianza coerente** (logaritmo del rapporto sommato sui campioni del
+tono, quasi zero a cancello chiuso) — lasciata:
+
+| peso / fondo | giusti | nominativi esatti / falsi | falsi sul rumore |
+|---|---|---|---|
+| 0,05 / 2 | 16642 | 739 / 134 | 1 in 8 min |
+| 0,01 / 3 | 16758 | 751 / 135 | 0 |
+| 0,003 / 3 | 16775 | 753 / 142 | 1 in 8 min |
+
+Con il peso piccolo i caratteri giusti salgono (+47, CER medio 10,43 -> 10,35) ma si perdono nominativi e torna un carattere sul rumore.
+
+**Media lunga (0,75 s) della potenza sul rumore con isteresi, come cancello di presenza in piu'** — lasciata:
+
+| soglie on / off | giusti | nominativi esatti / falsi | crepitii | rumore |
+|---|---|---|---|---|
+| 1,3 / 1,15 | 16623 | 750 / 162 | 1 sbagliato | 0 |
+| 1,15 / 1,05 | 16655 | 754 / 156 | 0 | 0 |
+
+Sul rumore e sui crepitii non c'era gia' niente da togliere; il cancello in piu' chiude anche sui segnali deboli.
+
+**Confini fra parole scelti dopo la decodifica** (lessico del traffico e forma del nominativo; la parola si tiene una indietro, si unisce o
+si spezza, le lettere non cambiano) — lasciato:
+
+| variante | giusti | inseriti | nominativi esatti / falsi | latenza mediana |
+|---|---|---|---|---|
+| unire e spezzare | 16724 | 264 (prima 290) | 759 / 153 | 2,48 s (prima 1,25) |
+| solo spezzare | 16728 | 290 | 759 / 143 | 2,48 s |
+| unire solo un pezzo di 1-3 caratteri in un nominativo | 16724 | 278 | 759 / 153 | 2,48 s |
+
+Il traliccio non incolla mai due parole (spezzare non scatta). Unire toglie spazi inventati ma crea nominativi falsi, e la parola tenuta
+raddoppia la latenza.
