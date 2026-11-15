@@ -84,7 +84,7 @@ describe('SstvPage, ricezione', () => {
 
   it('keeps only the operating controls on the page; the settings are behind the gear', async () => {
     page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     for (const name of ['TX', 'Ferma ascolto', 'Scarta immagine', 'Ricevi ora']) expect(screen.getByRole('button', { name })).toBeInTheDocument();
     expect(screen.queryByLabelText('Ingrandimento morbido')).toBeNull();
     expect(screen.queryByText('Impostazioni SSTV', { selector: 'summary' })).toBeNull();
@@ -96,7 +96,7 @@ describe('SstvPage, ricezione', () => {
   it('draws the fixed tuning marks on the spectrum and the estimated offset when known', async () => {
     vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, rows: 40, offset_hz: 35 } });
     const { container } = page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     const labels = [...container.querySelectorAll('.sstv-mark:not(.sstv-mark--found) i')].map((i) => i.textContent);
     expect(labels).toEqual(['1200', '1500', '2300']);
     expect(container.querySelectorAll('.sstv-mark--vis')).toHaveLength(3);
@@ -106,7 +106,7 @@ describe('SstvPage, ricezione', () => {
   it('shows the FSK ID callsign next to the picture and puts it in the log', async () => {
     vi.mocked(getCallsign).mockResolvedValue({ call: 'IU3ABC', dxcc: null, person: null, lookup: 'off', subscriber: null, message: null });
     const { container } = page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     act(() => emitSstv({ type: 'sstv', kind: 'rx_fskid', call: 'IU3ABC', image_id: 'x' }));
     expect(container.querySelector('.sstv-fskid')).toHaveTextContent('IU3ABC');
     expect(container.querySelector('.sstv-fskid-text')).toHaveTextContent('IU3ABC');
@@ -133,7 +133,7 @@ describe('SstvPage, ricezione', () => {
     };
     vi.mocked(getCallsign).mockReset().mockResolvedValue(info);
     page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     const log = screen.getByRole('region', { name: 'Log QSO' });
     fireEvent.change(within(log).getByLabelText('Nome'), { target: { value: 'Mario Rossi' } });
     fireEvent.change(within(log).getByLabelText('Nominativo'), { target: { value: 'iu3abc' } });
@@ -148,7 +148,7 @@ describe('SstvPage, ricezione', () => {
     vi.mocked(sstvRx).mockClear();
     vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, listening: false } });
     page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     // l'accensione dell'apertura e quella che rimedia allo stato «spento»
     await vi.waitFor(() => expect(vi.mocked(sstvRx).mock.calls.filter((c) => c[0] === 'start').length).toBeGreaterThanOrEqual(2));
   });
@@ -156,7 +156,7 @@ describe('SstvPage, ricezione', () => {
   it('shows the picture being received cleaned from noise on request', async () => {
     vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, rows: 120, receiving: true } });
     const { container } = page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     expect(container.querySelector('.sstv-canvas--clean')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Pulita' }));
     const img = container.querySelector('img.sstv-canvas--clean');
@@ -168,7 +168,7 @@ describe('SstvPage, ricezione', () => {
 
   it('shows the picture smoothed when the setting is on', async () => {
     const { container } = page();
-    await screen.findByText('Martin 1');
+    await screen.findByText('Martin 1 · 1:54');
     expect(container.querySelector('.sstv-canvas')).toHaveClass('sstv-canvas--crisp');
     act(() => usePrefs.getState().set({ sstvSmooth: true }));
     expect(container.querySelector('.sstv-canvas')).not.toHaveClass('sstv-canvas--crisp');
