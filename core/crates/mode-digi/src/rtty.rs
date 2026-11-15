@@ -873,7 +873,7 @@ impl ProbSquelch {
                 self.drop_frames(held);
                 return Vec::new();
             }
-            if fr.prob() >= self.close_at || self.held.len() >= SQ_MEMORY {
+            if fr.sq_prob() >= self.close_at || self.held.len() >= SQ_MEMORY {
                 return std::mem::take(&mut self.held);
             }
             return Vec::new();
@@ -2108,6 +2108,21 @@ mod tests {
             out.extend(sq.push(Frame { pres: 5.0, ..quadro(3, 200.0) }));
         }
         assert_eq!(out.len(), 4);
+    }
+
+    #[test]
+    fn a_squelch_aperto_un_carattere_senza_portante_aspetta() {
+        // aperto: un carattere ben formato ma senza portante non esce subito, aspetta il seguente (e con altri come lui lo squelch chiude)
+        let mut sq = ProbSquelch::new(SQUELCH_OPEN, SQUELCH_CLOSE);
+        for _ in 0..4 {
+            sq.push(Frame { pres: 5.0, ..quadro(3, 200.0) });
+        }
+        assert!(sq.push(Frame { pres: 1.8, ..quadro(5, 200.0) }).is_empty());
+        let mut out = Vec::new();
+        for _ in 0..3 {
+            out.extend(sq.push(Frame { pres: 1.8, ..quadro(5, 200.0) }));
+        }
+        assert!(out.is_empty(), "{} caratteri senza portante stampati", out.len());
     }
 
     #[test]
