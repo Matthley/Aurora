@@ -3,7 +3,7 @@ import { getSstvCurrentBlob, sstvCurrentCleanUrl, sstvForce, sstvRx, type SstvSn
 import { useT } from '../../i18n';
 import { usePrefs } from '../../lib/prefs';
 import { useSstvMode } from '../../lib/sstvMode';
-import { base64ToBytes, formatDuration, rgbIntoRgba } from '../../lib/sstv';
+import { base64ToBytes, modeLabel, rgbIntoRgba } from '../../lib/sstv';
 import { onSstv } from '../../lib/sstvBus';
 
 /** Ogni quanto si ripulisce l'immagine mentre arriva (con «Pulita» scelta): la pulizia costa, non si rifa' a ogni riga. */
@@ -309,10 +309,10 @@ export function ReceiveView({
         <div className="sstv-force">
           <label>
             <span>{t('sstv.rx.mode')}</span>
-            <select value={forceMode} onChange={(e) => setForceMode(e.target.value)}>
+            <select className="sstv-mode-select" value={forceMode} onChange={(e) => setForceMode(e.target.value)}>
               {snap.modes.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} · {formatDuration(m.seconds)}
+                  {modeLabel(m, false)}
                 </option>
               ))}
             </select>

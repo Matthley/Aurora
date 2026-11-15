@@ -161,6 +161,16 @@ export function formatDuration(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/**
+ * Etichetta di un modo nei menu, a colonne allineate a sinistra con larghezze fisse (nome, dimensioni, durata): con un carattere a
+ * larghezza fissa le colonne cadono una sotto l'altra. Gli spazi sono non separabili, cosi' il menu non li comprime.
+ */
+export function modeLabel(m: { name: string; width: number; height: number; seconds: number }, withSize = true): string {
+  const pad = (t: string, n: number) => t + ' '.repeat(Math.max(1, n - t.length));
+  const name = pad(m.name, 15);
+  return withSize ? name + pad(`${m.width}×${m.height}`, 9) + formatDuration(m.seconds) : name + formatDuration(m.seconds);
+}
+
 export interface Rect {
   x: number;
   y: number;

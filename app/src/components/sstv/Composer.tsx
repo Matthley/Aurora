@@ -8,6 +8,7 @@ import {
   emptyComposition,
   FONTS,
   formatDuration,
+  modeLabel,
   historyPush,
   historyRedo,
   historyStart,
@@ -456,10 +457,10 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
         {!sending && snap.tx.state === 'error' ? <span className="sstv-bad sstv-toolbar-state">{snap.tx.message ?? t('sstv.tx.error')}</span> : null}
         <label className="sstv-field sstv-field--mode">
           <span>{t('sstv.tx.mode')}</span>
-          <select value={modeId} onChange={(e) => setModeId(e.target.value)} disabled={sending}>
+          <select className="sstv-mode-select" value={modeId} onChange={(e) => setModeId(e.target.value)} disabled={sending}>
             {snap.modes.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} — {m.width}×{m.height} · {formatDuration(m.seconds)}
+                {modeLabel(m)}
               </option>
             ))}
           </select>
