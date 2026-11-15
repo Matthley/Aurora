@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.264',
-    released: '2026-11-15T20:00:00Z',
+    released: '2026-11-15T13:23:16Z',
     kind: 'new',
     featured: true,
     title: [
@@ -45,7 +45,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.264',
-    released: '2026-11-15T20:00:00Z',
+    released: '2026-11-15T13:23:16Z',
     kind: 'changed',
     title: [
       'BIGScan RTTY: la stazione debole accanto alla forte',
@@ -66,7 +66,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.264',
-    released: '2026-11-15T20:00:00Z',
+    released: '2026-11-15T13:23:16Z',
     kind: 'changed',
     title: [
       'Interfaccia: PWR e SPLIT, SSTV, CW, BIGScan, Informazioni',

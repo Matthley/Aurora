@@ -2,6 +2,11 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-15 sera (0.11.264 pubblicata 2026-11-15T13:23:16Z)
+
+- CW ibrido «preciso / veloce» (`cw_hybrid.rs`, evento `rx_prov`, veloce di base: testo provvisorio dalla catena in 0,57 s, definitivo dell'attuale); BIGScan RTTY con stazioni nascoste confermate per testo proprio e trattenuto, primo carattere incerto tolto davanti a parole fisse; riquadro unico `PwrSplitBox` in tutti gli stili; istogramma SSTV veloce (`rx_hist` ogni 100 ms) senza spettro; +/- sui WPM; maniglia BigScan indipendente; Informazioni in tre colonne da 44rem.
+- Restano fuori: testo provvisorio CW in BigScan, decodifica di sequenza nei canali BigScan RTTY (perde una stazione su `tmp30515`).
+
 ## Stato al 2026-11-15 pomeriggio (0.11.263 pubblicata 2026-11-15T12:20:27Z)
 
 - WinKeyer (`rig-control/src/winkeyer.rs`, `mode-digi/src/service/keyer.rs`, Impostazioni › Stazione › WinKeyer, `docs/winkeyer.md`); sintonia SSTV a cursore ±200 Hz e istogramma dei livelli come nei programmi classici (`mode-sstv/src/decoder.rs`, `SstvTuning.tsx`, rotta `POST /sstv/rx/tune`); RTTY con decodifica di sequenza nel ricevitore singolo (spenta nei canali BigScan: perdeva UC0A); #67 #68 #69 #70, PR #65.
