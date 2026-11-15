@@ -2114,9 +2114,10 @@
 }
 
 /* Informazioni in tre colonne (proposta A): logo e dedica | novita', sostegno e collegamenti | progettazione, licenza, codice derivato,
-   grazie a. Sotto i 60rem le colonne tornano una sotto l'altra */
+   grazie a. Sotto i 44rem le colonne tornano una sotto l'altra (con lo schermo in scala al 125-150% la finestra Impostazioni resta
+   sotto i 60rem e la pagina tornava a una colonna lunga da scorrere) */
 .about--cols .about-col { display: flex; flex-direction: column; align-items: stretch; gap: 1rem; min-width: 0; width: 100%; }
-@media (min-width: 60rem) {
+@media (min-width: 44rem) {
   .about.about--cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; column-gap: 1.25rem; max-width: 84rem; }
   .about.about--cols > .about-col { grid-column: auto; grid-row: auto; }
   /* l'ordine a schermo: logo e dedica, poi novita' e sostegno al centro, dati e crediti a destra */
