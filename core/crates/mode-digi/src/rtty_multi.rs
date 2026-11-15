@@ -64,6 +64,20 @@ struct Lane {
     fresh: bool,
     /// Analisi di fila in cui accanto si vede un segnale e al centro del canale no (`MISPLACED_S`).
     misplaced: u32,
+    /// Aperto dalla ricerca delle stazioni nascoste e non ancora confermato.
+    trial: Option<Trial>,
+    /// Gli ultimi caratteri letti (`RECENT_CHARS`, senza spazi), per riconoscere chi ripete il testo del vicino.
+    recent: String,
+}
+
+/// La prova di un canale aperto dalla ricerca delle stazioni nascoste: secondi passati, caratteri sicuri e testo letto.
+#[derive(Default)]
+struct Trial {
+    secs: f32,
+    sure: usize,
+    text: String,
+    /// I caratteri letti durante la prova: escono tutti insieme alla conferma, mai se il canale e' respinto.
+    held: Vec<RttyChar>,
 }
 
 /// I caratteri nuovi di un canale.
@@ -92,6 +106,8 @@ pub struct RttyMulti {
     past: std::collections::VecDeque<f32>,
     /// Mark e space scambiati (radio in LSB o «Rev»), come il ricevitore principale.
     reverse: bool,
+    /// Stazioni nascoste non confermate: centro e secondi in cui non si riaprono.
+    rejected: Vec<(f32, f32)>,
 }
 
 impl RttyMulti {
@@ -111,6 +127,7 @@ impl RttyMulti {
             max_lanes: MAX_CHANNELS,
             past: std::collections::VecDeque::new(),
             reverse: false,
+            rejected: Vec::new(),
         }
     }
 
@@ -177,6 +194,7 @@ impl RttyMulti {
         let mut out = Vec::new();
         let secs = samples.len() as f32 / RATE;
         let (a, b) = self.past.as_slices();
+        let mut read: Vec<Vec<RttyChar>> = Vec::with_capacity(self.lanes.len());
         for lane in &mut self.lanes {
             let mut chars = Vec::new();
             if lane.fresh {
@@ -185,16 +203,54 @@ impl RttyMulti {
                 chars.extend(lane.demod.process_chars(b));
             }
             chars.extend(lane.demod.process_chars(samples));
+            let text: String = chars.iter().filter(|c| c.prob >= ACTIVE_PROB && !c.ch.is_whitespace()).map(|c| c.ch).collect();
+            lane.recent.push_str(&text);
+            let extra = lane.recent.chars().count().saturating_sub(RECENT_CHARS);
+            if extra > 0 {
+                lane.recent = lane.recent.chars().skip(extra).collect();
+            }
             if chars.iter().any(|c| c.prob >= ACTIVE_PROB) {
                 lane.idle_s = 0.0;
             } else {
                 lane.idle_s += secs;
             }
-            if !chars.is_empty() {
+            if let Some(t) = &mut lane.trial {
+                t.secs += secs;
+                t.sure += chars.iter().filter(|c| c.prob >= CONFIRM_PROB && !c.ch.is_whitespace()).count();
+                t.text.extend(chars.iter().filter(|c| c.prob >= ACTIVE_PROB || c.ch.is_whitespace()).map(|c| c.ch));
+                t.held.append(&mut chars);
+            }
+            read.push(chars);
+        }
+        // le stazioni nascoste in prova: confermate con abbastanza caratteri sicuri, purche' non siano il testo di un canale accanto (le
+        // bande laterali di una stazione forte lette come una stazione a se')
+        for (i, out_i) in read.iter_mut().enumerate() {
+            let Some(t) = &self.lanes[i].trial else { continue };
+            let centre = self.lanes[i].centre_hz;
+            let verdict = (t.secs >= CONFIRM_S).then(|| t.sure >= CONFIRM_N && readable(&t.text) && !self.lanes.iter().enumerate().any(|(k, o)| k != i && echoes(&t.text, &o.recent)));
+            match verdict {
+                Some(true) => {
+                    if let Some(t) = self.lanes[i].trial.take() {
+                        *out_i = t.held;
+                    }
+                }
+                Some(false) => {
+                    self.lanes[i].idle_s = IDLE_S;
+                    self.rejected.push((centre, REJECT_S));
+                }
+                None => {}
+            }
+        }
+        for (lane, chars) in self.lanes.iter().zip(read) {
+            if !chars.is_empty() && lane.idle_s < IDLE_S {
                 out.push(LaneText { centre_hz: lane.centre_hz, chars });
             }
         }
         self.lanes.retain(|l| l.idle_s < IDLE_S);
+        for r in &mut self.rejected {
+            r.1 -= secs;
+        }
+        self.rejected.retain(|r| r.1 > 0.0);
         let keep = (PREROLL_S * RATE) as usize;
         self.past.extend(samples.iter().copied());
         let extra = self.past.len().saturating_sub(keep);
@@ -253,6 +309,13 @@ impl RttyMulti {
             }
             found.extend(these);
         }
+        let n = (RATE as usize).min(self.past.len());
+        let audio: Vec<f32> = self.past.iter().skip(self.past.len() - n).copied().collect();
+        let hidden = hidden_pairs(&audio, self.shift_hz, self.baud, &found);
+        let hidden_hz: Vec<f32> = hidden.iter().map(|h| h.0).collect();
+        let lanes: Vec<f32> = self.lanes.iter().map(|l| l.centre_hz).collect();
+        let rejected = &self.rejected;
+        found.extend(hidden.into_iter().filter(|h| lanes.iter().chain(rejected.iter().map(|r| &r.0)).all(|c| (c - h.0).abs() >= SAME_FRACTION * self.shift_hz)));
         found.sort_by(|a, b| b.1.total_cmp(&a.1));
         self.recentre(&found);
         let mut past: Option<Vec<f32>> = None;
@@ -263,7 +326,8 @@ impl RttyMulti {
             }
             let audio = past.get_or_insert_with(|| self.past.iter().copied().collect());
             let baud = pick_baud(audio, centre, shift, self.baud);
-            self.lanes.push(Lane { centre_hz: centre, shift_hz: shift, baud, demod: new_demod(centre, shift, baud, self.reverse), idle_s: 0.0, fresh: true, misplaced: 0 });
+            let trial = hidden_hz.iter().any(|h| (h - centre).abs() < 1.0).then(Trial::default);
+            self.lanes.push(Lane { centre_hz: centre, shift_hz: shift, baud, demod: new_demod(centre, shift, baud, self.reverse), idle_s: 0.0, fresh: true, misplaced: 0, trial, recent: String::new() });
         }
     }
 
@@ -306,6 +370,145 @@ impl RttyMulti {
             !drop[k - 1]
         });
     }
+}
+
+/// Le stazioni che il banco di un bit non vede perche' accanto a una forte: uno spettro piu' fine (finestre di Hann lunghe circa quattro
+/// bit sull'ultimo secondo) per i picchi dei due toni, e l'alternanza mark/space misurata con filtri di due bit ([`fine_anticorr`]); si
+/// cercano solo entro `HIDDEN_REACH_HZ` da una stazione `HIDDEN_STRONG` volte piu' forte.
+const HIDDEN_REACH_HZ: f32 = 300.0;
+/// Un canale aperto dalla ricerca delle stazioni nascoste resta solo se legge tanti caratteri sicuri entro tanti secondi.
+const CONFIRM_PROB: f32 = 0.9;
+/// Secondi in cui una stazione nascosta non confermata non si riapre.
+const REJECT_S: f32 = 60.0;
+/// Caratteri sicuri (`CONFIRM_PROB`) che confermano una stazione nascosta, entro `CONFIRM_S` secondi.
+const CONFIRM_N: usize = 4;
+const CONFIRM_S: f32 = 8.0;
+/// Caratteri tenuti per canale per il confronto con i vicini (circa dieci secondi a 45 baud).
+const RECENT_CHARS: usize = 80;
+/// Quota delle coppie di caratteri del canale in prova che si trovano anche nel testo del vicino oltre cui e' la sua eco.
+const ECHO_SHARE: f32 = 0.3;
+
+/// Vero se `own` e' per buona parte il testo di `other`: almeno `ECHO_SHARE` delle sue coppie di caratteri consecutivi stanno in `other`.
+fn echoes(own: &str, other: &str) -> bool {
+    share(own, other) >= ECHO_SHARE
+}
+
+/// Vero se in `text` c'e' almeno una parola da trasmissione vera: un nominativo o una parola fissa dei QSO (il fruscio e le bande
+/// laterali lette come caratteri sicuri danno sequenze senza parole: «TVTVMVTTTVMVTV»).
+fn readable(text: &str) -> bool {
+    text.split_whitespace().any(|w| {
+        let w = w.to_ascii_uppercase();
+        crate::skim::calls::looks_like_call(&w) || matches!(w.as_str(), "CQ" | "DE" | "TEST" | "QRZ" | "QRZ?" | "TU" | "599" | "5NN")
+    })
+}
+
+/// La quota delle coppie di caratteri consecutivi di `own` che compaiono anche in `other` (0 se uno dei due e' troppo corto).
+fn share(own: &str, other: &str) -> f32 {
+    let own: Vec<char> = own.chars().filter(|c| !c.is_whitespace()).collect();
+    let other: Vec<char> = other.chars().filter(|c| !c.is_whitespace()).collect();
+    if own.len() < 2 || other.len() < 2 {
+        return 0.0;
+    }
+    let total = own.len() - 1;
+    let shared = own.windows(2).filter(|p| other.windows(2).any(|q| q == *p)).count();
+    shared as f32 / total as f32
+}
+const HIDDEN_STRONG: f64 = 30.0;
+
+/// Le coppie di toni nascoste accanto a una forte nell'ultimo secondo `audio`, fuori da quelle gia' trovate (`found`).
+fn hidden_pairs(audio: &[f32], shift_hz: f32, baud: f32, found: &[(f32, f64, f32)]) -> Vec<(f32, f64, f32)> {
+    let win = ((4.0 * RATE / baud).round() as usize).max(64);
+    let size = win.next_power_of_two() * 2;
+    if audio.len() < win * 2 {
+        return Vec::new();
+    }
+    let hann: Vec<f32> = (0..win).map(|n| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / win as f32).cos()).collect();
+    let mut planner = rustfft::FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(size);
+    let mut power = vec![0.0f64; size / 2];
+    let mut start = 0;
+    let mut count = 0;
+    while start + win <= audio.len() {
+        let mut buf: Vec<rustfft::num_complex::Complex<f32>> = vec![rustfft::num_complex::Complex::new(0.0, 0.0); size];
+        for n in 0..win {
+            buf[n].re = audio[start + n] * hann[n];
+        }
+        fft.process(&mut buf);
+        for (p, z) in power.iter_mut().zip(&buf) {
+            *p += f64::from(z.norm_sqr());
+        }
+        count += 1;
+        start += win / 2;
+    }
+    let hz = RATE / size as f32;
+    let lo = (LOW_HZ / hz) as usize;
+    let hi = ((HIGH_HZ / hz) as usize).min(power.len() - 2);
+    let mut sorted: Vec<f64> = power[lo..hi].to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let floor = sorted[sorted.len() / 2].max(1e-30);
+    let peak = |k: usize| k > 2 && k + 2 < power.len() && (k - 2..=k + 2).all(|q| power[q] <= power[k]) && power[k] >= FLOOR_RATIO * floor;
+    let step = shift_hz / hz;
+    let mut out = Vec::new();
+    for i in lo..hi {
+        if !peak(i) {
+            continue;
+        }
+        let Some(j) = [0isize, -1, 1].iter().map(|d| (i as f32 + step).round() as isize + d).map(|j| j as usize).find(|&j| j < hi && peak(j)) else {
+            continue;
+        };
+        let centre = (i + j) as f32 / 2.0 * hz;
+        if found.iter().any(|f| (f.0 - centre).abs() < SAME_FRACTION * f.2.max(shift_hz)) {
+            continue;
+        }
+        // solo accanto a una stazione molto piu' forte (il caso che il banco di un bit non vede): altrove basta la ricerca normale
+        let reach = (HIDDEN_REACH_HZ / hz) as usize;
+        let weak = power[i].min(power[j]);
+        let strong = power[i.saturating_sub(reach)..(j + reach).min(power.len())].iter().copied().fold(0.0, f64::max);
+        if strong < HIDDEN_STRONG * weak {
+            continue;
+        }
+        let corr = fine_anticorr(audio, centre, shift_hz, baud);
+        if corr < ANTI_CORR {
+            out.push((centre, power[i].min(power[j]) / floor * -corr / count as f64, shift_hz));
+        }
+    }
+    out
+}
+
+/// L'anticorrelazione fra le potenze dei due toni a `centre_hz` con finestre di Hann lunghe due bit che scorrono di mezzo bit: le bande
+/// laterali di un tono forte a 80 Hz scendono di circa 30 dB invece dei 18 della finestra rettangolare di un bit.
+fn fine_anticorr(audio: &[f32], centre_hz: f32, shift_hz: f32, baud: f32) -> f64 {
+    let win = ((2.0 * RATE / baud).round() as usize).max(8);
+    let hop = (win / 4).max(1);
+    if audio.len() < win * 4 {
+        return 0.0;
+    }
+    let hann: Vec<f64> = (0..win).map(|n| 0.5 - 0.5 * (2.0 * PI * n as f64 / win as f64).cos()).collect();
+    let osc = |f: f64| -> Vec<(f64, f64)> { (0..win).map(|n| 2.0 * PI * f * n as f64 / f64::from(RATE)).map(|a| (a.cos(), -a.sin())).collect() };
+    let tones = [osc(f64::from(centre_hz - shift_hz / 2.0)), osc(f64::from(centre_hz + shift_hz / 2.0))];
+    let mut pw: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+    let mut start = 0;
+    while start + win <= audio.len() {
+        for (k, o) in tones.iter().enumerate() {
+            let (mut re, mut im) = (0.0, 0.0);
+            for n in 0..win {
+                let x = f64::from(audio[start + n]) * hann[n];
+                re += x * o[n].0;
+                im += x * o[n].1;
+            }
+            pw[k].push(re * re + im * im);
+        }
+        start += hop;
+    }
+    let n = pw[0].len() as f64;
+    let (m0, m1) = (pw[0].iter().sum::<f64>() / n, pw[1].iter().sum::<f64>() / n);
+    let (mut cov, mut v0, mut v1) = (0.0, 0.0, 0.0);
+    for (a, b) in pw[0].iter().zip(&pw[1]) {
+        cov += (a - m0) * (b - m1);
+        v0 += (a - m0).powi(2);
+        v1 += (b - m1).powi(2);
+    }
+    cov / (v0 * v1).sqrt().max(1e-30)
 }
 
 /// La velocita' di un segnale nuovo a `centre_hz`: fra `BAUDS` quella su cui i cambi fra mark e space dell'audio `past` cadono a passo
@@ -393,6 +596,56 @@ mod tests {
                 (seed as f32 / u32::MAX as f32 - 0.5) * ampiezza
             })
             .collect()
+    }
+
+    fn canale(centro: f32, trial: Option<Trial>, recent: &str) -> Lane {
+        Lane { centre_hz: centro, shift_hz: 170.0, baud: 45.45, demod: new_demod(centro, 170.0, 45.45, false), idle_s: 0.0, fresh: false, misplaced: 0, trial, recent: recent.into() }
+    }
+
+    #[test]
+    fn eco_del_testo_vicino() {
+        assert!(echoes("CQ DE IU3ABC", "TU5NN599CQDEIU3ABCK"));
+        // ritardi diversi e testo mescolato: basta una parte delle coppie
+        assert!(echoes("3ABCXQZW", "CQDEIU3ABC"));
+        assert!(!echoes("UC0A UC0A", "CQDEIU3ABCK"));
+        assert!(!echoes("A", "A"));
+        assert!(!echoes("CQDE", ""));
+    }
+
+    #[test]
+    fn testo_leggibile() {
+        assert!(readable("CQ DE IU3ABC"));
+        assert!(readable("XJ 599 QK"));
+        assert!(!readable("TVTVMVTTTVMVTVTVNIMT"));
+        assert!(!readable("IE/?/! LSJRIE"));
+    }
+
+    fn prova(testo: &str, sure: usize, secs: f32) -> Option<Trial> {
+        let held = testo.chars().map(|ch| RttyChar { ch, prob: 0.95 }).collect();
+        Some(Trial { secs, sure, text: testo.into(), held })
+    }
+
+    #[test]
+    fn nascosta_che_ripete_la_forte_si_chiude() {
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        multi.lanes.push(canale(1000.0, None, "CQCQDEIU3ABCIU3ABCK"));
+        // eco della forte, testo proprio, troppo pochi caratteri sicuri, solo fruscio, ancora in prova
+        multi.lanes.push(canale(1170.0, prova("DE IU3ABC", CONFIRM_N, CONFIRM_S), ""));
+        multi.lanes.push(canale(830.0, prova("UC0A UC0A", CONFIRM_N, CONFIRM_S), ""));
+        multi.lanes.push(canale(2000.0, prova("CQ", 1, CONFIRM_S), ""));
+        multi.lanes.push(canale(2400.0, prova("TVTVMVTTTV", 10, CONFIRM_S), ""));
+        multi.lanes.push(canale(2800.0, prova("CQ DE K1XYZ", 10, 1.0), ""));
+        let out = multi.process(&vec![0.0; 120]);
+        let centri: Vec<f32> = multi.lanes.iter().map(|l| l.centre_hz).collect();
+        assert_eq!(centri, vec![1000.0, 830.0, 2800.0]);
+        assert!(multi.lanes[1].trial.is_none(), "la vicina con testo proprio e' confermata");
+        assert!(multi.lanes[2].trial.is_some());
+        // solo la confermata consegna il testo tenuto durante la prova
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].centre_hz, 830.0);
+        assert_eq!(out[0].chars.iter().map(|c| c.ch).collect::<String>(), "UC0A UC0A");
+        let respinti: Vec<f32> = multi.rejected.iter().map(|r| r.0).collect();
+        assert_eq!(respinti, vec![1170.0, 2000.0, 2400.0]);
     }
 
     #[test]
@@ -519,7 +772,7 @@ mod tests {
         }
         let mut multi = RttyMulti::new(170.0, 45.45);
         for c in [970.0_f32, 1110.0] {
-            multi.lanes.push(Lane { centre_hz: c, shift_hz: 170.0, baud: 45.45, demod: new_demod(c, 170.0, 45.45, false), idle_s: 0.0, fresh: false, misplaced: 0 });
+            multi.lanes.push(Lane { centre_hz: c, shift_hz: 170.0, baud: 45.45, demod: new_demod(c, 170.0, 45.45, false), idle_s: 0.0, fresh: false, misplaced: 0, trial: None, recent: String::new() });
         }
         let mut testo = String::new();
         for blocco in audio.chunks(1200) {
