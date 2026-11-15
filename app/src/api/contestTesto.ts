@@ -33,6 +33,8 @@ export interface TextContest {
   id: string;
   name: string;
   notes: string;
+  /** Le regole del punteggio, righe della sezione `[Score]` (vuoto = le vecchie chiavi). */
+  score?: string;
   /** `aaaammgghhmmss` UTC, vuoto = nessun limite. */
   start: string;
   end: string;
@@ -140,7 +142,30 @@ export interface TextContestScore {
   qtc: number;
   tipi: string[];
   bande: TextContestBand[];
+  /** QSO non ammessi dalle regole (banda o paese fuori dal contest). */
+  esclusi: number;
+  /** I moltiplicatori lavorati: tipo (`dxcc`, `cq`, `itu`, `wpx`, `cont`, `area`, `dom`), valore, bande (vuoto = una volta sola). */
+  griglia: { tipo: string; valore: string; bande: string[] }[];
+  /** I moltiplicatori che mancano dei tipi con un elenco chiuso. */
+  mancanti: { tipo: string; per_banda: boolean; totali: number; valori: string[] }[];
+  /** Gli ultimi QSO che hanno portato moltiplicatori nuovi (`dxcc:DL`). */
+  recenti: { call: string; band: string; time_ms: number; nuovi: string[] }[];
+  /** QSO all'ora sugli ultimi 10 minuti, QSO nell'ultima ora, media all'ora. */
+  rate10: number;
+  rate60: number;
+  media_ora: number;
 }
+
+/** Il valore di un nominativo nel contest attivo mentre lo si scrive. */
+export interface TextContestCheck {
+  ammesso: boolean;
+  motivo: 'band' | 'valid' | null;
+  doppio: boolean;
+  punti: number;
+  nuovi: string[];
+}
+export const getTextContestCheck = (call_: string, band: string, mode: string, exch = '') =>
+  call<TextContestCheck>(`/ammesso?${new URLSearchParams({ call: call_, band, mode, exch }).toString()}`);
 
 export const getTextContestScore = () => call<TextContestScore>('/punteggio');
 export const getTextContestCabrillo = () => call<{ testo: string; nome: string; qso: number }>('/cabrillo');

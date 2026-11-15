@@ -208,11 +208,22 @@ pub struct Punteggio {
     pub rate10: u32,
     pub rate60: u32,
     pub media_ora: f64,
+    /// Gli ultimi QSO che hanno portato moltiplicatori nuovi (il piu' recente per primo, al massimo 10).
+    pub recenti: Vec<NuovoMolt>,
+}
+
+/// Un QSO che ha portato moltiplicatori nuovi.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct NuovoMolt {
+    pub call: String,
+    pub band: String,
+    pub time_ms: i64,
+    pub nuovi: Vec<String>,
 }
 
 impl Default for Punteggio {
     fn default() -> Self {
-        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0 }
+        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0, recenti: Vec::new() }
     }
 }
 
@@ -323,6 +334,7 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
         let presi: HashSet<&str> = tot.griglia.iter().filter(|g| g.tipo == d.tipo.nome()).map(|g| g.valore.as_str()).collect();
         tot.mancanti.push(Mancanti { tipo: d.tipo.nome().to_string(), per_banda: d.per_banda, totali: tutti.len() as u32, valori: tutti.iter().filter(|v| !presi.contains(v.as_str())).cloned().collect() });
     }
+    tot.recenti = out.iter().rev().filter(|v| !v.nuovi.is_empty()).take(10).map(|v| NuovoMolt { call: v.qso.call.trim().to_ascii_uppercase(), band: v.qso.band.to_ascii_lowercase(), time_ms: v.qso.time_ms, nuovi: v.nuovi.clone() }).collect();
     calcola(&mut tot);
     tot.bande = bande.into_values().collect();
     tot.bande.sort_by_key(|r| ordine_banda(&r.band));

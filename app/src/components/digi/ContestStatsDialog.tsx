@@ -38,6 +38,62 @@ export function scoreLine(t: ReturnType<typeof useT>, s: TextContestScore): stri
   return s.tipi.length ? t('ctest.scoreLine', { points: s.punti, mult: s.molt, score: s.punteggio }) : t('ctest.scoreNoMult', { score: s.punteggio });
 }
 
+type MultType = 'dxcc' | 'cq' | 'itu' | 'wpx' | 'cont' | 'area' | 'dom';
+const MULT_TYPES: MultType[] = ['cq', 'itu', 'dxcc', 'area', 'wpx', 'dom', 'cont'];
+const multName = (t: ReturnType<typeof useT>, tipo: string) => (MULT_TYPES.includes(tipo as MultType) ? t(`ctest.mt.${tipo as MultType}`) : tipo);
+/** `dxcc:DL` -> `DL (Paesi DXCC)`. */
+const multLabel = (t: ReturnType<typeof useT>, m: string) => {
+  const i = m.indexOf(':');
+  return i < 0 ? m : `${m.slice(i + 1)} (${multName(t, m.slice(0, i))})`;
+};
+
+/** La griglia banda × moltiplicatori del contest, un riquadro per tipo, con quelli che mancano. */
+function MultGrid({ s }: { s: TextContestScore }) {
+  const t = useT();
+  const bands = s.bande.map((b) => b.band);
+  const types = MULT_TYPES.filter((m) => s.griglia.some((g) => g.tipo === m) || s.mancanti.some((x) => x.tipo === m));
+  if (!types.length) return null;
+  return (
+    <section className="ctest-grid">
+      <h4>{t('ctest.grid')}</h4>
+      {types.map((tipo) => {
+        const rows = s.griglia.filter((g) => g.tipo === tipo);
+        const perBand = rows.some((r) => r.bande.length > 0);
+        const miss = s.mancanti.find((m) => m.tipo === tipo);
+        return (
+          <details key={tipo} open={types.length <= 3}>
+            <summary>
+              {multName(t, tipo)}: {rows.length}
+              {miss ? ` · ${t('ctest.missing', { n: miss.valori.length, tot: miss.totali })}` : ''}
+            </summary>
+            {rows.length > 0 && (
+              <div className="ctest-table-wrap ctest-grid-wrap">
+                <table className="ctest-table ctest-stats">
+                  <thead>
+                    <tr>
+                      <th>{multName(t, tipo)}</th>
+                      {perBand ? bands.map((b) => <th key={b}>{b}</th>) : <th>{t('ctest.once')}</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.valore}>
+                        <td>{r.valore}</td>
+                        {perBand ? bands.map((b) => <td key={b}>{r.bande.includes(b) ? '✓' : ''}</td>) : <td>✓</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {miss && miss.valori.length > 0 && <p className="ctest-missing">{miss.valori.join(' ')}</p>}
+          </details>
+        );
+      })}
+    </section>
+  );
+}
+
 /** La finestrella delle statistiche del contest attivo: per banda QSO, doppi, punti, moltiplicatori e categorie, poi il totale. */
 export function ContestStatsDialog({ name, onClose }: { name: string; onClose(): void }) {
   const t = useT();
@@ -98,6 +154,14 @@ export function ContestStatsDialog({ name, onClose }: { name: string; onClose():
               </table>
             </div>
             <p className="ctest-score">{scoreLine(t, s)}</p>
+            <p className="ctest-rate">{t('ctest.rate', { r10: s.rate10, r60: s.rate60, avg: s.media_ora })}</p>
+            {s.esclusi > 0 && <p className="ctest-rate">{t('ctest.excluded', { n: s.esclusi })}</p>}
+            {s.recenti.length > 0 && (
+              <p className="ctest-rate">
+                {t('ctest.recent')}: {s.recenti.map((r) => `${r.call} ${r.band}: ${r.nuovi.map((m) => multLabel(t, m)).join(', ')}`).join(' · ')}
+              </p>
+            )}
+            <MultGrid s={s} />
           </>
         )}
         <footer>

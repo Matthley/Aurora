@@ -23,6 +23,13 @@ td.ctest-col-active { color: var(--accent, #4a9eff); }
 .ctest-stats th:first-child, .ctest-stats td:first-child { text-align: left; }
 .ctest-stats tr.ctest-total td { font-weight: 600; border-top: 1px solid var(--border); }
 .ctest-score { margin: 0.6rem 0 0; font-weight: 600; }
+.ctest-rate { margin: 0.3rem 0 0; font-size: 0.9em; opacity: 0.85; }
+.ctest-grid { margin-top: 0.6rem; }
+.ctest-grid h4 { margin: 0 0 0.3rem; }
+.ctest-grid summary { cursor: pointer; padding: 0.15rem 0; }
+.ctest-grid-wrap { max-height: 14rem; overflow: auto; }
+.ctest-grid td { text-align: center; }
+.ctest-missing { margin: 0.2rem 0 0.4rem; font-size: 0.85em; opacity: 0.8; word-break: break-word; }
 
 /* ricerca in cima all'elenco e righe a colori alternati */
 .ctest-search { width: 100%; margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; font-size: 0.95rem; box-sizing: border-box; }
