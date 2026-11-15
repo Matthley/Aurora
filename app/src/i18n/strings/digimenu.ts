@@ -7,7 +7,7 @@ export const digiMenuStrings = {
   'digi.menu.view': ['Vista', 'View', 'Ansicht', 'Affichage', 'Ver', 'Ver'],
   'digi.menu.configure': ['Configura', 'Configure', 'Konfigurieren', 'Configurer', 'Configurar', 'Configurar'],
   'digi.menu.help': ['Aiuto', 'Help', 'Hilfe', 'Aide', 'Ayuda', 'Ajuda'],
-  'digi.mi.macrosMerge': ['Unisci le macro del modo a quelle di base', 'Merge mode macros with the default ones', 'Modus-Makros mit den Standard-Makros zusammenführen', 'Fusionner les macros du mode avec celles de base', 'Unir las macros del modo con las de base', 'Juntar as macros do modo com as de base'],
+  'digi.mi.macrosMerge': ['Macro di questo modo + macro comuni', 'This mode’s macros + common macros', 'Makros dieser Betriebsart + gemeinsame Makros', 'Macros de ce mode + macros communes', 'Macros de este modo + macros comunes', 'Macros deste modo + macros comuns'],
   'digi.mi.macrosReset': ['Ripristina le macro di Aurora', 'Restore Aurora’s default macros', 'Standard-Makros von Aurora wiederherstellen', 'Rétablir les macros d’Aurora', 'Restaurar las macros de Aurora', 'Repor as macros do Aurora'],
   'digi.mi.macrosRestored': ['Macro di Aurora ripristinate.', 'Aurora’s default macros restored.', 'Standard-Makros von Aurora wiederhergestellt.', 'Macros d’Aurora rétablies.', 'Macros de Aurora restauradas.', 'Macros do Aurora repostas.'],
   'digi.mi.importErr': ['Non riesco a importare: {why}', 'Cannot import: {why}', 'Import nicht möglich: {why}', 'Import impossible : {why}', 'No se puede importar: {why}', 'Não consigo importar: {why}'],

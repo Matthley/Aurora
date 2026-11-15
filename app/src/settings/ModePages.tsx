@@ -13,7 +13,7 @@ import { useClusterOptions } from '../lib/clusterOptions';
 import { ContestSettingsForm } from '../pages/ContestPage';
 import { digiWithDefaults, editMacros, type MacroScope } from '../lib/digiMacroEdit';
 import { clearMemory, memorySummary, MEMORY_SLOTS, readMemories, readScan, writeScan, type ScanProps } from '../lib/digiScan';
-import { cssColor, effectiveMacros, EVENT_MACROS, keyNames, textColorFor, type Macro } from '../lib/macroLang';
+import { cssColor, EVENT_MACROS, keyNames, textColorFor, type Macro } from '../lib/macroLang';
 import { openInMain } from '../lib/sdr';
 import { browserStorage } from '../lib/theme';
 import { toast } from '../lib/toast';
@@ -73,31 +73,43 @@ export function WinKeyerPage() {
   );
 }
 
-/** Modi › PSK · RTTY · CW › Macro: l'elenco delle macro del modo in uso, ognuna si apre nell'editor della pagina. */
+/** Modi › PSK · RTTY · CW › Macro: due schede, «Comuni» (file `macro/comuni.macro`) e «Solo per questo modo» (`macro/<modo>.macro`);
+ * ognuna mostra e modifica solo il suo gruppo. Sotto, la spunta di unione dei due gruppi per il modo in uso. */
 export function DigiMacrosPage() {
   const t = useT();
   const { query, snap, save } = useDigiSettings();
+  const [tab, setTab] = useState<MacroScope>('all');
   const [editing, setEditing] = useState<{ name: string; scope: MacroScope } | null>(null);
   if (query.isError) return <p className="notice">{t('set.loadError')}</p>;
   if (!snap) return <p className="muted">{t('sw.digi.loading')}</p>;
   const s = snap.settings;
+  const modeName = DIGI_NAMES[s.mode];
   const toMacro = (m: { name: string; label: string; text: string; color: number | null }): Macro => ({ name: m.name, label: m.label, text: m.text, color: m.color });
-  const macros = effectiveMacros(s.macros.map(toMacro), s.mode_macros[s.mode]?.map(toMacro), s.merge_macros[s.mode] !== false);
+  const group = tab === 'all' ? s.macros : (s.mode_macros[s.mode] ?? []);
+  const macros = new Map(group.map((m) => [m.name, toMacro(m)] as const));
   const events = EVENT_MACROS.filter((name) => {
     const m = macros.get(name);
     return m !== undefined && (m.label.trim() !== '' || m.text.trim() !== '');
   });
-  const scopeOf = (name: string): MacroScope => ((s.mode_macros[s.mode] ?? []).some((m) => m.name === name) ? 'mode' : 'all');
+  const scopeOf = (): MacroScope => tab;
   const firstFree = keyNames().find((n) => {
     const m = macros.get(n);
     return m === undefined || (m.label.trim() === '' && m.text.trim() === '');
   }) ?? 'F1';
   const edited = editing ? (macros.get(editing.name) ?? { name: editing.name, label: '', text: '', color: null }) : null;
+  const merge = s.merge_macros[s.mode] !== false;
   return (
     <Page>
       <Group title={t('sw.pg.digiMacros')} span={3}>
-        <Message kind="muted">{t('sw.macros.mode', { mode: DIGI_NAMES[s.mode] })}</Message>
-        <MacroSlots macros={macros} scopeOf={scopeOf} modeName={DIGI_NAMES[s.mode]} onEdit={(name) => setEditing({ name, scope: scopeOf(name) })} />
+        <div className="sw-mtabs" role="tablist" aria-label={t('sw.pg.digiMacros')}>
+          {(['all', 'mode'] as const).map((k) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={`glass${tab === k ? ' on' : ''}`} onClick={() => setTab(k)}>
+              {k === 'all' ? t('sw.macros.tabCommon') : t('sw.macros.tabMode', { mode: modeName })}
+            </button>
+          ))}
+        </div>
+        <Message kind="muted">{tab === 'all' ? t('sw.macros.commonHint') : t('sw.macros.modeHint', { mode: modeName, file: s.mode })}</Message>
+        <MacroSlots macros={macros} scopeOf={scopeOf} modeName={modeName} onEdit={(name) => setEditing({ name, scope: tab })} />
         {events.length > 0 ? (
           <>
             <h4 className="sw-mevents">{t('sw.macros.events')}</h4>
@@ -114,8 +126,7 @@ export function DigiMacrosPage() {
                     <span className="sw-macro-label" title={m.text}>
                       {m.label || m.text.slice(0, 40)}
                     </span>
-                    <small className="muted">{scopeOf(name) === 'mode' ? DIGI_NAMES[s.mode] : t('digi.edit.scopeAll')}</small>
-                    <button type="button" className="glass" onClick={() => setEditing({ name, scope: scopeOf(name) })}>
+                    <button type="button" className="glass" onClick={() => setEditing({ name, scope: tab })}>
                       {t('sw.macros.edit')}
                     </button>
                   </li>
@@ -125,19 +136,24 @@ export function DigiMacrosPage() {
           </>
         ) : null}
         <Actions>
-          <button type="button" className="glass" onClick={() => setEditing({ name: firstFree, scope: 'all' })}>
+          <button type="button" className="glass" onClick={() => setEditing({ name: firstFree, scope: tab })}>
             {t('sw.macros.new')}
           </button>
         </Actions>
+        <label className="sstv-check" title={t('sw.macros.mergeHint')}>
+          <input type="checkbox" checked={merge} onChange={(e) => save({ merge_macros: { ...s.merge_macros, [s.mode]: e.target.checked } })} />
+          <span>{t('digi.mi.macrosMerge')}</span>
+        </label>
+        <p className="sstv-hint">{t('sw.macros.mergeHint')}</p>
       </Group>
       {editing && edited ? (
         <MacroEditor
           key={editing.name}
           macro={edited}
-          modeName={DIGI_NAMES[s.mode]}
+          modeName={modeName}
           scope={editing.scope}
           onSave={(m, where) => {
-            save(editMacros(s, editing.name, m, where));
+            save(editMacros(s, editing.name, m, where, true));
             setEditing(null);
           }}
           onCancel={() => setEditing(null)}

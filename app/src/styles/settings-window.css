@@ -457,6 +457,8 @@ html.sw-lock,html.sw-lock body{overflow:hidden}
 .sw-mslot-scope:not(:empty){padding:1px 7px;border-radius:999px;border:1px solid var(--sw-line);font-size:10.5px;white-space:nowrap;opacity:.85}
 .sw-mslots button{min-height:26px;padding:0 10px;font-size:12px}
 .sw-mevents{margin:14px 0 4px;font-size:12px}
+.sw-mtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.sw-mtabs .on{outline:2px solid var(--accent, currentColor);font-weight:600}
 @media (max-width:760px){
   .sw-mslots li{grid-template-columns:2.6rem minmax(0,1fr) auto;padding:4px 10px}
   .sw-mslot-text,.sw-mslot-scope{display:none}

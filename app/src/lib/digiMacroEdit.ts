@@ -8,8 +8,9 @@ export type MacroScope = 'all' | 'mode';
  * Le macro dopo una modifica fatta con l'editor (pagina PSK·RTTY·CW o Impostazioni › Modi › PSK · RTTY · CW › Macro): `original` e' il
  * tasto da cui si e' partiti (se lo si cambia, quel tasto si libera), `where` l'insieme in cui la macro finisce. Una macro vuota toglie il
  * tasto; vuota «solo per questo modo» lascia il tasto libero anche se la macro di base esiste.
+ * `onlyGroup` (schede «Comuni» e «Solo per questo modo» delle Impostazioni): si tocca solo il gruppo `where`, l'altro resta com'e'.
  */
-export function editMacros(s: Pick<DigiSettings, 'macros' | 'mode_macros' | 'mode'>, original: string, m: Macro, where: MacroScope): Pick<DigiSettings, 'macros' | 'mode_macros'> {
+export function editMacros(s: Pick<DigiSettings, 'macros' | 'mode_macros' | 'mode'>, original: string, m: Macro, where: MacroScope, onlyGroup = false): Pick<DigiSettings, 'macros' | 'mode_macros'> {
   const blank = m.label.trim() === '' && m.text.trim() === '';
   const strip = (list: DigiMacro[], name: string) => list.filter((x) => x.name !== name);
   const entry: DigiMacro = { name: m.name, label: m.label, text: m.text, color: m.color };
@@ -18,12 +19,12 @@ export function editMacros(s: Pick<DigiSettings, 'macros' | 'mode_macros' | 'mod
   let forMode = [...(modeSets[s.mode] ?? [])];
   // il tasto di partenza si libera dall'insieme che si sta modificando se e' stato cambiato
   if (original !== m.name) {
-    all = strip(all, original);
-    forMode = strip(forMode, original);
+    if (!onlyGroup || where === 'all') all = strip(all, original);
+    if (!onlyGroup || where === 'mode') forMode = strip(forMode, original);
   }
   if (where === 'all') {
     all = strip(all, m.name);
-    forMode = strip(forMode, m.name);
+    if (!onlyGroup) forMode = strip(forMode, m.name);
     if (!blank) all.push(entry);
   } else {
     forMode = strip(forMode, m.name);
