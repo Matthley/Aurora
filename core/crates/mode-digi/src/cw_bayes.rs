@@ -68,8 +68,9 @@ const DISTURBED_S: f64 = 0.5;
 const DISTURBED_BEAM: usize = 2;
 
 /// Le classi di durata: punto, linea, pausa fra gli elementi, fra i caratteri, fra le parole.
-/// Dopo un tono la pausa e' fra gli elementi (60%), fra i caratteri (30%) o fra le parole (10%).
-const GAP_PRIOR: [f64; 5] = [0.0, 0.0, 0.6, 0.3, 0.1];
+/// Dopo un tono la pausa e' fra gli elementi (67%: circa tre elementi per carattere), fra i caratteri (27%) o fra le parole (6%: parole
+/// da contest di quattro o cinque caratteri). Tarate sul banco `banco_cw` (con 60/30/10 il CER medio era 11,8%, con 67/27/6 11,4%).
+const GAP_PRIOR: [f64; 5] = [0.0, 0.0, 0.67, 0.27, 0.06];
 const DOT: usize = 0;
 const DASH: usize = 1;
 const INTRA: usize = 2;
