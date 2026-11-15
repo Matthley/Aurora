@@ -330,3 +330,72 @@ fn xe_rtty() {
     // punti 13; moltiplicatori AGS, XE, JAL, I, K = 5; 13 x 5 = 65
     assert_eq!((t.punti, t.molt, t.punteggio), (13, 5, 65));
 }
+
+#[test]
+fn alessandro_volta() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001 15"), // stesso paese: non ammesso
+        r("DL1ABC", "20m", 1, "001 14"), // tabella 15 -> 14: 3; DL
+        r("W1AW", "20m", 2, "001 05"),   // 15 -> 5: 20; area K1 (W conta per aree)
+        r("W1AW", "10m", 3, "002 05"),   // fuori continente su 10 m: 20 x2 = 40; K1 su 10 m
+        r("JA1ABC", "80m", 4, "001 25"), // 15 -> 25: 27 x2 = 54; JA1 su 80 m
+        r("DL1ABC", "20m", 5, "002 14"), // doppio
+    ];
+    let t = punteggio("Alessandro Volta RTTY Contest", &log, None);
+    // punti 3+20+40+54 = 117; moltiplicatori 4; QSO 4; 117 x 4 x 4 = 1872
+    assert_eq!((t.qso, t.doppi, t.esclusi, t.punti, t.molt, t.punteggio), (4, 1, 1, 117, 4, 1872));
+}
+
+#[test]
+fn scc_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "1990"), // stesso paese 1; anno 1990 su 20 m
+        r("DL1ABC", "20m", 1, "1990"), // stesso continente 2; niente di nuovo
+        r("W1AW", "20m", 2, "1975"),   // altro continente 3; 1975
+        r("DL1ABC", "40m", 3, "1990"), // 2; 1990 su 40 m
+    ];
+    let t = punteggio("SCC-RTTY-Championship Contest", &log, None);
+    // punti 8; moltiplicatori 3; 8 x 3 = 24
+    assert_eq!((t.punti, t.molt, t.punteggio), (8, 3, 24));
+}
+
+#[test]
+fn radio_ww_rtty() {
+    let dom = dominio("dom/russian.dom");
+    let log = [
+        r("UA3ABC", "20m", 0, "MA"), // stesso continente 5; UA e oblast MA
+        r("UA9ABC", "20m", 1, "SV"), // altro continente 10; UA9 e SV
+        r("W1AW", "20m", 2, "05"),   // 10; K
+        r("DL1ABC", "40m", 3, "14"), // 5; DL
+    ];
+    let t = punteggio("RUSSIAN RADIO WW RTTY CONTEST", &log, Some(&dom));
+    // punti 30; moltiplicatori 6; 30 x 6 = 180
+    assert_eq!((t.punti, t.molt, t.punteggio), (30, 6, 180));
+}
+
+#[test]
+fn open_ukraine_rtty() {
+    let log = [
+        r("UR5ABC", "20m", 0, "PO001"), // 2 + 10 per la regione PO nuova su 20 m
+        r("UR5XYZ", "20m", 1, "PO002"), // 2
+        r("UR4ABC", "80m", 2, "KV005"), // 2 + 10
+        r("DL1ABC", "40m", 3, "ZZ001"), // 2 + 10
+    ];
+    let t = punteggio("OPEN UKRAINE RTTY CHAMPIONSHIP", &log, None);
+    // niente moltiplicatori: 12+2+12+12 = 38
+    assert_eq!((t.punti, t.molt, t.punteggio), (38, 0, 38));
+}
+
+#[test]
+fn jarts_rtty() {
+    let log = [
+        r("DL1ABC", "20m", 0, "599 45"), // stesso continente 2; DL
+        r("W1AW", "20m", 1, "599 50"),   // altro continente 3; area K1 (non il paese K)
+        r("W2ABC", "20m", 2, "599 60"),  // 3; K2
+        r("JA1ABC", "20m", 3, "599 40"), // 3; JA1
+        r("IK2XYZ", "40m", 4, "599 30"), // 2; I su 40 m
+    ];
+    let t = punteggio("JARTS RTTY Contest", &log, None);
+    // punti 13; moltiplicatori 5; 13 x 5 = 65
+    assert_eq!((t.punti, t.molt, t.punteggio), (13, 5, 65));
+}

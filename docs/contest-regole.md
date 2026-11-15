@@ -125,6 +125,48 @@ Fonte: <https://rtty.fmre.mx/reglas/Rules_FMRE_RTTY_2024.pdf> (FMRE, 26a edizion
 - Moltiplicatori per banda: i 32 stati messicani (elenco `dom/Mexico32.dom`) e i paesi DXCC.
 - `[Score]`: `points=dxcc:XE=4; same_dxcc=2; any=3`, `mult=exch/band/if:dxcc:XE; dxcc/band`; `m_sStateListFile=dom/Mexico32.dom`.
 
+### Alessandro Volta RTTY DX Contest
+Fonte: <https://ari.it/english-area/contest/6746-55th-alessandro-volta-rtty-dx-contest.html> (ARI, 55a edizione); la tabella dei punti
+zona CQ -> zona CQ viene dal file `Points_AVOLTA.txt` dei dati di <https://www.digitalrus.ru/> (righe `cq1`...`cq40` del file).
+- Bande 80-10 m. Scambio RST + numero + zona CQ.
+- Punti dalla tabella delle zone; fuori dal proprio continente su 80 e 10 m il doppio. QSO nello stesso paese (o nella stessa area di
+  VK, VE, JA, ZL, W) non validi.
+- Moltiplicatori per banda: paesi DXCC; per VK, VE, JA, ZL e W contano solo le aree. Un moltiplicatore in piu' per ogni paese di un
+  altro continente lavorato su almeno 4 bande (non calcolato).
+- Punteggio = punti x moltiplicatori x numero dei QSO.
+- `[Score]`: `valid=other_dxcc`, `points=other_cont&band:80,10=cqtab*2; any=cqtab`, `mult=dxcc/band/except:JA,VE,VK,K,ZL;
+  area:JA,VE,VK,K,ZL/band`, `times_qso=1`.
+
+### SCC RTTY Championship
+Fonte: <https://s5cc.eu/arhiv/scc_rtty/rttyrules.htm> (Slovenia Contest Club).
+- Bande 80-10 m. Scambio RST + anno della prima licenza (quattro cifre).
+- Punti: stesso paese 1, stesso continente 2, aree diverse di W, VE, VK, ZL, ZS, JA, PY, province LU e oblast UA9/UA0 2 (non
+  distinto), altro continente 3.
+- Moltiplicatori per banda: gli anni diversi.
+- `[Score]`: `points=same_dxcc=1; same_cont=2; other_cont=3`, `mult=exch/band`.
+
+### Russian «Radio» WW RTTY Contest
+Fonte: <http://www.radio.ru/cq/contest/rule-results/index2.shtml> (rivista «Radio»).
+- Bande 80-10 m, una volta per banda. Scambio: russi RST + oblast, gli altri RST + zona CQ.
+- Punti: stesso continente 5, altro continente 10.
+- Moltiplicatori per banda: oblast russi (elenco `dom/russian.dom`) e paesi DXCC.
+- `[Score]`: `points=same_cont=5; other_cont=10`, `mult=dxcc/band; exch/band/if:dxcc:UA,UA9,UA2`; `m_sStateListFile=dom/russian.dom`.
+
+### Open Ukraine RTTY Championship
+Fonte: <http://uarl.com.ua/openrtty/2012/rtty2012e.txt> (UARL, indicato da <https://www.digitalrus.ru/>).
+- Parte bassa 160 e 80 m (a turni), parte alta 40-10 m. Scambio: sigla della regione + numero (`PO001`).
+- Punti: 2 per QSO, piu' 10 per ogni regione nuova su ogni banda (e su ogni turno della parte bassa). Nessun moltiplicatore: il
+  risultato e' la somma delle bande.
+- `[Score]`: `points=any=2`, `mult=exch/band/add:10` (i turni della parte bassa non sono distinti).
+
+### JARTS WW RTTY Contest
+Fonte: il sito <http://jarts.jp/> (indicato da <https://www.digitalrus.ru/>) non si legge in modo automatico; regole dal riassunto ARI
+<https://www.qsl.net/contest_ari/reg_jarts.html>.
+- Bande 80-10 m. Scambio RST + eta' dell'operatore (00 per le YL, 99 per le multi).
+- Punti: stesso continente 2, altro continente 3.
+- Moltiplicatori per banda: paesi DXCC tranne JA, W, VE, VK, e le aree di JA, W, VE, VK.
+- `[Score]`: `points=same_cont=2; other_cont=3`, `mult=dxcc/band/except:JA,K,VE,VK; area:JA,K,VE,VK/band`.
+
 ## Cosa resta approssimato
 
 - Zone CQ e ITU vengono dal database DXCC di Aurora, non dallo scambio ricevuto (un W6 che passa zona 3 conta la zona del paese).
