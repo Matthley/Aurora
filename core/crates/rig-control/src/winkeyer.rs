@@ -77,6 +77,22 @@ pub struct WinKeyerConfig {
     /// Sidetone del WinKeyer acceso e la sua nota (Hz, 400-4000).
     pub sidetone: bool,
     pub sidetone_hz: u16,
+    /// Rapporto punto/linea (33-66, 50 = 1:3).
+    pub ratio: u8,
+    /// Attesa del PTT dopo il paddle: 0 = 1 spazio di parola, 1 = 1,33, 2 = 1,67, 3 = 2.
+    pub hang_time: u8,
+    /// Autospace: spazio fra le lettere automatico col paddle.
+    pub autospace: bool,
+    /// Contest spacing: spazio fra le parole di 6 unita' invece di 7.
+    pub contest_spacing: bool,
+    /// Compensazione della manipolazione (ms aggiunti a ogni segno, 0-250): radio con QSK lenta.
+    pub key_comp_ms: u8,
+    /// First extension (ms aggiunti al primo segno, 0-250): radio che tagliano il primo punto.
+    pub first_extension_ms: u8,
+    /// Farnsworth: velocita' dei caratteri (WPM, 0 = spento, 10-99).
+    pub farnsworth_wpm: u8,
+    /// Il paddle ha la precedenza: toccandolo durante una macro il buffer si svuota e la trasmissione si ferma.
+    pub paddle_breakin: bool,
 }
 
 impl Default for WinKeyerConfig {
@@ -94,6 +110,14 @@ impl Default for WinKeyerConfig {
             ptt: true,
             sidetone: true,
             sidetone_hz: 800,
+            ratio: 50,
+            hang_time: 0,
+            autospace: false,
+            contest_spacing: false,
+            key_comp_ms: 0,
+            first_extension_ms: 0,
+            farnsworth_wpm: 0,
+            paddle_breakin: true,
         }
     }
 }
@@ -109,6 +133,11 @@ impl WinKeyerConfig {
             lead_ms: self.lead_ms.min(2500),
             tail_ms: self.tail_ms.min(2500),
             sidetone_hz: self.sidetone_hz.clamp(400, 4000),
+            ratio: self.ratio.clamp(33, 66),
+            hang_time: self.hang_time.min(3),
+            key_comp_ms: self.key_comp_ms.min(250),
+            first_extension_ms: self.first_extension_ms.min(250),
+            farnsworth_wpm: if self.farnsworth_wpm < 10 { 0 } else { self.farnsworth_wpm.min(99) },
             ..self.clone()
         }
     }
@@ -153,14 +182,33 @@ pub mod cmd {
         [0x01, n]
     }
 
-    /// Le uscite: bit 0 PTT, bit 1 sidetone, bit 2 tasto 1 (la radio). Il tasto resta sempre acceso.
-    pub fn pin_config(ptt: bool, sidetone: bool) -> [u8; 2] {
-        [0x09, u8::from(ptt) | (u8::from(sidetone) << 1) | 0b100]
+    /// Le uscite: bit 0 PTT, bit 1 sidetone, bit 2 e 3 le due uscite del tasto (sempre accese), bit 5-4 attesa del PTT dopo il paddle.
+    pub fn pin_config(ptt: bool, sidetone: bool, hang_time: u8) -> [u8; 2] {
+        [0x09, u8::from(ptt) | (u8::from(sidetone) << 1) | 0b1100 | ((hang_time.min(3)) << 4)]
     }
 
-    /// Il registro di modo: paddle, inversione, eco dei caratteri inviati (bit 2, serve per l'avanzamento).
-    pub fn mode(paddle: PaddleMode, swap: bool) -> [u8; 2] {
-        [0x0E, paddle.bits() | (u8::from(swap) << 3) | 0b100]
+    /// Il registro di modo: paddle, inversione, eco dei caratteri inviati (bit 2, serve per l'avanzamento), autospace (bit 1), contest
+    /// spacing (bit 0).
+    pub fn mode(paddle: PaddleMode, swap: bool, autospace: bool, contest_spacing: bool) -> [u8; 2] {
+        [0x0E, paddle.bits() | (u8::from(swap) << 3) | 0b100 | (u8::from(autospace) << 1) | u8::from(contest_spacing)]
+    }
+
+    /// Rapporto punto/linea (33-66, 50 = 1:3).
+    pub fn ratio(r: u8) -> [u8; 2] {
+        [0x17, r.clamp(33, 66)]
+    }
+
+    pub fn key_compensation(ms: u8) -> [u8; 2] {
+        [0x11, ms.min(250)]
+    }
+
+    pub fn first_extension(ms: u8) -> [u8; 2] {
+        [0x10, ms.min(250)]
+    }
+
+    /// Farnsworth (0 = spento).
+    pub fn farnsworth(wpm: u8) -> [u8; 2] {
+        [0x0D, wpm]
     }
 
     pub fn key_immediate(down: bool) -> [u8; 2] {
@@ -171,8 +219,12 @@ pub mod cmd {
     pub fn configure(cfg: &WinKeyerConfig, wpm: u8) -> Vec<u8> {
         let c = cfg.clamped();
         let mut out = Vec::new();
-        out.extend_from_slice(&mode(c.paddle, c.paddle_swap));
-        out.extend_from_slice(&pin_config(c.ptt, c.sidetone));
+        out.extend_from_slice(&mode(c.paddle, c.paddle_swap, c.autospace, c.contest_spacing));
+        out.extend_from_slice(&pin_config(c.ptt, c.sidetone, c.hang_time));
+        out.extend_from_slice(&ratio(c.ratio));
+        out.extend_from_slice(&key_compensation(c.key_comp_ms));
+        out.extend_from_slice(&first_extension(c.first_extension_ms));
+        out.extend_from_slice(&farnsworth(c.farnsworth_wpm));
         out.extend_from_slice(&sidetone(c.sidetone_hz));
         out.extend_from_slice(&weight(c.weight));
         out.extend_from_slice(&ptt_lead_tail(c.lead_ms, c.tail_ms));
@@ -322,6 +374,11 @@ impl WinKeyer {
 
     pub fn status(&self) -> u8 {
         self.status
+    }
+
+    /// Il paddle e' stato toccato mentre il WinKeyer trasmetteva il buffer.
+    pub fn paddle_break_in(&self) -> bool {
+        self.status & status::BREAKIN != 0
     }
 
     /// Legge quello che e' arrivato (eco, stato, potenziometro) e restituisce i pezzi di testo partiti, in ordine.
@@ -691,7 +748,7 @@ mod tests {
         // Iambic B, eco dei caratteri acceso
         assert_eq!(s.mode, Some(0b0000_0100));
         // PTT, sidetone, tasto
-        assert_eq!(s.pin_config, Some(0b111));
+        assert_eq!(s.pin_config, Some(0b1111));
     }
 
     #[test]
@@ -757,7 +814,7 @@ mod tests {
         assert_eq!(encode("~#"), (vec![], 0));
         assert_eq!(cmd::sidetone(800), [0x01, 5]);
         assert_eq!(cmd::ptt_lead_tail(3000, 15), [0x04, 250, 1]);
-        assert_eq!(cmd::mode(PaddleMode::Ultimatic, true), [0x0E, 0b0010_1100]);
+        assert_eq!(cmd::mode(PaddleMode::Ultimatic, true, true, false), [0x0E, 0b0010_1110]);
     }
 
     #[test]
