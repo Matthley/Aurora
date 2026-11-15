@@ -51,7 +51,8 @@ async fn unknown_kinds_foreign_keys_and_huge_bodies_are_refused() {
     let resp = put(&s, "desktop", r#"{"altro":"x"}"#).await;
     status_is(&resp, StatusCode::BAD_REQUEST);
     assert_eq!(body_json(resp).await["error"], "bad_settings");
-    let huge = format!(r#"{{"aurora-prefs":"{}"}}"#, "x".repeat(300 * 1024));
+    // appena oltre il limite (alzato a 1 MB perche' le disposizioni delle finestre ci stiano tutte)
+    let huge = format!(r#"{{"aurora-prefs":"{}"}}"#, "x".repeat(remote_api::ui_settings::MAX_BYTES));
     status_is(&put(&s, "desktop", &huge).await, StatusCode::BAD_REQUEST);
     std::fs::remove_dir_all(path.parent().unwrap()).ok();
 }
