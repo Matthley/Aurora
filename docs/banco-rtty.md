@@ -195,3 +195,33 @@ trovate, uno spettro fine (Hann di 4 bit sull'ultimo secondo) per i picchi e l'a
 (bande laterali della forte a -30 dB invece di -18), solo con una stazione 10-30 volte piu' forte entro 300 Hz. Banco: vicina `multi`
 0 -> 252 giusti (15 nominativi); `tmp30515`: stazioni 16/26 = , canali aperti 6,0 -> 8,3-8,5. Senza il vincolo della stazione forte:
 15/26 e 10 canali. Non tenuta per i canali in piu' sulla registrazione.
+
+## 2026-11-15 (notte): punti deboli rimasti (nessun cambio tenuto)
+
+1. **Varianza propria per tono solo quando un tono cala** (escursione sotto meta' di quella dell'altro), sopra la sequenza, tre semi:
+   giusti -1 / -1 / +6, inseriti +11 / -3 / +10, nominativi -1 / 0 / +1; perde nella vicina (15 -> 14 nominativi) e nelle trasmissioni
+   pulite (CER 0 -> 1,0). Non tenuta. La scelta di LTRS/FIGS con la confidenza del carattere non e' stata provata: il modello del testo
+   corregge gia' i cambi di registro e il caso del selettivo e' un FIGS letto sicuro dentro un fondo di fading.
+
+2. **Sequenza anche nei canali di BigScan: perche' si perdeva UC0A.** Sul canale a 1035 Hz la sequenza fa uscire un carattere incerto
+   (probabilita' 0,51) all'accensione di UC0A, attaccato alla parola seguente: «MM9I CQ TDE UC0A UC0A» invece di «MM9I CQ DE UC0A UC0A».
+   «TDE» non e' «DE», cosi' UC0A non risulta piu' chi chiama dopo il CQ. Correzione provata (ramo `prova-bigscan-sequenza-incerti`): il
+   primo carattere di una parola sotto 0,6 non entra nella parola. Con la sequenza nei canali UC0A torna (presenza 92 %), ma il totale
+   resta 16/26, presenza 55 %: si perde UT4LW (che la base trovava solo a 1470 Hz, 47 minuti dopo la sua attivita') e RN4HAB scende da
+   88 a 66 %. Senza la sequenza nei canali la stessa correzione lascia 17/26 e 56 % ma aggiunge due stazioni solo della banda (E6SR@1110,
+   probabilmente falsa, ed EA4GOY@2520, vera). Non tenuta: BigScan resta senza la sequenza.
+
+3. **Stazione debole accanto alla forte, con conferma** (ramo `prova-bigscan-nascoste-conferma`, `AURORA_NASCOSTE`): il canale aperto
+   dalla ricerca delle stazioni nascoste resta solo se legge almeno N caratteri sicuri (probabilita' 0,9) entro S secondi; i respinti non
+   si riaprono per 60 s.
+
+   | | vicina `multi` (giusti, nominativi) | `tmp30515` stazioni | presenza | canali in media |
+   |---|---|---|---|---|
+   | base (main) | 0, 0 | 17/26 | 56 % | 6,0 |
+   | nascoste senza conferma | 252, 15 | 16/26 | 52 % | 8,3-8,5 |
+   | conferma N 8, S 5 s | 66, 2 | 17/26 | 56 % | 7,9 |
+   | conferma N 4, S 8 s | 239, 10 | 17/26 | 56 % | 8,3 |
+
+   Con la conferma le stazioni e la presenza tornano quelle della base, ma i canali in piu' restano: i canali aperti accanto alle forti
+   leggono caratteri sicuri (probabilmente il testo della forte stessa, dalle sue bande laterali), quindi la conferma non li chiude.
+   Da provare: confermare solo se il testo letto differisce da quello del canale forte accanto. Non tenuta.
