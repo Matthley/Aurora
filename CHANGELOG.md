@@ -2,7 +2,15 @@
 
 ## Non rilasciato
 
+## 0.11.263 - 2026-11-15
+
 - WinKeyer (K1EL WK2, WK3 e compatibili WKUSB, WKmini) nel CW dei modi testuali (#66): uscita «WinKeyer» accanto all'audio, macro e finestra TX mandano il testo al manipolatore, avanzamento dalla sua eco, Esc e macro che riparte svuotano il buffer, paddle con precedenza. Impostazioni in Stazione › WinKeyer: porta, stato e firmware, velocita' o potenziometro, Farnsworth, peso, rapporto, compensazione, first extension, autospace, contest spacing, PTT lead/tail e hang time, modo e inversione del paddle, sidetone e nota, tasto «Prova» (VVV). Vedi `docs/winkeyer.md`.
+- SSTV, sintonia come nei programmi classici: istogramma dei livelli con le lineette di sincronismo (1200), nero (1500) e bianco (2300), cursore di correzione a passi di 6,25 Hz (±200 Hz) che ridisegna subito l'immagine, «Sintonia giusta» o di quanto spostare il VFO; AFC continuo che segue il segnale anche se si gira il VFO durante l'immagine; tolto il riquadro «Rx 1200»; nuova sezione della Guida «Come sintonizzare un segnale SSTV».
+- SSTV: compositore con Foto di sfondo a sinistra, anteprima al centro e Livelli a destra; barra di avanzamento e conferme nello stile di Aurora.
+- RTTY: lettura del carattere intero (start, bit, stop di durata variabile, silenzio) nella finestra RX: con una stazione forte vicina errori da 39,9 a 19,8 % sul banco, ritardo 0,23 s.
+- Display della radio: PWR e SPLIT in un solo riquadro; pannello Aurora BIGScan allungabile con una maniglia sotto.
+- Dopo un cambio di frequenza fatto da Aurora la testata e la cascata seguono di nuovo la radio dopo 1,2 s invece di 8.
+- La radio non salta piu' fra VFO A e VFO B durante il polling Hamlib (#67); in Hound, senza split della radio, l'avviso dice dove impostarlo (#69); una stazione MSHV in multi-stream non e' piu' segnata Fox (#68); il selettore del colore nelle Impostazioni si clicca di nuovo (#70); microfono di nuovo funzionante su macOS (PR #65).
 
 ## 0.11.262 - 2026-11-15
 
