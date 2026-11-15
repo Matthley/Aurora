@@ -272,16 +272,16 @@ html[data-theme='light'] .sstv-photo { border-color: #7d8bb0; }
 /* ===== ricezione: sintonia sotto il visore (stessa colonna, stessi bordi del visore), log del QSO piccolo a destra della scheda del modo ===== */
 .sstv-rx--log { grid-template-columns: minmax(0, 640px) minmax(290px, 380px) minmax(200px, 240px); gap: 0.9rem; }
 /* sintonia: istogramma dei livelli (blocco pieno) con tre lineette, cursore della correzione e una riga di consiglio */
-.sstv-tune { --sstv-hist-ink: #0d1424; --sstv-hist-mark: #e0343b; flex: none; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px; border: 1px solid #2f4279; border-radius: 10px; background: var(--panel); }
-.sstv-tune-hist { display: block; width: 100%; height: 34px; border-radius: 6px; background: #e8edf6; cursor: crosshair; }
-.sstv-tune-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; font-size: 12px; }
-.sstv-tune-slider { display: flex; align-items: center; gap: 6px; flex: 1 1 200px; min-width: 0; color: var(--muted, inherit); }
-.sstv-tune-slider input { flex: 1; min-width: 80px; }
-.sstv-tune-value { min-width: 64px; font: 700 12px/1 var(--font-data); text-align: right; cursor: default; }
-.sstv-tune-hint { flex: 1 1 160px; color: var(--muted, inherit); }
+.sstv-tune { --sstv-hist-ink: #0d1424; --sstv-hist-mark: #e0343b; flex: none; display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 400px; padding: 2px 4px 3px; border: 1px solid #2f4279; border-radius: 6px; background: var(--panel); }
+.sstv-tune-hist { display: block; width: 100%; height: 28px; border-radius: 3px; background: #e8edf6; border: 1px solid #9fb0d4; box-sizing: border-box; cursor: crosshair; }
+.sstv-tune-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; font-size: 10px; line-height: 1.2; }
+.sstv-tune-slider { display: flex; align-items: center; gap: 4px; flex: 1 1 90px; min-width: 0; color: var(--muted, inherit); }
+.sstv-tune-slider input { flex: 1; min-width: 40px; max-width: 110px; height: 12px; margin: 0; }
+.sstv-tune-value { min-width: 0; white-space: nowrap; font: 700 10px/1 var(--font-data); text-align: right; cursor: default; }
+.sstv-tune-hint { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted, inherit); }
 .sstv-tune-hint--ok { color: #2fb36a; font-weight: 600; }
 html[data-theme='light'] .sstv-tune { border-color: #9fb0d4; }
-html[data-theme='light'] .sstv-tune-hist { background: #f7f9fc; box-shadow: inset 0 0 0 1px #c9d3e6; }
+html[data-theme='light'] .sstv-tune-hist { background: #f7f9fc; border-color: #c9d3e6; }
 html[data-theme='light'] .sstv-tune-hint--ok { color: #1c8a4a; }
 
 .sstv-log { align-self: start; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem 0.4rem; align-items: end; min-width: 0; padding: 0.45rem 0.6rem 0.55rem; border: 1px solid #2f4279; border-radius: 12px; background: linear-gradient(180deg, #121e36, #0f192d); }

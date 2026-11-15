@@ -8,6 +8,8 @@ export const TUNE_STEP_HZ = 6.25;
 export const TUNE_MAX_STEPS = 32;
 const HIST_BINS = 256;
 const HIST_CAP = 40;
+/** Le tre lineette rosse sono corte: partono dall'alto per 5 px. */
+export const MARK_LEN_PX = 5;
 /** Sotto questo scarto la sintonia si dice giusta (due passi: l'immagine non cambia a occhio). */
 const GOOD_HZ = 12.5;
 
@@ -101,7 +103,7 @@ export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: ()
       ctx.clearRect(0, 0, w, h);
       const binW = w / HIST_BINS;
       ctx.fillStyle = ink;
-      const top = 7 * dpr;
+      const top = MARK_LEN_PX * dpr;
       const values = hist.current;
       for (let i = 0; i < HIST_BINS; i += 1) {
         const v = Math.min(HIST_CAP, values[i] ?? 0);
@@ -112,8 +114,7 @@ export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: ()
       ctx.fillStyle = mark;
       for (const m of tuneMarks(tuneRef.current)) {
         const x = Math.round(((hzToLevel(m.hz) + 0.5) / HIST_BINS) * w);
-        const len = m.kind === 'sync' ? h * 0.45 : h;
-        ctx.fillRect(x - Math.max(1, dpr), 0, Math.max(2, 2 * dpr), len);
+        ctx.fillRect(x - Math.max(1, dpr), 0, Math.max(2, 2 * dpr), MARK_LEN_PX * dpr);
       }
     };
     // un solo disegno per fotogramma, anche se gli eventi arrivano piu' fitti

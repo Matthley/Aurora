@@ -51,7 +51,7 @@ describe('SstvTuning', () => {
   it('puts the sync where the histogram is clicked', () => {
     render(<SstvTuning rx={RX} />);
     const canvas = screen.getByRole('img', { name: 'Istogramma dei livelli del segnale' });
-    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 256, height: 34, right: 256, bottom: 34, x: 0, y: 0, toJSON: () => ({}) });
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 256, height: 28, right: 256, bottom: 28, x: 0, y: 0, toJSON: () => ({}) });
     // livello 32 = 1300 Hz: il sincronismo a +100 Hz
     fireEvent.click(canvas, { clientX: 32.5 });
     expect(sstvTune).toHaveBeenLastCalledWith(16);
