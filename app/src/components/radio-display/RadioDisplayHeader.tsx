@@ -60,6 +60,8 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
     return () => document.body.classList.remove('rd-radio-off');
   }, [radioOff, t]);
   if (pref.hidden) return null;
+  // con la radio in split niente lente (richiesta del proprietario): resta solo l'indicazione SPLIT
+  const inSplit = cat.data?.status.rig?.split === true;
   // il display sta in una finestra a parte (secondo schermo): qui resta solo un segnaposto vuoto
   if (detached && !solo) return <span className="rd-detached" aria-hidden="true" />;
   // TX acceso anche mentre la radio accorda (TUNE del display) o con la portante di accordo della SDR TCI accesa
@@ -97,7 +99,7 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
 
   if (isFaceStyle(pref.style)) {
     return solo ? <FaceHeader model={model} style={pref.style} /> : (
-      <Zoom>
+      <Zoom off={inSplit}>
         <FaceHeader model={model} style={pref.style} />
       </Zoom>
     );
@@ -114,7 +116,7 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
       </div>
     </div>
   );
-  return solo ? duo : <Zoom>{duo}</Zoom>;
+  return solo ? duo : <Zoom off={inSplit}>{duo}</Zoom>;
 }
 
 /** Il pulsantino discreto per portare il display su un altro schermo, nell'angolo in alto a destra (si vede passandoci sopra). */
@@ -136,7 +138,7 @@ const CLOSE_MS = 300;
  * La lente: passando il mouse sul display, dopo un attimo si apre sotto una copia identica ingrandita 1,5 volte in larghezza e in altezza
  * (CSS `zoom`, come una lente: niente si stira). Resta aperta finche' il mouse e' sul display o sulla copia.
  */
-function Zoom({ children }: { children: ReactNode }) {
+function Zoom({ children, off = false }: { children: ReactNode; off?: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useState(0);
@@ -146,13 +148,19 @@ function Zoom({ children }: { children: ReactNode }) {
   const onCorner = useRef(false);
   const later = (next: boolean, ms: number) => {
     clearTimeout(timer.current);
-    if (next && onCorner.current) return;
+    if (next && (onCorner.current || off)) return;
     timer.current = setTimeout(() => {
       if (next && host.current) setWidth(host.current.offsetWidth);
       setOpen(next);
     }, ms);
   };
   useEffect(() => () => clearTimeout(timer.current), []);
+  // lo split si accende con la lente aperta: si chiude subito
+  useEffect(() => {
+    if (!off) return;
+    clearTimeout(timer.current);
+    setOpen(false);
+  }, [off]);
   return (
     <div className="rd-zoom-host" ref={host} onMouseEnter={() => later(true, OPEN_MS)} onMouseLeave={() => later(false, CLOSE_MS)}>
       {children}
@@ -168,7 +176,7 @@ function Zoom({ children }: { children: ReactNode }) {
       >
         <DetachButton item="display" className="dock-detach" />
       </span>
-      {open ? (
+      {open && !off ? (
         <div className="rd-zoom" role="group" aria-label={t('rd.popover')}>
           <div className="rd-zoom-lens" style={{ width: width || undefined }}>
             {children}
