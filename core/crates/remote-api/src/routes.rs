@@ -1091,8 +1091,9 @@ async fn online_get(State(state): State<AppState>, _: Authed) -> Result<Json<Val
 }
 
 /// Accende o spegne i servizi online. Spegnere dimentica cio' che si era scaricato.
-#[utoipa::path(put, path = "/api/v1/online", responses((status = 200, description = "Impostazioni salvate"), (status = 404, description = "Non disponibile (online_unavailable)"), (status = 500, description = "Scrittura su disco fallita (online_write)")))]
-async fn online_put(State(state): State<AppState>, _: Authed, Json(settings): Json<online_info::Settings>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/online", responses((status = 200, description = "Impostazioni salvate"), (status = 404, description = "Non disponibile (online_unavailable)"), (status = 500, description = "Scrittura su disco fallita (online_write)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn online_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(settings): Json<online_info::Settings>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let saved = online_service(&state)?.set_settings(settings).map_err(|e| {
         tracing::warn!("salvataggio dei servizi online fallito: {e}");
         ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "online_write")
@@ -1703,8 +1704,9 @@ fn cluster_config_public(config: &dx_cluster::Config) -> Value {
     value
 }
 
-#[utoipa::path(put, path = "/api/v1/dx-cluster", responses((status = 200, description = "Impostazioni salvate e collegamenti rifatti"), (status = 400, description = "Valori non validi (bad_cluster)"), (status = 404, description = "Non disponibile (cluster_unavailable)"), (status = 500, description = "Scrittura non riuscita (cluster_write)")))]
-async fn cluster_put(State(state): State<AppState>, _: Authed, Json(mut config): Json<dx_cluster::Config>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/dx-cluster", responses((status = 200, description = "Impostazioni salvate e collegamenti rifatti"), (status = 400, description = "Valori non validi (bad_cluster)"), (status = 404, description = "Non disponibile (cluster_unavailable)"), (status = 500, description = "Scrittura non riuscita (cluster_write)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn cluster_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(mut config): Json<dx_cluster::Config>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let cluster = cluster_service(&state)?;
     // la password non torna mai all'interfaccia: vuota vuol dire «tieni quella salvata» per lo stesso server (`clear_password` la toglie)
     let saved = cluster.config();
@@ -1738,8 +1740,9 @@ struct ClusterTestBody {
     port: u16,
 }
 
-#[utoipa::path(post, path = "/api/v1/dx-cluster/test", responses((status = 200, description = "Esito della prova: raggiungibile o no, tempo e benvenuto del server"), (status = 400, description = "Indirizzo non valido (bad_server)")))]
-async fn cluster_test(_: Authed, Json(body): Json<ClusterTestBody>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(post, path = "/api/v1/dx-cluster/test", responses((status = 200, description = "Esito della prova: raggiungibile o no, tempo e benvenuto del server"), (status = 400, description = "Indirizzo non valido (bad_server)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn cluster_test(_: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<ClusterTestBody>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     if body.host.is_empty() || body.host.len() > 253 || !body.host.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') || body.port == 0 {
         return Err(ApiError::new(StatusCode::BAD_REQUEST, "bad_server"));
     }
@@ -1769,8 +1772,9 @@ async fn rbn_get(State(state): State<AppState>, _: Authed) -> Result<Json<Value>
     Ok(Json(json!({ "config": rbn.config(), "feeds": rbn.statuses(), "server": server, "clients": clients })))
 }
 
-#[utoipa::path(put, path = "/api/v1/rbn", responses((status = 200, description = "Impostazioni salvate, collegamenti e server rifatti"), (status = 400, description = "Valori non validi (bad_rbn)"), (status = 404, description = "Non disponibile (cluster_unavailable)"), (status = 500, description = "Scrittura non riuscita (rbn_write)")))]
-async fn rbn_put(State(state): State<AppState>, _: Authed, Json(config): Json<dx_cluster::rbn::RbnConfig>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/rbn", responses((status = 200, description = "Impostazioni salvate, collegamenti e server rifatti"), (status = 400, description = "Valori non validi (bad_rbn)"), (status = 404, description = "Non disponibile (cluster_unavailable)"), (status = 500, description = "Scrittura non riuscita (rbn_write)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn rbn_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(config): Json<dx_cluster::rbn::RbnConfig>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let rbn = cluster_service(&state)?.rbn();
     config.validate().map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "bad_rbn"))?;
     rbn.set_config(config).map_err(|e| {
@@ -1811,12 +1815,10 @@ async fn clock_get(State(state): State<AppState>, _: Authed) -> Result<Json<Valu
     Ok(Json(json!({ "config": clock.config(), "last": clock.last(), "last_good_ms": clock.last_good_ms() })))
 }
 
-#[utoipa::path(put, path = "/api/v1/clock", responses((status = 200, description = "Impostazioni salvate"), (status = 400, description = "Valori non validi (bad_clock)"), (status = 403, description = "La correzione automatica si accende solo dalla rete di casa (local_only)"), (status = 404, description = "Non disponibile (clock_unavailable)"), (status = 500, description = "Scrittura non riuscita (clock_write)")))]
+#[utoipa::path(put, path = "/api/v1/clock", responses((status = 200, description = "Impostazioni salvate"), (status = 400, description = "Valori non validi (bad_clock)"), (status = 403, description = "Solo dal PC (local_only)"), (status = 404, description = "Non disponibile (clock_unavailable)"), (status = 500, description = "Scrittura non riuscita (clock_write)")))]
 async fn clock_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(config): Json<clock_sync::Config>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let clock = clock_service(&state)?;
-    if config.auto_correct && !clock.config().auto_correct && !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
     config.validate().map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "bad_clock"))?;
     tokio::task::spawn_blocking(move || clock.set_config(config))
         .await
@@ -1866,14 +1868,12 @@ struct EngineSettingsBody {
     changes: std::collections::BTreeMap<String, String>,
 }
 
-/// Cambia le impostazioni del motore proprio: Aurora le salva nel suo file e le applica subito (nessun riavvio). Solo dalla rete di casa:
-/// cambiano a chi Aurora manda i QSO.
-#[utoipa::path(put, path = "/api/v1/engine-settings", responses((status = 200, description = "Salvate e applicate; restituisce il documento aggiornato"), (status = 400, description = "Voce o valore non ammessi (bad_setting)"), (status = 403, description = "Solo dalla rete di casa (local_only)"), (status = 404, description = "Solo con il motore proprio (engine_settings_unavailable)"), (status = 500, description = "Scrittura non riuscita (engine_settings_write)")))]
+/// Cambia le impostazioni del motore proprio: Aurora le salva nel suo file e le applica subito (nessun riavvio). Solo dal PC,
+/// come tutte le scritture della finestra Impostazioni.
+#[utoipa::path(put, path = "/api/v1/engine-settings", responses((status = 200, description = "Salvate e applicate; restituisce il documento aggiornato"), (status = 400, description = "Voce o valore non ammessi (bad_setting)"), (status = 403, description = "Solo dal PC (local_only)"), (status = 404, description = "Solo con il motore proprio (engine_settings_unavailable)"), (status = 500, description = "Scrittura non riuscita (engine_settings_write)")))]
 async fn engine_settings_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<EngineSettingsBody>) -> Result<Json<Value>, ApiError> {
     let store = state.engine_settings.clone().ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "engine_settings_unavailable"))?;
-    if !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
+    settings_only_from_this_pc(peer, &headers)?;
     if body.changes.is_empty() || body.changes.len() > 50 {
         return Err(ApiError::new(StatusCode::BAD_REQUEST, "bad_setting"));
     }
@@ -1995,12 +1995,10 @@ struct QsoUploadTestBody {
 /// Il pulsante «Prova» dell'invio diretto dei QSO: controlla le impostazioni salvate **senza registrare QSO** (Wavelog/Cloudlog: elenco delle
 /// stazioni della chiave; QRZ: `ACTION=STATUS`; LoTW: TQSL e posizione di stazione presenti; ClubLog: solo i dati, perche' non ha una prova
 /// senza invio). Se va bene, un servizio fermo per un errore di credenziali riparte. Gli altri servizi esterni hanno una prova leggera
-/// ([`service_test`]). Solo dalla rete di casa.
-#[utoipa::path(post, path = "/api/v1/qso-upload/test", responses((status = 200, description = "Prova riuscita: `{ok, message}`"), (status = 400, description = "Servizio sconosciuto (bad_service)"), (status = 403, description = "Solo dalla rete di casa (local_only)"), (status = 404, description = "Solo con il motore proprio (upload_unavailable)"), (status = 502, description = "Prova non riuscita (upload_test_failed, con `message`)")))]
+/// ([`service_test`]). Solo dal PC.
+#[utoipa::path(post, path = "/api/v1/qso-upload/test", responses((status = 200, description = "Prova riuscita: `{ok, message}`"), (status = 400, description = "Servizio sconosciuto (bad_service)"), (status = 403, description = "Solo dal PC (local_only)"), (status = 404, description = "Solo con il motore proprio (upload_unavailable)"), (status = 502, description = "Prova non riuscita (upload_test_failed, con `message`)")))]
 async fn qso_upload_test(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<QsoUploadTestBody>) -> Result<Json<Value>, ApiError> {
-    if !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
+    settings_only_from_this_pc(peer, &headers)?;
     // gli altri servizi esterni (eQSL, spot, dati online, orologio, programmi collegati): una prova leggera, senza mandare QSO
     if SERVICE_TESTS.contains(&body.service.as_str()) {
         return match service_test(&state, body.service).await {
@@ -2132,12 +2130,10 @@ struct WavelogStationsBody {
     url: Option<String>,
 }
 
-/// Le stazioni Wavelog/Cloudlog della chiave salvata, lette dal server: riempiono la tendina della stazione. Solo dalla rete di casa.
-#[utoipa::path(post, path = "/api/v1/qso-upload/wavelog-stations", responses((status = 200, description = "`{stations: [{id, name, call}]}`"), (status = 403, description = "Solo dalla rete di casa (local_only)"), (status = 404, description = "Solo con il motore proprio (upload_unavailable)"), (status = 502, description = "Lettura non riuscita (wavelog_stations_failed, con `message`)")))]
+/// Le stazioni Wavelog/Cloudlog della chiave salvata, lette dal server: riempiono la tendina della stazione. Solo dal PC.
+#[utoipa::path(post, path = "/api/v1/qso-upload/wavelog-stations", responses((status = 200, description = "`{stations: [{id, name, call}]}`"), (status = 403, description = "Solo dal PC (local_only)"), (status = 404, description = "Solo con il motore proprio (upload_unavailable)"), (status = 502, description = "Lettura non riuscita (wavelog_stations_failed, con `message`)")))]
 async fn wavelog_stations(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<WavelogStationsBody>) -> Result<Json<Value>, ApiError> {
-    if !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
+    settings_only_from_this_pc(peer, &headers)?;
     let service = state.engine_settings.as_ref().and_then(|s| s.reporting()).ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "upload_unavailable"))?;
     match service.wavelog_stations(body.url).await {
         Ok(list) => Ok(Json(json!({ "stations": list.iter().map(|s| json!({ "id": s.id, "name": s.name, "call": s.call })).collect::<Vec<_>>() }))),
@@ -2205,14 +2201,12 @@ struct AudioSettingsBody {
 }
 
 /// Cambia la scheda Audio: controlla i valori, **apre i dispositivi nuovi e li applica** (l'ingresso a caldo, l'uscita dalla prossima trasmissione)
-/// e solo per le parti riuscite salva nello store. Un dispositivo che non si apre lascia (o rimette) quello di prima. Solo dalla rete di casa.
-#[utoipa::path(put, path = "/api/v1/audio/settings", responses((status = 200, description = "Esito per parte (input, output, save) e valori salvati; `ok` e' falso se una parte non e' riuscita"), (status = 400, description = "Valore non ammesso o corpo vuoto (bad_audio_setting)"), (status = 403, description = "Solo dalla rete di casa (local_only)"), (status = 404, description = "Solo con il motore proprio (audio_unavailable)"), (status = 500, description = "Scrittura non riuscita (engine_settings_write)")))]
+/// e solo per le parti riuscite salva nello store. Un dispositivo che non si apre lascia (o rimette) quello di prima. Solo dal PC.
+#[utoipa::path(put, path = "/api/v1/audio/settings", responses((status = 200, description = "Esito per parte (input, output, save) e valori salvati; `ok` e' falso se una parte non e' riuscita"), (status = 400, description = "Valore non ammesso o corpo vuoto (bad_audio_setting)"), (status = 403, description = "Solo dal PC (local_only)"), (status = 404, description = "Solo con il motore proprio (audio_unavailable)"), (status = 500, description = "Scrittura non riuscita (engine_settings_write)")))]
 async fn audio_settings_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<AudioSettingsBody>) -> Result<Json<Value>, ApiError> {
     use crate::{audio_api as a, engine_settings as es};
     let (control, store) = audio_control(&state)?;
-    if !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
+    settings_only_from_this_pc(peer, &headers)?;
     let mut asked: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
     for (key, value) in [
         ("SoundInName", body.input),
@@ -2632,8 +2626,9 @@ struct UpdateBody {
 }
 
 /// Cambia le impostazioni del controllo degli aggiornamenti.
-#[utoipa::path(put, path = "/api/v1/update", responses((status = 200, description = "Salvato"), (status = 400, description = "Valore non valido (bad_update)"), (status = 500, description = "Scrittura fallita (update_write)")))]
-async fn update_put(State(state): State<AppState>, _: Authed, Json(body): Json<UpdateBody>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/update", responses((status = 200, description = "Salvato"), (status = 400, description = "Valore non valido (bad_update)"), (status = 500, description = "Scrittura fallita (update_write)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn update_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<UpdateBody>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let service = update_service(&state)?;
     let config = updater::UpdateConfig { enabled: body.enabled, repo: body.repo, interval_hours: body.interval_hours, prereleases: body.prereleases, token: String::new() };
     let mut check = config.clone();
@@ -2708,8 +2703,9 @@ async fn wishlist_get(State(state): State<AppState>, _: Authed) -> Result<Json<V
 }
 
 /// Cambia la lista dei desiderati: si salva e vale subito.
-#[utoipa::path(put, path = "/api/v1/wishlist", responses((status = 200, description = "Lista salvata"), (status = 400, description = "Voce non valida (bad_wishlist)"), (status = 500, description = "Scrittura su disco fallita (wishlist_write)")))]
-async fn wishlist_put(State(state): State<AppState>, _: Authed, Json(config): Json<wishlist::Wishlist>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/wishlist", responses((status = 200, description = "Lista salvata"), (status = 400, description = "Voce non valida (bad_wishlist)"), (status = 500, description = "Scrittura su disco fallita (wishlist_write)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn wishlist_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(config): Json<wishlist::Wishlist>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let service = wishlist_service(&state)?;
     let config = config.normalized();
     config.validate().map_err(|e| {
@@ -2724,8 +2720,9 @@ async fn wishlist_put(State(state): State<AppState>, _: Authed, Json(config): Js
 }
 
 /// Manda un avviso di prova: compare nella pagina e, se c'e' un indirizzo, arriva al telefono. Dice se il telefono l'ha ricevuto.
-#[utoipa::path(post, path = "/api/v1/wishlist/test", responses((status = 200, description = "Avviso di prova inviato; `phone` dice l'esito verso il telefono"), (status = 404, description = "Non disponibile (wishlist_unavailable)")))]
-async fn wishlist_test(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(post, path = "/api/v1/wishlist/test", responses((status = 200, description = "Avviso di prova inviato; `phone` dice l'esito verso il telefono"), (status = 404, description = "Non disponibile (wishlist_unavailable)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn wishlist_test(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     let service = wishlist_service(&state)?;
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
     let alert = aurora_core::WantedAlert {
@@ -2897,6 +2894,11 @@ fn shown_time(t: &str) -> String {
     }
 }
 
+/// Le rotte di scrittura della finestra Impostazioni: solo da questo PC, come CAT, rotore e QMAP. Il telefono le legge ma non le cambia.
+fn settings_only_from_this_pc(peer: Option<SocketAddr>, headers: &HeaderMap) -> Result<(), ApiError> {
+    if from_this_pc(peer, headers) { Ok(()) } else { Err(ApiError::new(StatusCode::FORBIDDEN, "local_only")) }
+}
+
 /// La richiesta arriva da questo stesso PC (loopback, non da un proxy): solo qui si apre una finestra del programma.
 fn from_this_pc(peer: Option<SocketAddr>, headers: &HeaderMap) -> bool {
     peer.is_some_and(|p| p.ip().is_loopback()) && !is_proxied(headers)
@@ -3065,11 +3067,9 @@ struct Log4omDbBody {
 
 /// Cambia (o toglie, con `path` vuoto) il database di Log4OM2: lo controlla, lo ricorda e ricarica subito i QSO gia' fatti. Solo
 /// dalla rete di casa. Risponde come il `GET`.
-#[utoipa::path(put, path = "/api/v1/log4om-db", request_body = Log4omDbBody, responses((status = 200, description = "{path, source, locked}"), (status = 400, description = "File mancante o non di Log4OM2 (log4om_db_invalid)"), (status = 403, description = "Solo dalla rete di casa (local_only)"), (status = 409, description = "Scritto in aurora.env (log4om_db_locked)")))]
+#[utoipa::path(put, path = "/api/v1/log4om-db", request_body = Log4omDbBody, responses((status = 200, description = "{path, source, locked}"), (status = 400, description = "File mancante o non di Log4OM2 (log4om_db_invalid)"), (status = 403, description = "Solo dal PC (local_only)"), (status = 409, description = "Scritto in aurora.env (log4om_db_locked)")))]
 async fn log4om_db_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<Log4omDbBody>) -> Result<Json<Value>, ApiError> {
-    if !from_home_network(peer, &headers) {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "local_only"));
-    }
+    settings_only_from_this_pc(peer, &headers)?;
     let path = body.path.map(|p| p.trim().trim_matches('"').to_string()).filter(|p| !p.is_empty()).map(std::path::PathBuf::from);
     apply_log4om_db(&state, path).await
 }
@@ -3661,8 +3661,9 @@ async fn frequencies_defaults(_: Authed) -> Json<Value> {
     Json(json!(rig_control::table::FrequencyTable::default().entries()))
 }
 
-#[utoipa::path(put, path = "/api/v1/frequencies", responses((status = 200, description = "Tabella sostituita"), (status = 400, description = "Tabella non valida (bad_frequencies)")))]
-async fn frequencies_put(State(state): State<AppState>, _: Authed, Json(entries): Json<Vec<rig_control::table::Entry>>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/frequencies", responses((status = 200, description = "Tabella sostituita"), (status = 400, description = "Tabella non valida (bad_frequencies)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn frequencies_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(entries): Json<Vec<rig_control::table::Entry>>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     {
         let mut table = state.frequencies.lock().unwrap_or_else(|p| p.into_inner());
         table.set(entries).map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "bad_frequencies"))?;
@@ -3683,8 +3684,9 @@ struct ScheduleBody {
     entries: Vec<rig_control::schedule::ScheduleEntry>,
 }
 
-#[utoipa::path(put, path = "/api/v1/schedule", responses((status = 200, description = "Programmazione impostata"), (status = 400, description = "Programmazione non valida (bad_schedule)")))]
-async fn schedule_put(State(state): State<AppState>, _: Authed, Json(body): Json<ScheduleBody>) -> Result<Json<Value>, ApiError> {
+#[utoipa::path(put, path = "/api/v1/schedule", responses((status = 200, description = "Programmazione impostata"), (status = 400, description = "Programmazione non valida (bad_schedule)"), (status = 403, description = "Solo dal PC (local_only)")))]
+async fn schedule_put(State(state): State<AppState>, _: Authed, Peer(peer): Peer, headers: HeaderMap, Json(body): Json<ScheduleBody>) -> Result<Json<Value>, ApiError> {
+    settings_only_from_this_pc(peer, &headers)?;
     {
         let mut schedule = state.schedule.lock().unwrap_or_else(|p| p.into_inner());
         schedule.set(body.enabled, body.entries).map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "bad_schedule"))?;

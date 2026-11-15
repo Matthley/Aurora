@@ -43,7 +43,7 @@ async fn a_change_is_applied_at_once_and_returned() {
     let (s, store) = with_store("put");
     let cookie = cookie_for(&s);
     let body = r#"{"changes":{"UDP2Server":"192.168.1.9","UDP2ServerPort":"2240","EnableUDP2adifBroadcast":"true"}}"#;
-    let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(body)).await;
+    let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").via_loopback().cookie(&cookie).json(body)).await;
     status_is(&resp, StatusCode::OK);
     assert_eq!(body_json(resp).await["values"]["UDP2ServerPort"], "2240");
     assert_eq!(store.reports().secondary, Some("192.168.1.9:2240".parse().unwrap()));
@@ -55,12 +55,12 @@ async fn refuses_bad_values_unavailable_items_empty_bodies_and_remote_peers() {
     let cookie = cookie_for(&s);
     let before: BTreeMap<String, String> = store.values();
     for body in [r#"{"changes":{"UDP2ServerPort":"99999"}}"#, r#"{"changes":{"Rig":"x"}}"#, r#"{"changes":{"udpWindowToFront":"true"}}"#, r#"{"changes":{}}"#] {
-        let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(body)).await;
+        let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").via_loopback().cookie(&cookie).json(body)).await;
         status_is(&resp, StatusCode::BAD_REQUEST);
         assert_eq!(body_json(resp).await["error"], "bad_setting", "{body}");
     }
     assert_eq!(store.values(), before, "niente e' cambiato");
-    let mut outside = req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(r#"{"changes":{"MyCall":"IU3ABC"}}"#);
+    let mut outside = req(Method::PUT, "/api/v1/engine-settings").via_loopback().cookie(&cookie).json(r#"{"changes":{"MyCall":"IU3ABC"}}"#);
     outside.peer = axum::extract::ConnectInfo("8.8.8.8:50000".parse().unwrap());
     let resp = call(&router(&s), outside).await;
     status_is(&resp, StatusCode::FORBIDDEN);
@@ -77,12 +77,12 @@ async fn region_and_type2_messages_are_live_settings_with_their_own_values() {
     assert_eq!(doc["items"]["Type2MsgGen"]["note"], "jt_only", "in FT8 e FT4 JTDX non lo legge: la pagina lo dice");
     assert!(doc["items"]["Region"].get("note").is_none());
     let body = r#"{"changes":{"Region":"R1","Type2MsgGen":"type_2_msg_5_only"}}"#;
-    status_is(&call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(body)).await, StatusCode::OK);
+    status_is(&call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").via_loopback().cookie(&cookie).json(body)).await, StatusCode::OK);
     let r = store.reports();
     assert_eq!((r.region, r.type2_msg_gen), (rig_control::table::Region::R1, remote_api::engine_settings::Type2MsgGen::Tx5Only));
     assert_eq!(s.frequency_region(), rig_control::table::Region::R1, "la tabella delle frequenze la legge subito");
     for bad in [r#"{"changes":{"Region":"R4"}}"#, r#"{"changes":{"Region":"Region 1"}}"#, r#"{"changes":{"Type2MsgGen":"type_2_msg_2_full"}}"#] {
-        let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(bad)).await;
+        let resp = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").via_loopback().cookie(&cookie).json(bad)).await;
         status_is(&resp, StatusCode::BAD_REQUEST);
         assert_eq!(body_json(resp).await["error"], "bad_setting", "{bad}");
     }

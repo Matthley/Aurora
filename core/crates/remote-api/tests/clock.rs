@@ -31,7 +31,12 @@ fn clock_state(name: &str, admin: bool) -> (AppState, Arc<Setter>) {
 
 async fn send(s: &AppState, method: Method, uri: &str, body: Option<&str>, proxied: bool) -> axum::response::Response {
     let cookie = cookie_for(s);
+    // le impostazioni si salvano solo dal PC; la correzione dell'ora resta permessa dalla rete di casa
+    let pc = method == Method::PUT;
     let mut r = req(method, uri).cookie(&cookie);
+    if pc {
+        r = r.via_loopback();
+    }
     if let Some(b) = body {
         r = r.json(b);
     }
@@ -76,9 +81,13 @@ async fn saves_valid_settings_and_refuses_invalid_ones() {
 }
 
 #[tokio::test]
-async fn automatic_correction_is_switched_on_only_from_the_home_network() {
+async fn the_settings_are_saved_only_from_the_pc() {
     let (s, _) = clock_state("auto", true);
     let on = r#"{"enabled":true,"servers":["ntp.example.org"],"interval_secs":600,"warn_ms":100,"auto_correct":true}"#;
+    let home = req(Method::PUT, "/api/v1/clock").cookie(&cookie_for(&s)).json(on);
+    let resp = call(&router(&s), home).await;
+    status_is(&resp, StatusCode::FORBIDDEN);
+    assert_eq!(body_json(resp).await["error"], "local_only");
     let resp = send(&s, Method::PUT, "/api/v1/clock", Some(on), true).await;
     status_is(&resp, StatusCode::FORBIDDEN);
     assert_eq!(body_json(resp).await["error"], "local_only");

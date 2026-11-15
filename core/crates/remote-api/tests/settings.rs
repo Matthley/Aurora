@@ -49,7 +49,7 @@ fn state_with(rig: Option<Arc<FakeRig>>, saved: Arc<AtomicU32>) -> AppState {
 
 async fn send(s: &AppState, method: Method, path: &str, body: Option<&str>) -> axum::response::Response {
     let cookie = cookie_for(s);
-    let mut r = req(method, path).cookie(&cookie);
+    let mut r = req(method, path).cookie(&cookie).via_loopback();
     if let Some(b) = body {
         r = r.json(b);
     }

@@ -37,7 +37,7 @@ async fn starts_off_and_empty_then_saves_a_list_that_comes_back_normalized() {
     assert_eq!(first["recent"], json!([]));
 
     let body = json!({ "enabled": true, "calls": [" k1abc ", "K1ABC", "3y0j"], "grids": ["jn45"], "countries": ["Bulgaria"], "cooldown_min": 30 }).to_string();
-    let put = call(&app, req(Method::PUT, "/api/v1/wishlist").cookie(&cookie).json(&body)).await;
+    let put = call(&app, req(Method::PUT, "/api/v1/wishlist").via_loopback().cookie(&cookie).json(&body)).await;
     status_is(&put, StatusCode::OK);
     assert_eq!(body_json(put).await["config"]["calls"], json!(["K1ABC", "3Y0J"]));
     let again = body_json(call(&app, req(Method::GET, "/api/v1/wishlist").cookie(&cookie)).await).await;
@@ -53,9 +53,9 @@ async fn refuses_a_list_that_cannot_work_and_keeps_the_old_one() {
     let cookie = cookie_for(&s);
     let app = router(&s);
     let good = json!({ "enabled": true, "calls": ["K1ABC"] }).to_string();
-    status_is(&call(&app, req(Method::PUT, "/api/v1/wishlist").cookie(&cookie).json(&good)).await, StatusCode::OK);
+    status_is(&call(&app, req(Method::PUT, "/api/v1/wishlist").via_loopback().cookie(&cookie).json(&good)).await, StatusCode::OK);
     for bad in [json!({ "grids": ["JN4"] }), json!({ "calls": ["K1 ABC"] }), json!({ "cooldown_min": 0 }), json!({ "notify_url": "ftp://x" })] {
-        let resp = call(&app, req(Method::PUT, "/api/v1/wishlist").cookie(&cookie).json(&bad.to_string())).await;
+        let resp = call(&app, req(Method::PUT, "/api/v1/wishlist").via_loopback().cookie(&cookie).json(&bad.to_string())).await;
         status_is(&resp, StatusCode::BAD_REQUEST);
         assert_eq!(body_json(resp).await["error"], "bad_wishlist");
     }
@@ -70,7 +70,7 @@ async fn the_test_alert_reaches_the_page_and_the_recent_list_and_says_there_is_n
     let mut events = s.bus.subscribe_events();
     let cookie = cookie_for(&s);
     let app = router(&s);
-    let resp = call(&app, req(Method::POST, "/api/v1/wishlist/test").cookie(&cookie)).await;
+    let resp = call(&app, req(Method::POST, "/api/v1/wishlist/test").via_loopback().cookie(&cookie)).await;
     status_is(&resp, StatusCode::OK);
     assert_eq!(body_json(resp).await["phone"], "no_url");
     match events.recv().await.unwrap() {

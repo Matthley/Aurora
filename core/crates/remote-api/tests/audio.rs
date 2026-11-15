@@ -57,7 +57,7 @@ fn with_audio(name: &str) -> (AppState, Arc<EngineSettingsStore>, Arc<FakeAudio>
 }
 
 fn put(cookie: &str, body: &str) -> Req {
-    req(Method::PUT, "/api/v1/audio/settings").cookie(cookie).json(body)
+    req(Method::PUT, "/api/v1/audio/settings").via_loopback().cookie(cookie).json(body)
 }
 
 #[tokio::test]

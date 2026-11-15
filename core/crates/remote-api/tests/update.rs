@@ -46,7 +46,7 @@ async fn saves_the_settings_and_the_token_never_comes_back() {
     let cookie = cookie_for(&s);
     let app = router(&s);
     let body = json!({ "enabled": true, "repo": "wifi75/Aurora", "interval_hours": 12, "prereleases": true, "token": "ghp_segretissimo" }).to_string();
-    let put = call(&app, req(Method::PUT, "/api/v1/update").cookie(&cookie).json(&body)).await;
+    let put = call(&app, req(Method::PUT, "/api/v1/update").via_loopback().cookie(&cookie).json(&body)).await;
     status_is(&put, StatusCode::OK);
     let text = serde_json::to_string(&body_json(put).await).unwrap();
     assert!(!text.contains("ghp_segretissimo"), "{text}");
@@ -56,12 +56,12 @@ async fn saves_the_settings_and_the_token_never_comes_back() {
     assert!(!raw.contains("ghp_segretissimo"));
     // senza il campo token si lascia quello che c'e'
     let keep = json!({ "enabled": false, "repo": "wifi75/Aurora", "interval_hours": 24 }).to_string();
-    status_is(&call(&app, req(Method::PUT, "/api/v1/update").cookie(&cookie).json(&keep)).await, StatusCode::OK);
+    status_is(&call(&app, req(Method::PUT, "/api/v1/update").via_loopback().cookie(&cookie).json(&keep)).await, StatusCode::OK);
     let after = body_json(call(&app, req(Method::GET, "/api/v1/update").cookie(&cookie)).await).await;
     assert_eq!((after["has_token"].clone(), after["enabled"].clone()), (json!(true), json!(false)));
     // con una stringa vuota si toglie
     let clear = json!({ "enabled": true, "repo": "wifi75/Aurora", "interval_hours": 24, "token": "" }).to_string();
-    status_is(&call(&app, req(Method::PUT, "/api/v1/update").cookie(&cookie).json(&clear)).await, StatusCode::OK);
+    status_is(&call(&app, req(Method::PUT, "/api/v1/update").via_loopback().cookie(&cookie).json(&clear)).await, StatusCode::OK);
     assert_eq!(body_json(call(&app, req(Method::GET, "/api/v1/update").cookie(&cookie)).await).await["has_token"], false);
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -77,7 +77,7 @@ async fn refuses_values_that_cannot_work() {
         json!({ "enabled": true, "repo": "a/b", "interval_hours": 500 }),
         json!({ "enabled": true, "repo": "a/b", "interval_hours": 6, "token": "con spazio" }),
     ] {
-        let resp = call(&app, req(Method::PUT, "/api/v1/update").cookie(&cookie).json(&bad.to_string())).await;
+        let resp = call(&app, req(Method::PUT, "/api/v1/update").via_loopback().cookie(&cookie).json(&bad.to_string())).await;
         status_is(&resp, StatusCode::BAD_REQUEST);
         assert_eq!(body_json(resp).await["error"], "bad_update");
     }

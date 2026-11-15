@@ -16,7 +16,7 @@ fn cluster_state(name: &str) -> AppState {
 
 async fn send(s: &AppState, method: Method, uri: &str, body: Option<&str>) -> axum::response::Response {
     let cookie = cookie_for(s);
-    let mut r = req(method, uri).cookie(&cookie);
+    let mut r = req(method, uri).cookie(&cookie).via_loopback();
     if let Some(b) = body {
         r = r.json(b);
     }
@@ -87,7 +87,7 @@ async fn without_the_service_everything_says_so() {
 #[tokio::test]
 async fn the_connection_test_needs_a_pairing_and_refuses_bad_addresses() {
     let s = cluster_state("probe");
-    status_is(&call(&router(&s), req(Method::POST, "/api/v1/dx-cluster/test").json(r#"{"host":"a.b","port":7300}"#)).await, StatusCode::UNAUTHORIZED);
+    status_is(&call(&router(&s), req(Method::POST, "/api/v1/dx-cluster/test").via_loopback().json(r#"{"host":"a.b","port":7300}"#)).await, StatusCode::UNAUTHORIZED);
     let bad = send(&s, Method::POST, "/api/v1/dx-cluster/test", Some(r#"{"host":"; rm -rf","port":7300}"#)).await;
     status_is(&bad, StatusCode::BAD_REQUEST);
     assert_eq!(body_json(bad).await["error"], "bad_server");
