@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clearDigiBand, getClusterSpots, getDigi, getLogQsos } from '../../api/client';
 import { useT } from '../../i18n';
@@ -180,7 +180,8 @@ export function RadarList({ on = true, onToggle, width, height, onHeightDrag, on
     }
   };
   return (
-    <section className={`radar${on ? '' : ' radar--off'}`} style={on && (width || height) ? { width: width || undefined, height: height || undefined, alignSelf: height ? 'flex-start' : undefined } : undefined} aria-label={`${t('radar.title')} ${modeName}`}>
+    <div className={`radar-slot${on ? '' : ' radar-slot--off'}`} style={on ? ({ '--radar-w': width ? `${width}px` : undefined, '--radar-h': height ? `${height}px` : undefined } as CSSProperties) : undefined}>
+    <section className={`radar${on ? '' : ' radar--off'}`} aria-label={`${t('radar.title')} ${modeName}`}>
       <header className="radar-head">
         {onToggle ? (
           <button type="button" role="switch" aria-checked={on} className={`radar-switch${on ? ' radar-switch--on' : ''}`} title={t('radar.tip')} onClick={onToggle}>
@@ -353,5 +354,6 @@ export function RadarList({ on = true, onToggle, width, height, onHeightDrag, on
       {spot ? <SpotDialog call={spot.call} dialHz={dialHz} audioHz={spot.freqHz} modeName={modeName} lsb={lsb} khzDecimals={2} onClose={() => setSpot(null)} /> : null}
       {on && onHeightDrag ? <div className="radar-hgrip" role="separator" aria-orientation="horizontal" title={t('radar.resizeH')} onPointerDown={onHeightDrag} onDoubleClick={onHeightReset} /> : null}
     </section>
+    </div>
   );
 }
