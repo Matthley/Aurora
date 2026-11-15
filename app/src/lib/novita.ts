@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.263',
-    released: '2026-11-15T18:00:00Z',
+    released: '2026-11-15T12:20:27Z',
     kind: 'new',
     title: ['CW con il WinKeyer', 'CW with the WinKeyer', 'CW mit dem WinKeyer', 'CW avec le WinKeyer', 'CW con el WinKeyer', 'CW com o WinKeyer'],
     text: [
@@ -37,7 +37,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.263',
-    released: '2026-11-15T18:00:00Z',
+    released: '2026-11-15T12:20:27Z',
     kind: 'new',
     featured: true,
     title: [
@@ -59,7 +59,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.263',
-    released: '2026-11-15T18:00:00Z',
+    released: '2026-11-15T12:20:27Z',
     kind: 'changed',
     title: [
       'RTTY: lettura del carattere intero',
@@ -80,7 +80,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.263',
-    released: '2026-11-15T18:00:00Z',
+    released: '2026-11-15T12:20:27Z',
     kind: 'fixed',
     title: [
       'Correzioni: VFO, Hound, Fox, colore, macOS',

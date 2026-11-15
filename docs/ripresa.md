@@ -2,6 +2,12 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-15 pomeriggio (0.11.263 pubblicata 2026-11-15T12:20:27Z)
+
+- WinKeyer (`rig-control/src/winkeyer.rs`, `mode-digi/src/service/keyer.rs`, Impostazioni › Stazione › WinKeyer, `docs/winkeyer.md`); sintonia SSTV a cursore ±200 Hz e istogramma dei livelli come nei programmi classici (`mode-sstv/src/decoder.rs`, `SstvTuning.tsx`, rotta `POST /sstv/rx/tune`); RTTY con decodifica di sequenza nel ricevitore singolo (spenta nei canali BigScan: perdeva UC0A); #67 #68 #69 #70, PR #65.
+- Spenti nel codice e da riprendere: catena CW completa `cw_chain.rs` (otto velocita', latenza 0,57 s ma piu' lettere inserite e nominativi falsi; ultimo commit `637043c1` sul ramo dell'aiutante non portato su main), catena RTTY `rtty_chain.rs`, stazioni nascoste in BigScan (ramo `prova-bigscan-nascoste-conferma`), primo carattere incerto per UC0A (ramo `prova-bigscan-sequenza-incerti`).
+- Disco C: pieno durante il lavoro: tolte le cartelle target e i worktree finiti (ora ~108 GB liberi). Tenere pulito `.claude/worktrees` e `Aurora-fix-remoto/core/target-*`.
+
 ## Stato al 2026-11-15 (0.11.262 pubblicata 2026-11-15T10:16:01Z)
 
 - QTC del WAE (`contest/src/qtc.rs`, `QtcDialog.tsx`, macro `<QTCSEND>`/`<QTCREAD>`, `docs/contest-qtc.md`); RTTY squelch con presenza della portante, BIGScan velocita' dal passo dei cambi (`lattice()`) e reverse con LSB; CW pezzi coerenti di 2 unita' e Kalman sulle pause (759/938 nominativi); cascata con finestra di Nuttall come WSJT-X (`audio-spectrum/analyzer.rs`); display della radio largo zero corretto (#55 #60, `components.css`), tasto SPLIT, pulsante CAT (`CatSwitch.tsx`); `dial_hz` iniziale solo senza CAT; bande accese nel selettore, misure per modo (`modeSizes.ts`), SSTV ridisposta.
