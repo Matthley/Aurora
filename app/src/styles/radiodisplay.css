@@ -1030,7 +1030,7 @@ html[data-theme='light'] .rd-zoom {
 /* Blocco unico a destra del display, dall'alto in basso: scritta PWR, valore, tasti - e +, poi il tasto SPLIT a tutta larghezza nello stile
    dei tasti del display (ATT, FLT, AGC: scuro e spento, verde pieno acceso). Un po' piu' alto del display, che resta al centro */
 .rd-side { justify-content: center; gap: 0.2rem; padding: 0.3rem; min-width: 3.6rem; }
-.rd-face-row .rd-side { min-height: 6.75rem; }
+.rd-face-row .rd-side { min-height: 6.75rem; padding-top: 1.45rem; } /* in alto resta libero il posto del pulsantino di stacco */
 .rd-face-row .rd-face-slot { align-self: center; }
 .rd-pwr-top { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; min-height: 0; }
 .rd-side .rd-pwr-lbl { font-size: 0.55rem; }
@@ -1041,5 +1041,17 @@ html[data-theme='light'] .rd-zoom {
 .rd-split-btn--on { background: #3fe07a; border-color: #3fe07a; color: #02140a; cursor: pointer; box-shadow: 0 0 6px rgb(63 224 122 / 0.45); }
 .rd-split-btn--on:hover:not(:disabled) { filter: brightness(1.15); }
 .rd-split-btn:disabled:not(.rd-split-btn--on) { opacity: 1; }
-/* display quasi quadrati (fissi nell'angolo): il blocchetto SPLIT sta a sinistra, fuori dal riquadro */
-.rd-square-slot > .rd-side, .rd-square-preview > .rd-side { position: absolute; top: 0; right: calc(100% + 0.35rem); height: 100%; }
+/* SPLIT dentro il disegno del pannello (FT-2000: sotto i tasti - e + del riquadro PWR; IC-7610 senza PWR: sopra l'indicatore): stessa
+   posizione del disegno, misure in percentuale date dal componente */
+.rd-split-btn--face, .rd-split-btn--ghost { position: absolute; z-index: 2; box-sizing: border-box; width: auto; padding: 0; font-size: 0.5rem; }
+.rd-split-btn--face { height: auto; letter-spacing: 0.04em; }
+.rd-split-btn--ghost, .rd-split-btn--ghost.rd-split-btn--on { background: transparent; border-color: transparent; color: transparent; box-shadow: none; }
+.rd-split-btn--ghost.rd-split-btn--on { cursor: pointer; }
+/* negli stili moderni (senza PWR) SPLIT sta dentro il display, in basso a destra */
+.md-split-in { position: absolute; right: 0.4rem; bottom: 0.3rem; z-index: 2; width: 3.3rem; height: 1.05rem; padding: 0; font-size: 0.55rem; }
+
+/* display a due blocchi (e telefono): PWR, - e + in un solo riquadro con SPLIT a tutta larghezza sotto; senza PWR SPLIT chiude i tasti */
+.rx-pwrbox { display: inline-flex; flex: none; flex-direction: column; gap: 0.1rem; order: -1; }
+.rx-pwrbox-row { display: flex; gap: 0.2rem; }
+.rx-split { width: auto; height: 0.95rem; padding: 0 0.4rem; font-size: 0.58rem; line-height: 1; }
+.rx-pwrbox .rx-split { width: 100%; }

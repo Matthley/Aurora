@@ -194,12 +194,13 @@ function FaceHeader({ model, style }: { model: DisplayModel; style: 'ft2000' | '
   const data = { extras: rig?.extras ?? {}, passbandHz: rig?.passband_hz ?? null, split: rig?.split ?? null };
   const props = { model, noRadio: t('rd.noRadio'), ariaLabel: describeDisplay(model, t), data, waiting, onAction: (item: Parameters<typeof click>[0]) => void click(item) };
   const power = rig?.extras?.power_set;
-  // il blocco a destra del display, diviso a meta': sopra la potenza (nel pannello FT-2000 c'e' gia' disegnata), sotto il tasto SPLIT
+  // il riquadro PWR e' uno solo e il tasto SPLIT sta dentro: nel pannello FT-2000 e' disegnato nel display stesso (PWR, - e +, SPLIT);
+  // nell'IC-7610 e' il blocco a destra, dall'alto PWR e sotto SPLIT. Senza potenza SPLIT resta nel display (nessuna colonna a parte)
   const showPower = power != null && style !== 'ft2000';
   return (
     <div className="rd-face-row">
       <div className="rd-header rd-face-slot">{style === 'ft2000' ? <Ft2000Display {...props} /> : <Ic7610Display {...props} />}</div>
-      {showPower || rig?.split != null ? (
+      {showPower ? (
         <SidePanel split={rig?.split}>
           {showPower ? (
             <div className="rd-pwr-top" role="group" aria-label="PWR">
@@ -221,7 +222,7 @@ function FaceHeader({ model, style }: { model: DisplayModel; style: 'ft2000' | '
   );
 }
 
-/** Il blocco scuro accanto al display: potenza (se c'e') sopra e tasto SPLIT sotto. */
+/** Il riquadro scuro accanto al display (IC-7610): potenza sopra e tasto SPLIT sotto, tutto nello stesso blocco. */
 function SidePanel({ split, children }: { split: boolean | null | undefined; children?: ReactNode }) {
   return (
     <div className="rd-pwr rd-side">
@@ -250,14 +251,12 @@ function ModernHeader({ model, style, solo = false }: { model: DisplayModel; sty
     : style === 'icblueq' ? <IcBlueSquare {...props} />
     : style === 'icblackq' ? <IcBlackSquare {...props} />
     : <YaesuSquare {...props} />;
-  // il tasto SPLIT in un blocchetto accanto al display, come nei pannelli FT-2000 e IC-7610
-  const splitOff = rig?.split != null ? <SidePanel split={rig.split} /> : null;
+  // il tasto SPLIT sta dentro il display (questi stili non hanno il PWR): nessun blocchetto a parte accanto
   // il quasi quadrato va sulla pagina (non dentro la riga dei comandi, che fa da contenitore e lo spostava sotto la testata)
-  if (square && solo) return <div className="rd-square-preview">{splitOff}{view}</div>;
+  if (square && solo) return <div className="rd-square-preview">{view}</div>;
   if (square)
     return createPortal(
       <div className="rd-square-slot rd-detachable">
-        {splitOff}
         {view}
         <span className="rd-detach-corner">
           <DetachButton item="display" className="dock-detach" />

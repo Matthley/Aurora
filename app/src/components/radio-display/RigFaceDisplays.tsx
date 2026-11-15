@@ -24,6 +24,7 @@ import {
   SpyTip,
 } from "./instruments";
 import { SevenSegment, digitsWidth } from "./SevenSegment";
+import { SplitButton } from "./SplitButton";
 
 /**
  * Display a pannello unico ispirati a due radio vere: un solo schermo largo con VFO A, VFO B, strumenti e indicatori.
@@ -33,6 +34,9 @@ import { SevenSegment, digitsWidth } from "./SevenSegment";
 
 export const FACE_W = 960;
 export const FACE_H = 96;
+/** Il riquadro PWR + SPLIT del pannello FT-2000: lascia libero l'angolo in alto a destra (pulsantino di stacco). */
+const PWR_X = 828;
+const PWR_W = 98;
 
 /** I dati in piu' della radio che i pannelli disegnano (ognuno solo se la radio lo da'). */
 export interface FaceExtras {
@@ -395,8 +399,8 @@ export function Ft2000Display({
 
   const power = x.power_set ?? null;
   if (power != null) {
-    hits.push({ key: "pwr_down", x: 838, y: 60, w: 48, h: 22, text: "PWR −" });
-    hits.push({ key: "pwr_up", x: 894, y: 60, w: 48, h: 22, text: "PWR +" });
+    hits.push({ key: "pwr_down", x: PWR_X + 4, y: 46, w: 42, h: 18, text: "PWR −" });
+    hits.push({ key: "pwr_up", x: PWR_X + 52, y: 46, w: 42, h: 18, text: "PWR +" });
   }
   // RX e TX in alto, subito dopo l'ultima cifra della frequenza principale (e mai sopra il VFO B)
   const spyX = Math.min(570, 300 + digitsWidth(formatRadioFrequency(model.dialHz), { w: 26, h: 44, t: 4.6, gap: 7, skew: 0.08 }) + 6);
@@ -620,19 +624,20 @@ export function Ft2000Display({
           offOpacity={0.1}
         />
 
-        {/* potenza della radio con - e +: il modo e' accanto al VFO A, l'AGC nei riquadri a sinistra */}
+        {/* un solo riquadro: scritta PWR, valore, tasti - e +, poi il tasto SPLIT a tutta larghezza. Si ferma prima dell'angolo in alto a
+            destra, dove si vede il pulsantino per staccare il display */}
         <rect
-          x={830}
-          y={9}
-          width={120}
-          height={78}
+          x={PWR_X}
+          y={6}
+          width={PWR_W}
+          height={84}
           rx={2}
           fill="none"
           stroke={FT.box}
         />
         <Label
-          x={890}
-          y={24}
+          x={PWR_X + PWR_W / 2}
+          y={19}
           text="PWR"
           fill={FT.ink}
           size={9}
@@ -640,30 +645,30 @@ export function Ft2000Display({
           anchor="middle"
         />
         <Label
-          x={890}
-          y={50}
+          x={PWR_X + PWR_W / 2}
+          y={40}
           text={power == null ? "—" : `${powerPct(power)}%`}
           fill={power == null ? FT.dim : FT.amber}
-          size={22}
+          size={20}
           weight={700}
           anchor="middle"
         />
         {(["-", "+"] as const).map((sign, i) => (
           <g key={sign} aria-hidden="true" opacity={power == null ? 0.6 : 1}>
             <rect
-              x={838 + i * 56}
-              y={60}
-              width={48}
-              height={22}
+              x={PWR_X + 4 + i * 48}
+              y={46}
+              width={42}
+              height={18}
               rx={2}
               fill="#0d1d24"
               stroke={FT.box}
             />
             <text
-              x={862 + i * 56}
-              y={76}
+              x={PWR_X + 25 + i * 48}
+              y={60}
               textAnchor="middle"
-              fontSize={16}
+              fontSize={15}
               fontWeight={700}
               fontFamily={FONT_UI}
               fill={FT.ink}
@@ -672,8 +677,40 @@ export function Ft2000Display({
             </text>
           </g>
         ))}
+        {/* SPLIT spento come disegno; in testata ci sta sopra il tasto vero (stessa posizione) */}
+        <rect
+          x={PWR_X + 4}
+          y={69}
+          width={PWR_W - 8}
+          height={17}
+          rx={2}
+          fill="#0b1216"
+          stroke="#2a3a44"
+          aria-hidden="true"
+        />
+        <Label
+          x={PWR_X + PWR_W / 2}
+          y={81}
+          text="SPLIT"
+          fill="#3b5560"
+          size={8.5}
+          weight={700}
+          anchor="middle"
+        />
       </DisplayFrame>
       <FaceHits hits={hits} onAction={onAction} waiting={waiting} />
+      {onAction ? (
+        <SplitButton
+          split={data?.split}
+          className="rd-split-btn--face"
+          style={{
+            left: `${((PWR_X + 4) / FACE_W) * 100}%`,
+            top: `${(69 / FACE_H) * 100}%`,
+            width: `${((PWR_W - 8) / FACE_W) * 100}%`,
+            height: `${(17 / FACE_H) * 100}%`,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1109,6 +1146,14 @@ export function Ic7610Display({
         />
       </DisplayFrame>
       <FaceHits hits={hits} onAction={onAction} waiting={waiting} />
+      {/* con la potenza (riquadro a destra, PWR + SPLIT insieme) il tasto sta li'; senza, sta qui, sopra l'indicatore SPLIT del disegno */}
+      {onAction && x.power_set == null ? (
+        <SplitButton
+          split={split}
+          className="rd-split-btn--ghost"
+          style={{ left: `${(132 / FACE_W) * 100}%`, top: `${(68 / FACE_H) * 100}%`, width: `${(40 / FACE_W) * 100}%`, height: `${(13 / FACE_H) * 100}%` }}
+        />
+      ) : null}
     </div>
   );
 }

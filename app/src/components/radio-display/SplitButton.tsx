@@ -1,15 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { ApiError, postSplitOff, type CatSnapshot, type SplitDx } from '../../api/client';
 import { useT } from '../../i18n';
 import { toast } from '../../lib/toast';
 
 /**
- * Tasto SPLIT nel blocco a destra del display, sotto PWR, nello stile dei tasti del display: acceso con la radio in split (VFO B in
+ * Tasto SPLIT dentro lo stesso riquadro del PWR (sotto i tasti - e +) o, negli stili senza PWR, dentro il display stesso, nello stile dei tasti del display: acceso con la radio in split (VFO B in
  * trasmissione), un clic la riporta in simplex qualunque cosa l'avesse accesa (uno spot «UP», lo split di FT8, la radio o un altro
  * programma). Spento e grigio con la radio in simplex. Richiesta del proprietario: deve esserci sempre un modo veloce per spegnerlo.
  */
-export function SplitButton({ split }: { split: boolean | null | undefined }) {
+export function SplitButton({ split, className = '', style }: { split: boolean | null | undefined; className?: string; style?: CSSProperties }) {
   const t = useT();
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -40,7 +40,8 @@ export function SplitButton({ split }: { split: boolean | null | undefined }) {
   return (
     <button
       type="button"
-      className={`rd-split-btn${on ? ' rd-split-btn--on' : ''}`}
+      className={`rd-split-btn${on ? ' rd-split-btn--on' : ''}${className ? ` ${className}` : ''}`}
+      style={style}
       title={t('rd.splitOff.tip')}
       aria-label={t('rd.splitOff')}
       aria-pressed={on}

@@ -173,4 +173,56 @@ describe('RadioDisplayHeader', () => {
     // un solo blocco: nessun altro tasto SPLIT fuori dal riquadro
     expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
   });
+  // il tasto SPLIT sta sempre nello stesso riquadro del PWR (sotto i tasti - e +); negli stili senza PWR dentro il display, mai in una colonna a parte
+  const splitCat = (power: boolean) =>
+    ({ config: { backend: 'omnirig', model: 0 }, status: { state: 'connected', rig: { split: true, extras: power ? { power_set: 1 } : {} } } }) as never;
+  const showStyle = async (style: (typeof RADIO_DISPLAY_STYLES)[number], power: boolean) => {
+    vi.mocked(getCat).mockResolvedValue(splitCat(power));
+    act(() => useStation.setState({ status }));
+    act(() => useRadioDisplay.getState().set({ style }));
+    const view = render(<RadioDisplayHeader />, { wrapper });
+    await waitFor(() => expect(document.querySelector('.rd-split-btn')).not.toBeNull());
+    return view;
+  };
+
+  it('puts SPLIT inside the PWR box drawn in the FT-2000 panel, with no side column', async () => {
+    const { container } = await showStyle('ft2000', true);
+    const face = container.querySelector('.rd-face') as HTMLElement;
+    expect(face.textContent).toContain('PWR');
+    expect(face.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(container.querySelector('.rd-side')).toBeNull();
+    // i tasti - e + del riquadro e SPLIT sono nel disegno, con la stessa colonna di x
+    expect(face.querySelectorAll('.rd-face-hit[aria-label^="PWR"]')).toHaveLength(2);
+  });
+
+  it('puts SPLIT inside the PWR block of the IC-7610 panel, and in the drawing when there is no power', async () => {
+    const withPwr = await showStyle('ic7610', true);
+    const side = withPwr.container.querySelector('.rd-side') as HTMLElement;
+    expect(side.querySelector('.rd-pwr-top')).not.toBeNull();
+    expect(side.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(withPwr.container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    withPwr.unmount();
+    const noPwr = await showStyle('ic7610', false);
+    expect(noPwr.container.querySelector('.rd-side')).toBeNull();
+    expect((noPwr.container.querySelector('.rd-face') as HTMLElement).querySelectorAll('.rd-split-btn')).toHaveLength(1);
+  });
+
+  it.each(['fluorescent', 'analog', 'color', 'amber', 'led'] as const)('puts SPLIT in the same box as PWR, - and + in the %s style', async (style) => {
+    const { container } = await showStyle(style, true);
+    const box = container.querySelector('.rx-pwrbox') as HTMLElement;
+    expect(box.textContent).toContain('PWR');
+    expect(box.querySelectorAll('button.rx-chip')).toHaveLength(2);
+    expect(box.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(container.querySelector('.rd-side')).toBeNull();
+  });
+
+  it.each(['icdual', 'icblue', 'ledline', 'icblueq', 'icblackq', 'yaesuq'] as const)('puts SPLIT inside the %s display, with no PWR and no side column', async (style) => {
+    await showStyle(style, false);
+    const frame = document.querySelector('[role="img"].md') as HTMLElement;
+    expect(frame.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(document.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+    expect(document.querySelector('.rd-side')).toBeNull();
+  });
 });
