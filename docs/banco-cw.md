@@ -160,3 +160,19 @@ ora due (`PIECE_UNITS`). Con la fase del tono gia' corretta, sommare in fase su 
 | probabilita' a priori 56/44 fra punto e linea quando l'albero ammette entrambi | giusti +15, nominativi +4, ma torna 1 carattere falso sul rumore |
 | peso dell'ampiezza «che spiega meglio il tono» 0,06 | giusti +11, nominativi -1, 1 carattere falso sul rumore |
 | apprendimento del pugno dopo 14 elementi invece di 20 | giusti 16719 -> 16701 |
+
+## Terzo giro: idee generali sul riconoscimento, provate una alla volta
+
+Partenza = tabelle della seconda taratura (canale: giusti 16719, nominativi 737 / 136 falsi, CER medio 10,78%; BigScan: giusti 16616).
+Regola: si tiene solo cio' che non perde caratteri giusti ne' nominativi e non aggiunge falsi. 8 semi, solo canale salvo dove detto.
+
+| prova | giusti | nominativi esatti / falsi | CER medio | esito |
+|---|---|---|---|---|
+| pausa oltre il confine del carattere tenuta anche come pausa fra gli elementi (coda della durata, ipotesi in piu' nel traliccio) | 16704 | 737 / 133 | 10,86 | lasciata: perde caratteri |
+| medie del pugno adattate insieme (filtro di Kalman su linea e tre pause, covarianza a priori con pause correlate, incertezza 0,1) | 16708 | 764 / 140 | 10,46 | lasciata: +27 nominativi (tasto a mano 39 -> 63) ma -11 giusti e +4 falsi |
+| stessa, correlazioni dimezzate | 16702 | 761 / 141 | 10,54 | lasciata |
+| stessa, incertezza a priori 0,05 | 16714 | 748 / 143 | 10,54 | lasciata: -5 giusti, +7 falsi |
+| BigScan: spettro mediato piu' lento (0,2 invece di 0,4) per l'apertura dei canali | 16490 (BigScan) | 732 / 134 | 11,90 (BigScan) | lasciata: i canali si aprono tardi, mancanti 826 -> 1070 |
+
+Sul solo rumore nessuna prova ha stampato caratteri. L'adattamento correlato del pugno e' l'idea piu' promettente per il tasto a mano:
+va ripresa con un vincolo che non lasci allungare la pausa fra i caratteri fino a unire le lettere.
