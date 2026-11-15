@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RadioDisplayHeader } from './RadioDisplayHeader';
 import { RadioDisplay } from './RadioDisplay';
@@ -8,6 +8,9 @@ import { DEMO_MODEL, RADIO_DISPLAY_STYLES, useRadioDisplay, type DisplayModel } 
 import { useStation } from '../../state/station';
 import { RadioDisplayPicker } from '../../settings/RadioDisplayPicker';
 import { useLang } from '../../i18n';
+import { getCat } from '../../api/client';
+
+vi.mock('../../api/client', async (orig) => ({ ...(await orig<typeof import('../../api/client')>()), getCat: vi.fn() }));
 
 const NO_METERS: DisplayModel = { ...DEMO_MODEL, meters: null };
 const UNKNOWN: DisplayModel = { ...DEMO_MODEL, dialHz: 0, meters: null };
@@ -145,5 +148,29 @@ describe('RadioDisplayHeader', () => {
     expect(container.textContent).toContain('MAIN');
     expect(container.textContent).toContain('21.076.50');
     expect(container.textContent).toContain('BW 3.0k');
+  });
+
+  it('shows PWR, its value, the minus/plus row and the SPLIT button in one block on the IC-7610 panel', async () => {
+    const cat = { config: { backend: 'omnirig', model: 0 }, status: { state: 'connected', rig: { split: true, extras: { power_set: 1 } } } };
+    vi.mocked(getCat).mockResolvedValue(cat as never);
+    act(() => useStation.setState({ status }));
+    act(() => useRadioDisplay.getState().set({ style: 'ic7610' }));
+    const { container } = render(<RadioDisplayHeader />, { wrapper });
+    const block = await waitFor(() => {
+      const el = container.querySelector('.rd-face-row .rd-side');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    // dall'alto in basso: gruppo PWR (scritta, valore, tasti) e poi il tasto SPLIT, tutto nello stesso riquadro
+    const kids = Array.from(block.children) as HTMLElement[];
+    const [top, split] = [kids[0]!, kids[1]!];
+    expect(top.classList.contains('rd-pwr-top')).toBe(true);
+    expect(Array.from(top.children).map((c) => c.className.split(' ')[0])).toEqual(['rd-pwr-lbl', 'rd-pwr-val', 'rd-pwr-btns']);
+    expect(top.querySelectorAll('.rd-pwr-btn')).toHaveLength(2);
+    expect(split.classList.contains('rd-split-btn')).toBe(true);
+    expect(split.classList.contains('rd-split-btn--on')).toBe(true);
+    expect(split.textContent).toBe('SPLIT');
+    // un solo blocco: nessun altro tasto SPLIT fuori dal riquadro
+    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
   });
 });
