@@ -2,6 +2,13 @@
 
 ## Non rilasciato
 
+## 0.11.266 - 2026-11-15
+
+- Le Impostazioni si aprono e si salvano solo dal PC dove gira Aurora: da telefono o da un altro dispositivo le loro pagine tornano alla pagina principale con un avviso, e le scritture delle impostazioni (motore, audio, orologio, cluster, frequenze, aggiornamenti, lista dei desideri) sono accettate solo dal PC. Il telefono continua a trasmettere e ricevere come prima.
+- SSTV: il pannello a schede di «Componi e trasmetti» e' largo al massimo 440 px accanto all'anteprima, non piu' tutta la pagina.
+- Club Log: un token che non comincia con `cl_` viene rifiutato anche quando si salva fra i dati segreti.
+- README senza Gen.Msgs, che nell'interfaccia non c'e'.
+
 ## 0.11.265 - 2026-11-15
 
 - Aggiornamenti: l'installazione non parte piu' da sola e la locandina non si apre da sola (prima, a pacchetto pronto, dopo 5 secondi Aurora si chiudeva per installare anche durante un QSO): avvisano la cartolina del tray e la barretta in testata, si installa solo premendo «Installa».

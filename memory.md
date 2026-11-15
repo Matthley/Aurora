@@ -1,6 +1,6 @@
 # Memoria di progetto
 
-Stato al 2026-11-15, versione 0.11.265 pubblicata (aggiornamenti installati solo a richiesta, client remoti che non toccano le impostazioni del PC, SSTV a schede, CW ibrido «preciso / veloce», BIGScan RTTY con stazioni deboli, WinKeyer, QTC del WAE). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
+Stato al 2026-11-15, versione 0.11.266 pubblicata (aggiornamenti installati solo a richiesta, client remoti che non toccano le impostazioni del PC, SSTV a schede, CW ibrido «preciso / veloce», BIGScan RTTY con stazioni deboli, WinKeyer, QTC del WAE). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
 
 
 ## Decisioni del 2026-11-13/14
