@@ -115,6 +115,70 @@ pub const NEW_VIS_AFTER_S: f64 = 3.0;
 /// usato, e un VIS rimasto in attesa puo' ancora partire dal suo punto.
 const HISTORY_S: usize = 8;
 
+/// Passo della correzione di sintonia a mano: un livello del segnale memorizzato (1/128 del tratto 1100-2700 Hz).
+pub const TUNE_STEP_HZ: f32 = 6.25;
+/// Passi massimi della correzione a mano (±200 Hz).
+pub const TUNE_MAX_STEPS: i32 = 32;
+/// Cassetti dell'istogramma dei livelli: livello 128 = 1900 Hz, [`TUNE_STEP_HZ`] per livello (da 1100 a 2700 Hz).
+pub const HIST_BINS: usize = 256;
+/// Tetto di ogni cassetto: l'istogramma dice dove sta il segnale, non quanto ce n'e'.
+pub const HIST_CAP: u16 = 40;
+/// Campioni mediati per ogni valore dell'istogramma (1 ms, circa due pixel dei modi piu' veloci).
+const HIST_BLOCK: usize = 12;
+/// Ogni quanti campioni i cassetti calano (100 ms: un segnale che sparisce si svuota in circa due secondi).
+const HIST_DECAY: usize = RATE as usize / 10;
+
+/// Livello del segnale memorizzato (0-255) per una frequenza: 1900 Hz = 128.
+pub fn hz_to_level(f: f32) -> f32 {
+    128.0 + (f - 1900.0) / TUNE_STEP_HZ
+}
+
+/// Istogramma dei livelli degli ultimi secondi: ogni valore riempie un triangolo di sette cassetti (1, 2, 3, 4, 3, 2, 1) centrato
+/// sul suo livello; i cassetti hanno un tetto e calano di 2 ogni [`HIST_DECAY`] campioni.
+struct LevelHistogram {
+    bins: [u16; HIST_BINS],
+    acc: (f32, f32),
+    n: usize,
+    since_decay: usize,
+}
+
+impl LevelHistogram {
+    fn new() -> LevelHistogram {
+        LevelHistogram { bins: [0; HIST_BINS], acc: (0.0, 0.0), n: 0, since_decay: 0 }
+    }
+
+    fn push(&mut self, prods: &[[f32; 2]]) {
+        for p in prods {
+            self.acc.0 += p[0];
+            self.acc.1 += p[1];
+            self.n += 1;
+            if self.n == HIST_BLOCK {
+                let level = hz_to_level(product_to_hz(self.acc.0, self.acc.1)).round();
+                self.acc = (0.0, 0.0);
+                self.n = 0;
+                if level.is_finite() && level > 2.0 && level < (HIST_BINS - 3) as f32 {
+                    let c = level as usize;
+                    for (k, w) in [1u16, 2, 3, 4, 3, 2, 1].into_iter().enumerate() {
+                        let b = &mut self.bins[c + k - 3];
+                        *b = b.saturating_add(w);
+                    }
+                }
+            }
+            self.since_decay += 1;
+            if self.since_decay == HIST_DECAY {
+                self.since_decay = 0;
+                for b in &mut self.bins {
+                    *b = if *b > HIST_CAP { HIST_CAP } else { b.saturating_sub(2) };
+                }
+            }
+        }
+    }
+
+    fn values(&self) -> Vec<u8> {
+        self.bins.iter().map(|&b| b.min(HIST_CAP) as u8).collect()
+    }
+}
+
 pub struct Decoder {
     cfg: DecoderConfig,
     demod: FmDemod,
@@ -128,6 +192,11 @@ pub struct Decoder {
     fsk: FskIdDetector,
     /// Un VIS arrivato durante un'immagine con il sincronismo: (VIS, sincronismi e gruppi dell'immagine in quel momento).
     pending: Option<(VisHit, usize, u32)>,
+    /// Correzione di sintonia a mano (Hz, multipla di [`TUNE_STEP_HZ`]); 0 = sintonia dell'AFC.
+    tune_hz: f32,
+    /// L'ultima immagine finita con il suo segnale: la correzione a mano la ridisegna anche dopo la fine.
+    last: Option<Rx>,
+    hist: LevelHistogram,
 }
 
 /// Frequenza media fra le posizioni `t0` e `t1` (campioni frazionari: il campione n copre [n-0,5; n+0,5)): somma pesata dei
@@ -165,6 +234,9 @@ impl Decoder {
             sync: SyncDetector::new(cfg.offset_hz),
             fsk: FskIdDetector::new(),
             pending: None,
+            tune_hz: 0.0,
+            last: None,
+            hist: LevelHistogram::new(),
         }
     }
 
@@ -173,6 +245,45 @@ impl Decoder {
         self.vis.set_manual_offset(cfg.offset_hz);
         self.sync.set_manual_offset(cfg.offset_hz);
         self.fsk.set_offset(cfg.offset_hz);
+    }
+
+    /// La correzione di sintonia a mano in Hz.
+    pub fn tune_hz(&self) -> f32 {
+        self.tune_hz
+    }
+
+    /// L'istogramma dei livelli degli ultimi secondi ([`HIST_BINS`] valori da 0 a [`HIST_CAP`]).
+    pub fn histogram(&self) -> Vec<u8> {
+        self.hist.values()
+    }
+
+    /// Imposta la correzione di sintonia a mano (passi da [`TUNE_STEP_HZ`], al piu' [`TUNE_MAX_STEPS`]) e ridisegna dal segnale
+    /// conservato l'immagine in corso o, se non ce n'e', l'ultima finita, anche le righe gia' ricevute. Diversa da zero sostituisce
+    /// l'AFC nella lettura dei pixel (l'AFC continua a inseguire il sincronismo per trovare le righe): cosi' i segni dell'istogramma,
+    /// spostati della correzione, sono proprio i livelli letti. Ritorna il modo, l'immagine ridisegnata e se e' quella in corso.
+    pub fn set_tune(&mut self, steps: i32) -> Option<(SstvMode, RgbImage, bool)> {
+        self.tune_hz = steps.clamp(-TUNE_MAX_STEPS, TUNE_MAX_STEPS) as f32 * TUNE_STEP_HZ;
+        let tune = self.tune_hz;
+        let (rx, live) = match (&mut self.rx, &mut self.last) {
+            (Some(rx), _) => (rx, true),
+            (None, Some(rx)) => (rx, false),
+            (None, None) => return None,
+        };
+        let done = rx.next_group.min(rx.spec.groups());
+        for g in 0..done {
+            let vals = decode_group(rx, g, tune);
+            rx.groups[g as usize] = Some(vals);
+        }
+        for g in 0..done {
+            compose(rx, g);
+        }
+        let rows = (done * rx.spec.rows_per_group()).min(rx.spec.height);
+        let mut image = rx.image.clone();
+        if !live {
+            image.data.truncate((image.width * rows * 3) as usize);
+            image.height = rows;
+        }
+        Some((rx.spec.mode, image, live))
     }
 
     pub fn config(&self) -> DecoderConfig {
@@ -247,6 +358,7 @@ impl Decoder {
         freqs.clear();
         prods.clear();
         self.demod.process_full(samples, &mut freqs, Some(&mut prods));
+        self.hist.push(&prods);
         let first = self.total;
         self.total += freqs.len() as u64;
         let keep = RATE as usize * HISTORY_S;
@@ -330,6 +442,7 @@ impl Decoder {
 
     fn begin(&mut self, rx: Rx, offset: f32) {
         self.rx = Some(rx);
+        self.last = None;
         self.pending = None;
         self.sync.reset();
         self.fsk.reset();
@@ -376,6 +489,7 @@ impl Decoder {
     }
 
     fn advance(&mut self, events: &mut Vec<DecoderEvent>) {
+        let tune = self.tune_hz;
         let Some(rx) = &mut self.rx else { return };
         let mut first_row: Option<u32> = None;
         let mut last_row = 0;
@@ -395,7 +509,7 @@ impl Decoder {
             if let Some(o) = rx.offsets.get_mut(g as usize) {
                 *o = Some(rx.offset);
             }
-            let vals = decode_group(rx, g);
+            let vals = decode_group(rx, g, tune);
             rx.groups[g as usize] = Some(vals);
             let (r0, n) = compose(rx, g);
             first_row = Some(first_row.map_or(r0, |f: u32| f.min(r0)));
@@ -429,7 +543,7 @@ impl Decoder {
         }
         // ridisegno con la retta definitiva dei sincronismi
         for g in 0..done {
-            let vals = decode_group(&rx, g);
+            let vals = decode_group(&rx, g, self.tune_hz);
             rx.groups[g as usize] = Some(vals);
         }
         for g in 0..done {
@@ -437,13 +551,15 @@ impl Decoder {
         }
         // le righe mai ricevute restano nere: si tagliano
         let rows = (done * rx.spec.rows_per_group()).min(rx.spec.height);
-        let mut image = rx.image;
+        let mut image = rx.image.clone();
         image.data.truncate((image.width * rows * 3) as usize);
         image.height = rows;
         let sync_quality = rx.syncs.len() as f32 / done.max(1) as f32;
         let clock_ppm = ((rx.fit.1 / (rx.spec.group_seconds() * f64::from(RATE)) - 1.0) * 1e6) as f32;
         tracing::info!("SSTV: immagine {} ricevuta, {} righe, sincronismo {:.0} %, orologio {:+.0} ppm", rx.spec.name, rows, sync_quality * 100.0, clock_ppm);
-        Some(DecoderEvent::Finished(DecodedImage { mode: rx.spec.mode, image, sync_quality, offset_hz: rx.offset, clock_ppm, complete: done >= groups }))
+        let event = DecoderEvent::Finished(DecodedImage { mode: rx.spec.mode, image, sync_quality, offset_hz: rx.offset, clock_ppm, complete: done >= groups });
+        self.last = Some(rx);
+        Some(event)
     }
 }
 
@@ -622,15 +738,15 @@ fn refit(rx: &mut Rx) {
     rx.fit = if kept.len() >= 3 { fit_once(&kept) } else { first };
 }
 
-/// I valori dei canali del gruppo `g` letti con la retta attuale.
-fn decode_group(rx: &Rx, g: u32) -> GroupVals {
+/// I valori dei canali del gruppo `g` letti con la retta attuale; `tune` diversa da zero e' la sintonia scelta a mano.
+fn decode_group(rx: &Rx, g: u32, tune: f32) -> GroupVals {
     let spec = rx.spec;
     let rate = f64::from(RATE);
     let (a, b) = rx.fit;
     let scale = b / (spec.group_seconds() * rate);
     let mut t = a + b * f64::from(g) - spec.sync_offset() * rate * scale;
     let w = spec.width as usize;
-    let off = rx.offsets.get(g as usize).copied().flatten().unwrap_or(rx.offset);
+    let off = if tune != 0.0 { tune } else { rx.offsets.get(g as usize).copied().flatten().unwrap_or(rx.offset) };
     let mut vals = GroupVals::default();
     for seg in spec.segments() {
         let dur = seg.dur * rate * scale;
