@@ -130,7 +130,7 @@ const EFFECT: Record<string, MacroAction['type']> = {
   '<MEMR:1>': 'memory', '<ACQ>': 'autoCq', '<AUTOCQ>': 'autoCq', '<ACQDELAY:15>': 'acqDelay', '<ASAUTOCQ>': 'autoCq', '<AUTOCQRESUME>': 'autoCq',
   '<ROTOR:45>': 'rotor', '<ROTOR:SP>': 'rotor', '<ROTOR:LP>': 'rotor', '<CATCMD:AN1;>': 'cat', '<EDITMACRO:F5>': 'editMacro', '<WPM:+2>': 'wpm',
   '<IGNOREBEFORE:2026-11-14 12:00>': 'ignoreBefore', '<PERIOD:60>': 'period', '<CLEARQSO>': 'clearQso', '<FIXSTARTTIME>': 'fixStartTime',
-  '<SAVEQSO>': 'saveQso', '<TX>': 'tx', '<TXE>': 'txe', '<RX>': 'rx', '<RXANDCLEAR>': 'rx', '<RXC>': 'rx', '<RXE>': 'rxe', '<CLEARTXWINDOW>': 'clearTx',
+  '<SAVEQSO>': 'saveQso', '<QTCSEND>': 'qtc', '<QTCREAD>': 'qtc', '<STATS:SendQTC>': 'qtc', '<STATS:ReadQTC>': 'qtc', '<TX>': 'tx', '<TXE>': 'txe', '<RX>': 'rx', '<RXANDCLEAR>': 'rx', '<RXC>': 'rx', '<RXE>': 'rxe', '<CLEARTXWINDOW>': 'clearTx',
   // comandi che la pagina riconosce e per cui dice che non li sa fare
   '<TUNE:5>': 'tune', '<BOOKMARK>': 'bookmark', '<MACROS:contest.mc>': 'macros',
 };
@@ -186,7 +186,7 @@ describe('l\'elenco dei comandi (unica fonte per editor e Guida)', () => {
       'CLEARTXWINDOW', 'CLEARRXWINDOW', 'CLEARQSO', 'CLEARWINDOW', 'FIXSTARTTIME', 'SAVEQSO', 'AUTOCQ', 'ACQ', 'ASAUTOCQ', 'AUTOCQRESUME', 'ACQDELAY',
       'JUMPTOTXFQ', 'ALIGN', 'BEEP', 'SEEKLEFT', 'SEEKRIGHT', 'BOOKMARK', 'AFCON', 'AFCOFF', 'AFC', 'SNAPON', 'SNAPOFF', 'SNAP', 'SQUELCHON',
       'SQUELCHOFF', 'SQUELCH', 'LOCKTX', 'UNLOCKTX', 'LOCKTXTOGGLE', 'STARTSCAN', 'STOPSCAN', 'MODESETTINGS', 'IGNOREBEFORE', 'PERIOD', 'THRESHOLD',
-      'MEMW', 'MEMR', 'TUNE', 'CURSOR', 'MACROS', 'CATCMD', 'BAUDRATE', 'SHIFT', 'FQ', 'SPLIT', 'ROTOR', 'EDITMACRO', 'ALARM', 'WPM', 'AUDIOFQ'];
+      'MEMW', 'MEMR', 'TUNE', 'CURSOR', 'MACROS', 'CATCMD', 'BAUDRATE', 'SHIFT', 'FQ', 'SPLIT', 'ROTOR', 'EDITMACRO', 'ALARM', 'WPM', 'AUDIOFQ', 'QTCSEND', 'QTCREAD', 'STATS'];
     for (const tag of parsed) expect(listed.has(`<${tag}>`), tag).toBe(true);
   });
 

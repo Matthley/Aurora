@@ -82,6 +82,8 @@ const RAW_COMMANDS: readonly RawCommand[] = [
   c('program', '<CLEARQSO>', 'azzera i dati del QSO', 'clears the QSO data', 'löscht die QSO-Daten', 'efface les données du QSO', 'borra los datos del QSO', 'apaga os dados do QSO'),
   c('program', '<FIXSTARTTIME>', 'fissa adesso come ora di inizio del QSO', 'fixes now as the QSO start time', 'setzt jetzt als Beginn des QSO', 'fixe maintenant comme début du QSO', 'fija ahora como inicio del QSO', 'fixa agora como início do QSO'),
   c('program', '<SAVEQSO>', 'salva il QSO a log (va prima dei comandi di pulizia)', 'saves the QSO to the log (put it before any clear command)', 'speichert das QSO im Log (vor den Löschbefehlen)', 'enregistre le QSO au journal (avant les commandes d’effacement)', 'guarda el QSO en el log (antes de los comandos de limpieza)', 'guarda o QSO no log (antes dos comandos de limpeza)'),
+  c('program', '<QTCSEND>', 'apre la finestra per mandare i QTC (contest WAE) alla stazione del QSO', 'opens the window to send QTCs (WAE contest) to the station of the QSO', 'öffnet das Fenster zum Senden der QTCs (WAE-Contest) an die Station des QSO', 'ouvre la fenêtre pour envoyer les QTC (concours WAE) à la station du QSO', 'abre la ventana para enviar los QTC (concurso WAE) a la estación del QSO', 'abre a janela para enviar os QTC (concurso WAE) à estação do QSO'),
+  c('program', '<QTCREAD>', 'apre la finestra per ricevere una serie di QTC (contest WAE) dalla stazione del QSO', 'opens the window to receive a QTC series (WAE contest) from the station of the QSO', 'öffnet das Fenster zum Empfang einer QTC-Serie (WAE-Contest) von der Station des QSO', 'ouvre la fenêtre pour recevoir une série de QTC (concours WAE) de la station du QSO', 'abre la ventana para recibir una serie de QTC (concurso WAE) de la estación del QSO', 'abre a janela para receber uma série de QTC (concurso WAE) da estação do QSO'),
   c('autocq', '<AUTOCQ>', 'avvia o ferma la chiamata CQ automatica; seguito da un testo, quel testo diventa la chiamata', 'starts or stops the automatic CQ; followed by a text, that text becomes the call', 'startet oder stoppt den automatischen CQ-Ruf; folgt ein Text, wird er zum Ruf', 'démarre ou arrête l’appel CQ automatique ; suivi d’un texte, ce texte devient l’appel', 'inicia o detiene la llamada CQ automática; seguido de un texto, ese texto pasa a ser la llamada', 'inicia ou pára a chamada CQ automática; seguido de um texto, esse texto passa a ser a chamada'),
   cs('program', '<TUNE>', 'tono per accordare: nei modi testuali Aurora non lo manda (usa il tasto Tune della radio)', 'tuning tone: Aurora does not send it in the text modes (use the radio’s Tune key)', 'Abstimmton: in den Textmodi sendet Aurora ihn nicht (Tune-Taste des Funkgeräts verwenden)', 'porteuse d’accord : Aurora ne l’envoie pas dans les modes texte (utilise la touche Tune de la radio)', 'tono de sintonía: Aurora no lo envía en los modos de texto (usa la tecla Tune de la radio)', 'tom de sintonia: o Aurora não o envia nos modos de texto (usa a tecla Tune do rádio)'),
   c('program', '<BEEP:ON>', 'suona un avviso', 'sounds a beep', 'gibt einen Signalton aus', 'émet un bip', 'emite un pitido', 'emite um aviso sonoro'),
@@ -161,7 +163,7 @@ const CATEGORY: Record<string, HelpCategory> = {
   '<TX>': 'txrx', '<TXE>': 'txrx', '<TXTOGGLE>': 'txrx', '<RX>': 'txrx', '<RXANDCLEAR>': 'txrx', '<RXC>': 'txrx', '<RXE>': 'txrx', '<TUNE>': 'txrx',
   '<CLEARRXWINDOW>': 'windows', '<CLEARTXWINDOW>': 'windows', '<CLEARWINDOW>': 'windows', '<CURSOR:TX>': 'windows', '<HIDETEXT>': 'windows',
   '<SHOWTEXT>': 'windows', '<BEEP:ON>': 'windows', '<ALARM:testo>': 'windows',
-  '<NRS>': 'qso', '<NRR>': 'qso', '<QSONR>': 'qso', '<CLEARQSO>': 'qso', '<FIXSTARTTIME>': 'qso', '<SAVEQSO>': 'qso',
+  '<NRS>': 'qso', '<NRR>': 'qso', '<QSONR>': 'qso', '<CLEARQSO>': 'qso', '<FIXSTARTTIME>': 'qso', '<SAVEQSO>': 'qso', '<QTCSEND>': 'qso', '<QTCREAD>': 'qso',
   '<IGNOREBEFORE:aaaa-mm-gg hh:mm>': 'qso', '<PERIOD:n>': 'qso',
   '<MODE>': 'mode', '<MODE:PSK31>': 'mode', '<BAUDRATE:n>': 'mode', '<SHIFT:Hz>': 'mode', '<AFCON>': 'mode', '<SQUELCHON>': 'mode', '<SNAPON>': 'mode',
   '<LOCKTX>': 'mode', '<MODESETTINGS>': 'mode', '<THRESHOLD>': 'mode', '<MEMW:n>': 'mode',
@@ -193,7 +195,7 @@ const EXAMPLE: Record<string, string> = {
   '<CURSOR:TX>': '<CALL> DE <MYCALL> <CURSOR:TX>', '<HIDETEXT>': '<HIDETEXT>', '<SHOWTEXT>': '<SHOWTEXT>', '<BEEP:ON>': '<BEEP:ON>',
   '<ALARM:testo>': '<ALARM:QSO saved>',
   '<NRS>': '<TX><CALL> 599 <NRS> <NRS><RX>', '<NRR>': 'TNX <NRR>', '<QSONR>': '599 <QSONR>', '<CLEARQSO>': '<SAVEQSO><CLEARQSO>', '<FIXSTARTTIME>': '<FIXSTARTTIME><TX><CALL> DE <MYCALL><RX>',
-  '<SAVEQSO>': '<TX>TU <MYCALL><RX><SAVEQSO><CLEARQSO>', '<IGNOREBEFORE:aaaa-mm-gg hh:mm>': '<IGNOREBEFORE:2026-11-14 12:00>', '<PERIOD:n>': '<PERIOD:60>',
+  '<SAVEQSO>': '<TX>TU <MYCALL><RX><SAVEQSO><CLEARQSO>', '<QTCSEND>': '<QTCSEND>', '<QTCREAD>': '<QTCREAD>', '<IGNOREBEFORE:aaaa-mm-gg hh:mm>': '<IGNOREBEFORE:2026-11-14 12:00>', '<PERIOD:n>': '<PERIOD:60>',
   '<MODE>': 'MODE <MODE>', '<MODE:PSK31>': '<MODE:RTTY>', '<BAUDRATE:n>': '<BAUDRATE:45.45>', '<SHIFT:Hz>': '<SHIFT:170>', '<AFCON>': '<AFCOFF>', '<SQUELCHON>': '<SQUELCH>',
   '<SNAPON>': '<SNAPON>', '<LOCKTX>': '<LOCKTX>', '<MODESETTINGS>': '<MODESETTINGS>', '<THRESHOLD>': '<THRESHOLD>', '<MEMW:n>': '<MEMW:1>',
   '<AUTOCQ>': '<AUTOCQ>CQ CQ DE <MYCALL> <MYCALL> K<RX>', '<ACQ>': '<ACQ>', '<ACQDELAY:s>': '<ACQDELAY:15>', '<ASAUTOCQ>': '<ASAUTOCQ>CQ TEST <MYCALL><RX>',
@@ -211,6 +213,7 @@ const EXAMPLE: Record<string, string> = {
 const ALIASES: Record<string, readonly string[]> = {
   '<AFCON>': ['<AFCOFF>', '<AFC>'], '<SQUELCHON>': ['<SQUELCHOFF>', '<SQUELCH>'], '<SNAPON>': ['<SNAPOFF>', '<SNAP>'],
   '<LOCKTX>': ['<UNLOCKTX>', '<LOCKTXTOGGLE>'], '<STARTSCAN>': ['<STOPSCAN>'], '<MEMW:n>': ['<MEMR:n>'], '<SPLIT:1>': ['<SPLIT:0>'],
+  '<QTCSEND>': ['<STATS:SendQTC>'], '<QTCREAD>': ['<STATS:ReadQTC>'],
   '<KHZ>': ['<KHZ:n>'], '<MHZ>': ['<MHZ:n>'], '<TUNE>': ['<TUNE:n>'],
 };
 
@@ -279,6 +282,22 @@ const LONG: Record<string, readonly [string, string, string, string, string, str
     'Enregistre le QSO en cours au journal avec les données du moment. Place-le avant <CLEARQSO> : les commandes s’exécutent dans l’ordre où tu les écris.',
     'Guarda el QSO en curso en el log con los datos de ese momento. Ponlo antes de <CLEARQSO>: los comandos se ejecutan en el orden en que los escribes.',
     'Guarda o QSO em curso no log com os dados desse momento. Põe-no antes de <CLEARQSO>: os comandos executam-se pela ordem em que os escreves.',
+  ],
+  '<QTCSEND>': [
+    'Solo con un contest WAE attivo. La finestra propone i QSO del contest che si possono ancora mandare alla stazione del QSO (non i suoi, non quelli già mandati, al massimo 10 per stazione) con il numero della serie; i tasti mandano l’intestazione «QTC n/m», tutte le righe o una sola (anche per ripeterla). Le righe confermate si salvano come mandate. Va bene anche il nome <STATS:SendQTC> dei file importati.',
+    'Only with a WAE contest active. The window offers the contest QSOs that can still be sent to the station of the QSO (not its own, not those already sent, at most 10 per station) with the series number; the buttons send the «QTC n/m» header, all lines or just one (also to repeat it). Confirmed lines are saved as sent. The name <STATS:SendQTC> of imported files works too.',
+    'Nur mit aktivem WAE-Contest. Das Fenster schlägt die Contest-QSOs vor, die der Station des QSO noch gesendet werden können (nicht ihre eigenen, nicht schon gesendete, höchstens 10 pro Station), mit der Seriennummer; die Tasten senden den Kopf «QTC n/m», alle Zeilen oder eine einzelne (auch zum Wiederholen). Bestätigte Zeilen werden als gesendet gespeichert. Auch der Name <STATS:SendQTC> importierter Dateien geht.',
+    'Seulement avec un concours WAE actif. La fenêtre propose les QSO du concours qu’on peut encore envoyer à la station du QSO (pas les siens, pas ceux déjà envoyés, 10 au plus par station) avec le numéro de série ; les boutons envoient l’en-tête « QTC n/m », toutes les lignes ou une seule (aussi pour la répéter). Les lignes confirmées sont enregistrées comme envoyées. Le nom <STATS:SendQTC> des fichiers importés marche aussi.',
+    'Solo con un concurso WAE activo. La ventana propone los QSO del concurso que aún se pueden enviar a la estación del QSO (no los suyos, no los ya enviados, como mucho 10 por estación) con el número de serie; los botones envían la cabecera «QTC n/m», todas las líneas o una sola (también para repetirla). Las líneas confirmadas se guardan como enviadas. También vale el nombre <STATS:SendQTC> de los archivos importados.',
+    'Só com um concurso WAE ativo. A janela propõe os QSO do concurso que ainda se podem enviar à estação do QSO (não os seus, não os já enviados, no máximo 10 por estação) com o número da série; os botões enviam o cabeçalho «QTC n/m», todas as linhas ou só uma (também para a repetir). As linhas confirmadas guardam-se como enviadas. Também serve o nome <STATS:SendQTC> dos ficheiros importados.',
+  ],
+  '<QTCREAD>': [
+    'Solo con un contest WAE attivo. «QRV» dice che sei pronto, «Prendi dalla ricezione» legge dalla finestra RX l’intestazione «QTC n/m» e le righe ora-nominativo-numero, che puoi correggere; «AGN» chiede di ripetere una riga, tutte o l’intestazione. «Salva» registra la serie e manda la conferma. Va bene anche il nome <STATS:ReadQTC> dei file importati.',
+    'Only with a WAE contest active. «QRV» says you are ready, «Take from receive» reads the «QTC n/m» header and the time-call-number lines from the RX window, and you can correct them; «AGN» asks to repeat a line, all of them or the header. «Save» stores the series and sends the confirmation. The name <STATS:ReadQTC> of imported files works too.',
+    'Nur mit aktivem WAE-Contest. «QRV» meldet Bereitschaft, «Aus dem Empfang» liest den Kopf «QTC n/m» und die Zeilen Zeit-Rufzeichen-Nummer aus dem RX-Fenster, die du korrigieren kannst; «AGN» fordert eine Zeile, alle oder den Kopf erneut an. «Speichern» legt die Serie ab und sendet die Bestätigung. Auch der Name <STATS:ReadQTC> importierter Dateien geht.',
+    'Seulement avec un concours WAE actif. « QRV » dit que tu es prêt, « Prendre de la réception » lit dans la fenêtre RX l’en-tête « QTC n/m » et les lignes heure-indicatif-numéro, que tu peux corriger ; « AGN » demande de répéter une ligne, toutes ou l’en-tête. « Enregistrer » garde la série et envoie la confirmation. Le nom <STATS:ReadQTC> des fichiers importés marche aussi.',
+    'Solo con un concurso WAE activo. «QRV» dice que estás listo, «Tomar de la recepción» lee de la ventana RX la cabecera «QTC n/m» y las líneas hora-indicativo-número, que puedes corregir; «AGN» pide repetir una línea, todas o la cabecera. «Guardar» registra la serie y envía la confirmación. También vale el nombre <STATS:ReadQTC> de los archivos importados.',
+    'Só com um concurso WAE ativo. «QRV» diz que estás pronto, «Tirar da receção» lê da janela RX o cabeçalho «QTC n/m» e as linhas hora-indicativo-número, que podes corrigir; «AGN» pede para repetir uma linha, todas ou o cabeçalho. «Guardar» regista a série e envia a confirmação. Também serve o nome <STATS:ReadQTC> dos ficheiros importados.',
   ],
   '<AR> <BT> <KN> <SK>': [
     'In CW ognuno è un segno solo, senza pausa fra le lettere. In RTTY e PSK escono come lettere normali (AR, BT, KN, SK).',

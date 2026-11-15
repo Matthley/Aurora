@@ -51,6 +51,8 @@ export type MacroAction =
   | { type: 'clearWindow' }
   | { type: 'fixStartTime' }
   | { type: 'saveQso' }
+  /** La finestra dei QTC del WAE: mandare o ricevere una serie. */
+  | { type: 'qtc'; dir: 'send' | 'receive' }
   | { type: 'mode'; mode: string }
   | { type: 'baud'; baud: number }
   | { type: 'shift'; hz: number }
@@ -205,6 +207,13 @@ function actionOf(tag: string, arg: string | undefined): MacroAction | null {
     case 'CLEARWINDOW': return { type: 'clearWindow' };
     case 'FIXSTARTTIME': return { type: 'fixStartTime' };
     case 'SAVEQSO': return { type: 'saveQso' };
+    case 'QTCSEND': return { type: 'qtc', dir: 'send' };
+    case 'QTCREAD': return { type: 'qtc', dir: 'receive' };
+    // i nomi dei file di macro importati: <STATS:SendQTC>, <STATS:ReadQTC>
+    case 'STATS': {
+      const a = (arg ?? '').trim().toUpperCase();
+      return a === 'SENDQTC' ? { type: 'qtc', dir: 'send' } : a === 'READQTC' ? { type: 'qtc', dir: 'receive' } : null;
+    }
     case 'AUTOCQ':
     case 'ACQ': return { type: 'autoCq', how: 'toggle' };
     case 'ASAUTOCQ': return { type: 'autoCq', how: 'start' };
