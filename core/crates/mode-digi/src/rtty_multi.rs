@@ -90,6 +90,8 @@ pub struct RttyMulti {
     max_lanes: usize,
     /// L'audio degli ultimi `PREROLL_S` secondi, fino al blocco in corso escluso.
     past: std::collections::VecDeque<f32>,
+    /// Mark e space scambiati (radio in LSB o «Rev»), come il ricevitore principale.
+    reverse: bool,
 }
 
 impl RttyMulti {
@@ -108,7 +110,15 @@ impl RttyMulti {
             lanes: Vec::new(),
             max_lanes: MAX_CHANNELS,
             past: std::collections::VecDeque::new(),
+            reverse: false,
         }
+    }
+
+    /// Mark e space scambiati (`reverse` del ricevitore principale: «Rev» e radio in LSB); senza, con la radio in LSB ogni canale
+    /// leggeva spazzatura mentre la finestra RX leggeva giusto.
+    pub fn with_reverse(mut self, reverse: bool) -> Self {
+        self.reverse = reverse;
+        self
     }
 
     /// La radio spostata di poco: ogni segnale cambia centro di `audio_hz`; i ricevitori ripartono sul centro nuovo, quelli fuori da
@@ -118,7 +128,7 @@ impl RttyMulti {
         self.lanes.retain(|l| (lo..=hi).contains(&(l.centre_hz + audio_hz)));
         for l in self.lanes.iter_mut() {
             l.centre_hz += audio_hz;
-            l.demod = new_demod(l.centre_hz, l.shift_hz, l.baud);
+            l.demod = new_demod(l.centre_hz, l.shift_hz, l.baud, self.reverse);
         }
         self.history.clear();
         self.past.clear();
@@ -253,7 +263,7 @@ impl RttyMulti {
             }
             let audio = past.get_or_insert_with(|| self.past.iter().copied().collect());
             let baud = pick_baud(audio, centre, shift, self.baud);
-            self.lanes.push(Lane { centre_hz: centre, shift_hz: shift, baud, demod: new_demod(centre, shift, baud), idle_s: 0.0, fresh: true, misplaced: 0 });
+            self.lanes.push(Lane { centre_hz: centre, shift_hz: shift, baud, demod: new_demod(centre, shift, baud, self.reverse), idle_s: 0.0, fresh: true, misplaced: 0 });
         }
     }
 
@@ -285,7 +295,7 @@ impl RttyMulti {
             let l = &mut self.lanes[k];
             l.centre_hz = c;
             l.shift_hz = shift;
-            l.demod = new_demod(c, shift, l.baud);
+            l.demod = new_demod(c, shift, l.baud, self.reverse);
             l.fresh = true;
             l.misplaced = 0;
             l.idle_s = 0.0;
@@ -362,8 +372,8 @@ fn lattice(past: &[f32], centre_hz: f32, shift_hz: f32, baud: f32) -> f64 {
 }
 
 /// Il ricevitore di un canale: squelch statistico e sintonia fine entro `FINE_TUNING_HZ`.
-fn new_demod(centre_hz: f32, shift_hz: f32, baud: f32) -> RttyDemodulator {
-    let mut demod = RttyDemodulator::new(RttyParams { centre_hz, shift_hz, baud, reverse: false });
+fn new_demod(centre_hz: f32, shift_hz: f32, baud: f32, reverse: bool) -> RttyDemodulator {
+    let mut demod = RttyDemodulator::new(RttyParams { centre_hz, shift_hz, baud, reverse });
     demod.set_squelch_prob(Some((SQUELCH_OPEN, SQUELCH_CLOSE)));
     demod.set_fine_tuning(Some(FINE_TUNING_HZ));
     demod
@@ -460,7 +470,7 @@ mod tests {
         for (a, r) in audio.iter_mut().zip(rumore(n, 1.8, 11)) {
             *a += r;
         }
-        let mut rx = new_demod(1000.0, 170.0, 45.45);
+        let mut rx = new_demod(1000.0, 170.0, 45.45, false);
         let mut testo = String::new();
         for blocco in audio.chunks(1200) {
             testo.extend(rx.process_chars(blocco).iter().map(|c| c.ch));
@@ -502,7 +512,7 @@ mod tests {
         }
         let mut multi = RttyMulti::new(170.0, 45.45);
         for c in [970.0_f32, 1110.0] {
-            multi.lanes.push(Lane { centre_hz: c, shift_hz: 170.0, baud: 45.45, demod: new_demod(c, 170.0, 45.45), idle_s: 0.0, fresh: false, misplaced: 0 });
+            multi.lanes.push(Lane { centre_hz: c, shift_hz: 170.0, baud: 45.45, demod: new_demod(c, 170.0, 45.45, false), idle_s: 0.0, fresh: false, misplaced: 0 });
         }
         let mut testo = String::new();
         for blocco in audio.chunks(1200) {
@@ -587,6 +597,15 @@ mod tests {
     }
 
     const QTC: &str = "QTC 22/10 QRV? / 1655-DK1WI-311 / 1656-S50A-123 / 1657-DK8EY-111 / 1658-DG2BWG-259 / 1700-DL5NO-2 ";
+
+    /// Mark e space scambiati (radio in LSB): con `with_reverse` il canale legge il QTC.
+    #[test]
+    fn con_la_radio_in_lsb_il_canale_legge_giusto() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 170.0, baud: 45.45, reverse: true };
+        let mut multi = RttyMulti::new(170.0, 45.45).with_reverse(true);
+        let letto = leggi(&mut multi, p, &QTC.repeat(3));
+        assert!(letto.contains("1657-DK8EY-111"), "{letto}");
+    }
 
     /// Un QTC da contest a 45,45 baud (cifre, trattini, cambi FIGS/LTRS), solo o con una stazione accanto: il canale nasce a 45,45 baud
     /// e si legge. Prima nasceva a 75 baud e la cascata mostrava «VVMTVMMLVOTVV...».

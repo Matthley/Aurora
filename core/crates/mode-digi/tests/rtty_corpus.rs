@@ -262,7 +262,7 @@ fn banda_intera() {
     for c in cartelle.into_iter().take(1) {
         let Ok(wav) = leggi_wav(&c.join("audio.wav")) else { continue };
         let audio = a_12k(&wav.canali[0], wav.rate);
-        let mut d = RttyBandDecoder::new(170.0, 45.45, 30);
+        let mut d = RttyBandDecoder::new(170.0, 45.45, false, 30);
         for b in audio.chunks(4800) {
             d.process(b);
         }

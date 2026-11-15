@@ -1210,6 +1210,7 @@ fn afc_guard(s: &DigiSettings, notches: &[Notch]) -> AfcGuard {
 fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
     let mut lsb = inner.read_radio_lsb();
     let mut last_radio = Instant::now();
+    inner.band.set_lsb(lsb, &settings);
     let mut demod = Demod::new(&settings, lsb);
     let mut mode = settings.mode;
     // le finestre RX in piu': ognuna un ricevitore sulla sua frequenza, con le impostazioni del principale
@@ -1354,7 +1355,9 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
             if now != lsb {
                 lsb = now;
                 tracing::info!("RTTY: radio in {}, mark e space {}", if lsb { "LSB" } else { "USB" }, if lsb { "invertiti" } else { "normali" });
-                demod = Demod::new(&lock(&inner.settings).clone(), lsb);
+                let now_settings = lock(&inner.settings).clone();
+                inner.band.set_lsb(lsb, &now_settings);
+                demod = Demod::new(&now_settings, lsb);
                 for (x, d, g) in extras.iter_mut() {
                     (*d, *g) = extra_demod(&cur, x, lsb);
                 }

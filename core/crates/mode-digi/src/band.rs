@@ -126,18 +126,19 @@ pub type CallLookup = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 enum Kind {
     Cw,
     Psk(PskMode),
-    /// RTTY con spostamento e velocita' (Hz, baud) del ricevitore principale.
-    Rtty(u32, u32),
+    /// RTTY con spostamento, velocita' (Hz, centesimi di baud) e mark/space scambiati del ricevitore principale.
+    Rtty(u32, u32, bool),
 }
 
 impl Kind {
-    fn of(s: &DigiSettings) -> Option<Kind> {
+    /// `lsb`: la radio e' in LSB (mark e space si scambiano, oltre a «Rev»).
+    fn of(s: &DigiSettings, lsb: bool) -> Option<Kind> {
         match s.mode {
             DigiMode::Cw if s.band_cw => Some(Kind::Cw),
             DigiMode::Psk31 if s.band_psk => Some(Kind::Psk(PskMode::Psk31)),
             DigiMode::Psk63 if s.band_psk => Some(Kind::Psk(PskMode::Psk63)),
             // spostamento in Hz e velocita' in centesimi di baud: interi, cosi' un cambio si riconosce con `==`
-            DigiMode::Rtty if s.band_rtty => Some(Kind::Rtty(s.rtty_shift_hz.round() as u32, (s.rtty_baud * 100.0).round() as u32)),
+            DigiMode::Rtty if s.band_rtty => Some(Kind::Rtty(s.rtty_shift_hz.round() as u32, (s.rtty_baud * 100.0).round() as u32, s.rtty_reverse ^ lsb)),
             _ => None,
         }
     }
@@ -154,7 +155,7 @@ impl Kind {
         match self {
             Kind::Cw => Box::new(CwBandDecoder::new(LO_HZ, HI_HZ, MAX_CHANNELS)),
             Kind::Psk(m) => Box::new(PskBandDecoder::new(m, LO_HZ, HI_HZ, MAX_CHANNELS)),
-            Kind::Rtty(shift, baud) => Box::new(crate::skim::rtty::RttyBandDecoder::new(shift as f32, baud as f32 / 100.0, MAX_CHANNELS)),
+            Kind::Rtty(shift, baud, reverse) => Box::new(crate::skim::rtty::RttyBandDecoder::new(shift as f32, baud as f32 / 100.0, reverse, MAX_CHANNELS)),
         }
     }
 }
@@ -184,6 +185,8 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 pub struct BandLink {
     queue: SyncSender<Msg>,
     active: AtomicBool,
+    /// La radio e' in LSB (letta dal ricevitore principale).
+    lsb: AtomicBool,
     hooks: Arc<Hooks>,
 }
 
@@ -196,7 +199,7 @@ impl BandLink {
         if let Err(e) = std::thread::Builder::new().name("aurora-digi-banda".into()).spawn(move || band_loop(&worker, rx)) {
             tracing::error!("modi testuali: thread di tutta la banda non avviato: {e}");
         }
-        let link = BandLink { queue, active: AtomicBool::new(false), hooks };
+        let link = BandLink { queue, active: AtomicBool::new(false), lsb: AtomicBool::new(false), hooks };
         link.configure(settings);
         link
     }
@@ -225,10 +228,17 @@ impl BandLink {
 
     /// Le impostazioni nuove: modo, acceso o spento, spot.
     pub fn configure(&self, s: &DigiSettings) {
-        let kind = Kind::of(s);
+        let kind = Kind::of(s, self.lsb.load(Ordering::Relaxed));
         self.active.store(kind.is_some(), Ordering::Relaxed);
         let validation = Validation::from_id(&s.band_validation).unwrap_or_default();
         let _ = self.queue.send(Msg::Config(kind, Options { spots: s.local_spots, cq_only: s.band_spots_cq_only, validation }));
+    }
+
+    /// La radio passata in LSB o in USB: in RTTY mark e space dei canali si scambiano come nel ricevitore principale.
+    pub fn set_lsb(&self, lsb: bool, s: &DigiSettings) {
+        if self.lsb.swap(lsb, Ordering::Relaxed) != lsb {
+            self.configure(s);
+        }
     }
 
     /// Altro audio a 12 kHz (se il thread e' indietro il blocco si perde, solo per lui).

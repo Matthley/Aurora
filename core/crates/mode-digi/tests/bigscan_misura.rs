@@ -584,7 +584,7 @@ fn bigscan_contro_canale_singolo() {
     // 1. tutta la banda, come il thread di band.rs (senza limite di CPU e senza cty.dat)
     let started = std::time::Instant::now();
     let mut band: Box<dyn BandDecoder> =
-        if cw { Box::new(CwBandDecoder::new(150.0, 4_000.0, 40)) } else { Box::new(RttyBandDecoder::new(SHIFT, BAUD, 40)) };
+        if cw { Box::new(CwBandDecoder::new(150.0, 4_000.0, 40)) } else { Box::new(RttyBandDecoder::new(SHIFT, BAUD, false, 40)) };
     let mut snaps: Vec<Snap> = Vec::new();
     let mut t = 0.0;
     let snap = snap_s();

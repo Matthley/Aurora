@@ -35,9 +35,10 @@ pub struct RttyBandDecoder {
 }
 
 impl RttyBandDecoder {
-    pub fn new(shift_hz: f32, baud: f32, max_channels: usize) -> Self {
+    /// `reverse`: mark e space scambiati, come il ricevitore principale («Rev» e radio in LSB).
+    pub fn new(shift_hz: f32, baud: f32, reverse: bool, max_channels: usize) -> Self {
         RttyBandDecoder {
-            multi: RttyMulti::new(shift_hz, baud),
+            multi: RttyMulti::new(shift_hz, baud).with_reverse(reverse),
             shift_hz,
             lanes: Vec::new(),
             max_channels: max_channels.max(1),
@@ -170,7 +171,7 @@ mod tests {
         for (s, n) in band.iter_mut().zip(crate::skim::tests::noise(12_000 * 40, 0.02, 7)) {
             *s += n;
         }
-        let mut d = RttyBandDecoder::new(170.0, 45.45, 10);
+        let mut d = RttyBandDecoder::new(170.0, 45.45, false, 10);
         for block in band.chunks(4_800) {
             d.process(block);
         }
@@ -195,7 +196,7 @@ mod tests {
             }
             band
         };
-        let mut d = RttyBandDecoder::new(170.0, 45.45, 10);
+        let mut d = RttyBandDecoder::new(170.0, 45.45, false, 10);
         for block in make(1_000.0).chunks(4_800) {
             d.process(block);
         }
@@ -227,7 +228,7 @@ mod tests {
         for (s, r) in band.iter_mut().zip(crate::skim::tests::noise(n, 0.02, 4)) {
             *s += r;
         }
-        let mut d = RttyBandDecoder::new(170.0, 45.45, 10);
+        let mut d = RttyBandDecoder::new(170.0, 45.45, false, 10);
         for block in band.chunks(1_200) {
             d.process(block);
         }
@@ -252,7 +253,7 @@ mod tests {
         for (s, n) in band.iter_mut().zip(crate::skim::tests::noise(12_000 * 40, 0.02, 5)) {
             *s += n;
         }
-        let mut d = RttyBandDecoder::new(170.0, 45.45, 10);
+        let mut d = RttyBandDecoder::new(170.0, 45.45, false, 10);
         for block in band.chunks(4_800) {
             d.process(block);
         }
