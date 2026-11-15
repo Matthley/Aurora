@@ -112,6 +112,13 @@ export function ModeSettingsFields({
           ))}
         </select>
       </label>
+      <label title={t('digi.cw.receiverTip')}>
+        <span>{t('digi.cw.receiver')}</span>
+        <select value={s.cw_receiver ?? 'fast'} onChange={(e) => onSave({ cw_receiver: e.target.value as DigiSettings['cw_receiver'] })}>
+          <option value="precise">{t('digi.cw.receiverPrecise')}</option>
+          <option value="fast">{t('digi.cw.receiverFast')}</option>
+        </select>
+      </label>
       <label className="sstv-check" title={t('digi.cw.somTip')}>
         <input type="checkbox" checked={s.cw_som} onChange={(e) => onSave({ cw_som: e.target.checked })} />
         {t('digi.cw.som')}

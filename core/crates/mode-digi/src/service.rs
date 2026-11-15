@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::notch::{AfcGuard, Notch, RxFilters};
 use crate::rtty::RttyCharset;
+use crate::cw_hybrid::CwHybrid;
 use crate::{CwDemodulator, PskDemodulator, PskMode, RATE, RttyDemodulator, RttyParams, cw, psk, rtty};
 
 /// La trasmissione a flusso: aperta a levetta e scritta dal vivo, con l'avanzamento carattere per carattere (vedi `service/live.rs`).
@@ -53,6 +54,17 @@ pub trait DigiTxPort: Send + Sync {
 }
 
 pub type Emitter = Arc<dyn Fn(DigiEvent) + Send + Sync>;
+
+/// Il ricevitore CW: «preciso» il ricevitore attuale, «veloce» la catena mostra subito un testo provvisorio che il ricevitore attuale
+/// sostituisce con quello definitivo ([`crate::cw_hybrid`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CwReceiver {
+    Precise,
+    /// Di base: stesso testo finale del preciso, mostrato prima (banco CW, `docs/banco-cw.md`, nono giro).
+    #[default]
+    Fast,
+}
 
 /// Il ricevitore RTTY: due filtri sui toni (come fldigi) o discriminatore di frequenza.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -249,6 +261,8 @@ pub struct DigiSettings {
     pub cw_squelch_snr_db: f32,
     /// CW: decodifica SOM di fldigi (aiuta col tasto a mano irregolare).
     pub cw_som: bool,
+    /// CW: il ricevitore (preciso o veloce con testo provvisorio).
+    pub cw_receiver: CwReceiver,
     /// CW: da dove esce la trasmissione, audio della scheda o WinKeyer.
     pub cw_output: CwOutput,
     /// CW: le impostazioni del WinKeyer.
@@ -361,6 +375,7 @@ impl Default for DigiSettings {
             cw_bandwidth_hz: cw::BANDWIDTH_DEFAULT,
             cw_squelch_snr_db: cw::SQUELCH_DEFAULT_DB,
             cw_som: false,
+            cw_receiver: CwReceiver::Fast,
             cw_output: CwOutput::Audio,
             winkeyer: WinKeyerConfig::default(),
             wf_anticlick: true,
@@ -1119,6 +1134,8 @@ enum Demod {
     Psk(Box<PskDemodulator>),
     Rtty(Box<RttyDemodulator>),
     Cw(Box<CwDemodulator>),
+    /// Il ricevitore veloce e il testo provvisorio cambiato nell'ultimo blocco, da mandare alla finestra.
+    CwFast(Box<CwHybrid>, Option<String>),
 }
 
 impl Demod {
@@ -1130,6 +1147,9 @@ impl Demod {
             d.set_som(s.cw_som);
             // lo squelch del CW guarda il rapporto segnale/rumore misurato sullo spettro, non il livello
             d.set_squelch_snr_db(s.squelch_on.then_some(s.cw_squelch_snr_db));
+            if s.cw_receiver == CwReceiver::Fast {
+                return Demod::CwFast(Box::new(CwHybrid::new(d, s.cw_wpm)), None);
+            }
             return Demod::Cw(Box::new(d));
         }
         match s.mode.psk() {
@@ -1161,6 +1181,7 @@ impl Demod {
             Demod::Psk(d) => d.frequency(),
             Demod::Rtty(d) => d.frequency(),
             Demod::Cw(d) => d.frequency(),
+            Demod::CwFast(h, _) => h.fine().frequency(),
         }
     }
 
@@ -1170,6 +1191,7 @@ impl Demod {
             Demod::Rtty(d) => Some(d.snr_db()),
             Demod::Psk(d) => d.snr_db(),
             Demod::Cw(d) => Some(d.snr_db()),
+            Demod::CwFast(h, _) => Some(h.fine().snr_db()),
         }
     }
 
@@ -1178,6 +1200,7 @@ impl Demod {
         match self {
             Demod::Psk(d) => (d.imd_db(), Some(d.metric()), None),
             Demod::Cw(d) => (None, None, Some(d.wpm())),
+            Demod::CwFast(h, _) => (None, None, Some(h.fine().wpm())),
             Demod::Rtty(_) => (None, None, None),
         }
     }
@@ -1188,6 +1211,7 @@ impl Demod {
             Demod::Psk(d) => d.steer(hz),
             Demod::Rtty(d) => d.steer(hz),
             Demod::Cw(d) => d.steer(hz),
+            Demod::CwFast(h, _) => h.steer(hz),
         }
     }
 
@@ -1198,6 +1222,7 @@ impl Demod {
             Demod::Psk(d) => (Some(d.metric()), (25.0, 12.0)),
             Demod::Rtty(d) => (Some(d.snr_db()), (11.0, 6.0)),
             Demod::Cw(d) => (Some(d.snr_db()), (cw::SQUELCH_DEFAULT_DB, cw::SQUELCH_DEFAULT_DB - 5.0)),
+            Demod::CwFast(h, _) => (Some(h.fine().snr_db()), (cw::SQUELCH_DEFAULT_DB, cw::SQUELCH_DEFAULT_DB - 5.0)),
         }
     }
 
@@ -1207,6 +1232,15 @@ impl Demod {
             Demod::Psk(d) => d.signal(),
             Demod::Rtty(d) => d.signal(),
             Demod::Cw(d) => d.signal(),
+            Demod::CwFast(h, _) => h.fine().signal(),
+        }
+    }
+
+    /// Il testo provvisorio intero (CW veloce), se e' cambiato dall'ultima volta: sostituisce quello mostrato.
+    fn take_provisional(&mut self) -> Option<String> {
+        match self {
+            Demod::CwFast(_, prov) => prov.take(),
+            _ => None,
         }
     }
 
@@ -1221,6 +1255,13 @@ impl Demod {
                 (chars.iter().map(|c| c.ch).collect(), weak)
             }
             Demod::Cw(d) => (text(d.process(audio)), Vec::new()),
+            Demod::CwFast(h, prov) => {
+                let out = h.process(audio);
+                if out.provisional.is_some() {
+                    *prov = out.provisional;
+                }
+                (out.fixed.iter().map(|s| char::from(s.ch)).collect(), Vec::new())
+            }
         }
     }
 }
@@ -1293,6 +1334,10 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
                     let weak = (!weak.is_empty()).then_some(weak);
                     inner.emit(DigiEvent { kind: "rx_text".into(), text: Some(text), weak, mode: Some(mode.id().into()), ..DigiEvent::default() });
                 }
+                // il provvisorio dopo il definitivo: la finestra toglie quello vecchio e mostra il nuovo in coda
+                if let Some(prov) = demod.take_provisional() {
+                    inner.emit(DigiEvent { kind: "rx_prov".into(), text: Some(prov), mode: Some(mode.id().into()), ..DigiEvent::default() });
+                }
                 // le finestre in piu' ascoltano la banda intera (i notch e il passabanda sono del ricevitore principale)
                 for (x, d, g) in extras.iter_mut() {
                     let (text, weak) = d.process(band_audio);
@@ -1306,6 +1351,9 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
                     if !text.is_empty() {
                         let weak = (!weak.is_empty()).then_some(weak);
                         inner.emit(DigiEvent { kind: "rx_text".into(), text: Some(text), weak, mode: Some(mode.id().into()), rx_id: Some(x.id), freq_hz: Some(d.frequency()), ..DigiEvent::default() });
+                    }
+                    if let Some(prov) = d.take_provisional() {
+                        inner.emit(DigiEvent { kind: "rx_prov".into(), text: Some(prov), mode: Some(mode.id().into()), rx_id: Some(x.id), ..DigiEvent::default() });
                     }
                 }
             }
@@ -1325,6 +1373,10 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, settings: DigiSettings) {
                 }
             }
             Some(Msg::Config(s)) => {
+                if matches!(demod, Demod::CwFast(..)) {
+                    // il provvisorio del ricevitore che se ne va non avra' mai il suo definitivo
+                    inner.emit(DigiEvent { kind: "rx_prov".into(), text: Some(String::new()), mode: Some(mode.id().into()), ..DigiEvent::default() });
+                }
                 demod = Demod::new(&s, lsb);
                 mode = s.mode;
                 cur = s;
@@ -1517,6 +1569,25 @@ mod tests {
             let out = d.process(&wave).0;
             assert!(out.contains("CQ DE IU3ABC 599"), "lsb {lsb}, ricevuto: {out:?}");
         }
+    }
+
+    #[test]
+    fn cw_veloce_mostra_il_provvisorio_e_poi_il_definitivo() {
+        // senza il campo (impostazioni salvate prima dell'opzione) vale il veloce, il predefinito
+        let old: DigiSettings = serde_json::from_str("{}").unwrap_or_default();
+        assert_eq!(old.cw_receiver, CwReceiver::Fast);
+        let s = DigiSettings { mode: DigiMode::Cw, rx_freq_hz: 700.0, tx_freq_hz: 700.0, cw_receiver: CwReceiver::Fast, ..DigiSettings::default() };
+        let mut d = Demod::new(&s, false);
+        assert!(matches!(d, Demod::CwFast(..)));
+        let mut wave = DigiService::wave_of("CQ CQ DE IU3ABC IU3ABC K", &s, false);
+        wave.extend(vec![0.0; 12_000 * 4]);
+        let (mut fixed, mut prov_seen) = (String::new(), false);
+        for b in wave.chunks(1200) {
+            fixed.push_str(&d.process(b).0);
+            prov_seen |= d.take_provisional().is_some_and(|p| !p.trim().is_empty());
+        }
+        assert!(prov_seen, "nessun testo provvisorio");
+        assert!(fixed.contains("IU3ABC"), "definitivo: {fixed:?}");
     }
 
     #[test]

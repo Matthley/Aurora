@@ -1939,6 +1939,8 @@ export interface DigiSettings {
   cw_squelch_snr_db: number;
   /** CW: decodifica SOM di fldigi (per il tasto a mano). */
   cw_som: boolean;
+  /** CW: ricevitore preciso, o veloce con testo provvisorio corretto dal preciso. */
+  cw_receiver?: 'precise' | 'fast';
   /** CW: uscita della trasmissione, audio della scheda o manipolatore esterno WinKeyer. */
   cw_output?: 'audio' | 'winkeyer';
   /** CW: impostazioni del WinKeyer. */

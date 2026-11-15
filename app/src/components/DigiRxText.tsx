@@ -1,6 +1,6 @@
 import { memo, useEffect, useSyncExternalStore, type RefObject } from 'react';
 import type React from 'react';
-import { getDigiBase, getDigiText, getDigiWeak, onDigiText } from '../lib/digiBus';
+import { getDigiBase, getDigiProvisional, getDigiText, getDigiWeak, onDigiText } from '../lib/digiBus';
 import { rxPieces } from '../lib/rxSearch';
 
 /**
@@ -44,11 +44,18 @@ export function DigiRxLive({ box, underlineSent, showSent, paused = false, searc
   const text = useSyncExternalStore(onDigiText, getDigiText);
   const weak = useSyncExternalStore(onDigiText, getDigiWeak);
   const base = useSyncExternalStore(onDigiText, getDigiBase);
+  const prov = useSyncExternalStore(onDigiText, getDigiProvisional);
   useEffect(() => {
     const el = box.current;
     if (el && !paused) el.scrollTop = el.scrollHeight;
-  }, [text, box, paused]);
-  return text === '' ? null : <DigiRxText text={text} weak={weak} base={base} underlineSent={underlineSent} showSent={showSent} search={search} />;
+  }, [text, prov, box, paused]);
+  if (text === '' && prov === '') return null;
+  return (
+    <>
+      {text === '' ? null : <DigiRxText text={text} weak={weak} base={base} underlineSent={underlineSent} showSent={showSent} search={search} />}
+      {prov === '' ? null : <span className="digi-prov">{prov}</span>}
+    </>
+  );
 }
 
 /** Una riga divisa in tratti certi e incerti. */

@@ -49,6 +49,7 @@ export function clearDigiText(): void {
   dropped += text.length;
   text = '';
   weak = '';
+  provisional = '';
   notify();
 }
 
@@ -164,7 +165,31 @@ function appendExtra(id: number, raw: string): void {
   for (const l of extraListeners) l();
 }
 
+/** CW veloce: il testo provvisorio in coda alla finestra principale e a quelle in piu' (sostituito a ogni evento `rx_prov`). */
+let provisional = '';
+const extraProv = new Map<number, string>();
+
+export function getDigiProvisional(): string {
+  return provisional;
+}
+
+export function getExtraProvisional(id: number): string {
+  return extraProv.get(id) ?? '';
+}
+
 export function emitDigi(event: DigiStreamEvent): void {
+  if (event.kind === 'rx_prov') {
+    const p = (event.text ?? '').replace(/\r\n?/g, '\n');
+    if (event.rx_id != null) {
+      extraProv.set(event.rx_id, p);
+      for (const l of extraListeners) l();
+    } else if (p !== provisional) {
+      provisional = p;
+      notify();
+    }
+    for (const l of listeners) l(event);
+    return;
+  }
   // il testo di una finestra RX in piu' va nella sua finestra, non in quella principale
   if (event.kind === 'rx_text' && event.text && event.rx_id != null) {
     appendExtra(event.rx_id, event.text);

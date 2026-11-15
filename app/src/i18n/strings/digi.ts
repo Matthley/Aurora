@@ -520,6 +520,17 @@ export const digiStrings = {
     'En lugar de la tabla elige el carácter más cercano a las duraciones de puntos y rayas (como la decodificación SOM de fldigi): ayuda con un manipulador vertical irregular.',
     'Em vez da tabela escolhe o carácter mais próximo das durações dos pontos e traços (como a descodificação SOM do fldigi): ajuda com um manipulador vertical irregular.',
   ],
+  'digi.cw.receiver': ['Ricevitore CW', 'CW receiver', 'CW-Empfänger', 'Récepteur CW', 'Receptor CW', 'Receptor CW'],
+  'digi.cw.receiverPrecise': ['Preciso', 'Precise', 'Präzise', 'Précis', 'Preciso', 'Preciso'],
+  'digi.cw.receiverFast': ['Veloce', 'Fast', 'Schnell', 'Rapide', 'Rápido', 'Rápido'],
+  'digi.cw.receiverTip': [
+    'Veloce: un secondo ricevitore mostra subito le lettere in grigio chiaro (circa mezzo secondo dopo il segno), poi il ricevitore preciso le conferma o le corregge. Il testo finale è lo stesso di «Preciso»; costa un po’ più di calcolo.',
+    'Fast: a second receiver shows the letters right away in light grey (about half a second after the sign), then the precise receiver confirms or corrects them. The final text is the same as «Precise»; it costs a little more computing.',
+    'Schnell: ein zweiter Empfänger zeigt die Buchstaben sofort in Hellgrau (etwa eine halbe Sekunde nach dem Zeichen), dann bestätigt oder korrigiert sie der präzise Empfänger. Der endgültige Text ist derselbe wie bei «Präzise»; etwas mehr Rechenaufwand.',
+    'Rapide : un second récepteur affiche tout de suite les lettres en gris clair (environ une demi-seconde après le signe), puis le récepteur précis les confirme ou les corrige. Le texte final est le même qu’en «Précis» ; un peu plus de calcul.',
+    'Rápido: un segundo receptor muestra enseguida las letras en gris claro (alrededor de medio segundo después del signo), luego el receptor preciso las confirma o las corrige. El texto final es el mismo que con «Preciso»; cuesta un poco más de cálculo.',
+    'Rápido: um segundo receptor mostra logo as letras em cinzento claro (cerca de meio segundo depois do sinal), depois o receptor preciso confirma-as ou corrige-as. O texto final é o mesmo de «Preciso»; custa um pouco mais de cálculo.',
+  ],
   'digi.st.menu': ['Opzioni della barra', 'Bar options', 'Leistenoptionen', 'Options de la barre', 'Opciones de la barra', 'Opções da barra'],
   'digi.st.threshold': ['Soglia dello squelch…', 'Squelch threshold…', 'Squelch-Schwelle…', 'Seuil du squelch…', 'Umbral del squelch…', 'Limiar do squelch…'],
   'digi.st.measures': [

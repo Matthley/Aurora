@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useT } from '../../i18n';
-import { getExtraText, onExtraText } from '../../lib/digiBus';
+import { getExtraProvisional, getExtraText, onExtraText } from '../../lib/digiBus';
 import { browserStorage } from '../../lib/theme';
 import '../../styles/digi-extra-rx.css';
 
@@ -41,6 +41,7 @@ function readSaved(key: string): Saved | null {
 export function ExtraRxWindow({ id, freqHz, modeName, index, afc, onAfc, onClose, onWord }: Props) {
   const t = useT();
   const text = useSyncExternalStore(onExtraText, () => getExtraText(id));
+  const prov = useSyncExternalStore(onExtraText, () => getExtraProvisional(id));
   const key = `aurora.xrx.${id}`;
   const [saved] = useState(() => readSaved(key));
   const [pos, setPos] = useState<{ x: number; y: number }>(() => ({
@@ -77,7 +78,7 @@ export function ExtraRxWindow({ id, freqHz, modeName, index, afc, onAfc, onClose
   useEffect(() => {
     const el = body.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [text]);
+  }, [text, prov]);
   const drag = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -118,7 +119,8 @@ export function ExtraRxWindow({ id, freqHz, modeName, index, afc, onAfc, onClose
           if (w && onWord) onWord(w);
         }}
       >
-        {text || <span className="xrx-empty">{t('xrx.empty')}</span>}
+        {text || prov ? text : <span className="xrx-empty">{t('xrx.empty')}</span>}
+        {prov ? <span className="digi-prov">{prov}</span> : null}
       </pre>
     </section>
   );
