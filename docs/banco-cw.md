@@ -296,3 +296,47 @@ d'attesa (peso 0,3: +3 caratteri giusti e latenza +1,1 s; peso 1: -246 caratteri
 
 Da provare: la verosimiglianza coerente di `cw_bayes` come emissione della sequenza a durate esplicite (serve la banda base I/Q dentro la
 catena); in BigScan una maschera piu' larga attorno ai canali forti.
+
+## Sesto giro: la catena con il giudizio coerente dei toni (`emit_mode=2`)
+
+Al posto della potenza della riga, la sequenza a durate esplicite giudica ogni tono con la somma in fase dei suoi passi, a pezzi di due
+unita', Rice contro Rayleigh con la miscela delle ampiezze come in `cw_bayes`; le pause valgono zero. La banda base e' la riga complessa
+di una seconda finestra (passa-basso da 60 Hz) riportata in fase fra uno spettro e l'altro e riferita al rumore: un campione a 93,75 Hz
+per canale, senza mixer ne' filtri in piu', valido anche per BigScan. La varianza delle somme tiene conto della sovrapposizione dei passi
+(prova: misurata e prevista entro il 15%). Ampiezza e rumore li insegna il percorso deciso (passi accesi e pause lontani dai fronti),
+all'avvio il quantile alto della potenza; la rotazione residua della fase si stima sui passi a tasto abbassato. Cambi trovati sul banco:
+S/N minimo creduto 2 per passo (6, quello dell'emissione di Rice sulla potenza, uccideva i segnali deboli), S/N massimo 20, tono a
+cancello chiuso possibile con penalita' 12 (vietato perdeva caratteri). Lasciati: finestra da 100 e 150 Hz (molto peggio, la stazione
+vicina entra), pezzi di un'unita', controllo dell'avvio con margine 4.
+
+BigScan: maschera di 9, 11, 15 e 20 righe attorno ai canali forti e centro che non si allontana piu' di due righe da dove il canale e'
+nato: nessun effetto su «vicina +20» (con 15 righe la stazione debole non si apre piu'). Il difetto di «vicina +20» in BigScan con
+l'emissione sulla potenza e' un aggancio sbagliato del canale a 703 Hz (velocita' e classi), non un canale in piu'. Le due misure restano
+nel codice (`band_mask_strong`, di base spenta).
+
+8 semi:
+
+| totali | attuale canale | catena canale | catena coerente canale | attuale BigScan | catena BigScan | catena coerente BigScan |
+|---|---|---|---|---|---|---|
+| caratteri giusti | **16728** | 16557 | 15892 | **16622** | 16312 | 15922 |
+| CER medio | **10,43** | 14,77 | 16,51 | **10,87** | 18,91 | 15,55 |
+| nominativi esatti / falsi | **759 / 143** | 718 / 231 | 630 / 222 | **755 / 143** | 688 / 260 | 637 / 241 |
+| falsi sul rumore | 0 | 0 | 0 | 0 | 0 | 0 |
+| latenza mediana / 95° | 1,25 / 2,13 s | 0,57 / 0,72 s | 0,56 / 0,71 s | 1,26 / 2,13 s | 0,58 / 0,73 s | 0,57 / 0,72 s |
+| calcolo | 11,2 ms/s | 1,5 ms/s | 2,2 ms/s | 5,7 ms/s | 1,5 ms/s | 2,2 ms/s |
+
+| CER % | attuale canale | catena | coerente | attuale BigScan | catena BigScan | coerente BigScan |
+|---|---|---|---|---|---|---|
+| 25 WPM -3 | 20,1 | 23,7 | 28,6 | 21,7 | 25,9 | 28,9 |
+| 40 WPM 0 | 8,7 | 13,7 | 36,7 | 11,6 | 13,7 | 29,3 |
+| salto 18-35 | 1,1 | 7,7 | 7,4 | 0,6 | 8,0 | 8,3 |
+| manuale +10 / +3 | 6,6 / 7,7 | 14,2 / 14,8 | 23,2 / 13,5 | 7,4 / 8,4 | 14,7 / 14,8 | 14,8 / 13,9 |
+| qsb lento / lento 0 | 5,9 / 20,8 | 8,4 / 34,3 | 8,3 / 25,3 | 5,3 / 20,5 | 9,3 / 34,0 | 8,3 / 26,7 |
+| qsb veloce | 52,4 | 63,3 | 67,5 | 51,1 | 62,1 | 25,7 |
+| vicina +20 | 1,1 | 10,5 | 5,5 | 1,1 | 74,8 | 8,6 |
+
+Esito: **il ricevitore attuale resta il predefinito**; il giudizio coerente resta spento. Toglie il difetto di «vicina +20» in BigScan e
+regge meglio il QSB lento a 0 dB, ma perde molto a 40 WPM (la finestra da 60 Hz spalma ancora pause di 2-3 passi) e il risultato cambia
+molto fra canale e BigScan sullo stesso segnale (QSB veloce 67,5 contro 25,7): l'avvio e l'inseguimento della velocita' della catena si
+agganciano male e non sempre si riprendono. Come modo «bassa latenza» nessuna delle due varianti e' pronta: quella sulla potenza perde
+171 caratteri giusti (1%) e ha il 60% di nominativi falsi in piu'; quella coerente perde il 5% dei caratteri.
