@@ -167,6 +167,45 @@ Fonte: il sito <http://jarts.jp/> (indicato da <https://www.digitalrus.ru/>) non
 - Moltiplicatori per banda: paesi DXCC tranne JA, W, VE, VK, e le aree di JA, W, VE, VK.
 - `[Score]`: `points=same_cont=2; other_cont=3`, `mult=dxcc/band/except:JA,K,VE,VK; area:JA,K,VE,VK/band`.
 
+### BARTG Sprint RTTY e BARTG Sprint 75
+Fonti: <https://bartg.org.uk/wp-content/uploads/2025/05/bartg-sprint-rules-2025-v3.pdf> e
+<https://bartg.org.uk/wp-content/uploads/2026/02/bartg-sprint75-rules-2026-v1.pdf> (BARTG).
+- Bande 80-10 m con i segmenti del regolamento (non controllati); una stazione una volta per banda. Scambio: numero.
+- Punti: 1 per QSO.
+- Moltiplicatori una volta sola: paesi DXCC e aree di JA, W, VE, VK; continenti una volta sola (al massimo 6), a parte.
+- Punteggio = punti x moltiplicatori x continenti.
+- `[Score]`: `mult=dxcc; area:JA,K,VE,VK; cont/product`. Nello Sprint `m_bDupeNoBand` e' tornato a 0 (il doppio e' per banda).
+
+### SARTG New Year RTTY Contest
+Fonte: <https://www.sartg.com/contest/nyrules.htm> (SARTG).
+- Bande 80 e 40 m. Scambio RST + numero + nome + auguri nella propria lingua.
+- Punti: 1 per QSO.
+- Moltiplicatori per banda: paesi DXCC tranne la Scandinavia, dove contano le aree numeriche (SM3 e SK3 sono la stessa).
+- `[Score]`: `bands=80,40`, `mult=dxcc/band/except:SM,LA,OH,OZ,TF,OY,OX,JW,JX,OH0,OJ0; area:SM,LA,OH,OZ,TF,OY,OX,JW,JX,OH0,OJ0/band`.
+
+### TARA RTTY Mêlée
+Fonte: <http://www.n2ty.org/seasons/tara_melee_rules.html> (TARA).
+- Bande 160-10 m, niente WARC. Scambio: W RST + stato, VE RST + provincia, gli altri RST + numero.
+- Punti: 1 per QSO, una volta per banda.
+- Moltiplicatori una volta sola: stati USA + DC, province e territori canadesi, paesi DXCC esclusi USA e Canada.
+- `[Score]`: `mult=exch/if:dxcc:K,VE; dxcc/except:K,VE`.
+
+### Makrothen RTTY Contest
+Fonte: <https://www.pl259.org/makrothen/makrothen-rules/> (Makrothen).
+- Scambio: il quadrato del locatore (4 caratteri). Una stazione una volta per banda.
+- Punti: la distanza in km fra i centri dei due quadrati (raggio 6378,16 km, per difetto), per 2 su 80 m e 1,5 su 40 m; 100 punti nello
+  stesso quadrato. Nessun moltiplicatore.
+- `[Score]`: `points=any=0`, `special=makrothen` (distanza scritta a mano in `regole_punti.rs`).
+
+### YU DX Contest
+Fonte: <https://www.yudx.yu1srs.org.rs/2025/INTERNATIONAL_YUDX_HF_CONTEST_2025.pdf> (SRS, regole 2025, lette dal riassunto di
+<https://cq.sk/en/yudx-contest-2025/>: il PDF del sito si apre solo nel browser).
+- CW e SSB (non e' un contest RTTY), bande 160-10 m. Scambio: YU RST + distretto, gli altri RST + zona ITU.
+- Punti: con YU/YT 10, altro continente 4, stesso continente 2, stesso paese 1, YU con YU 1.
+- Moltiplicatori per banda: paesi DXCC e, per chi non e' YU, i distretti YU.
+- `[Score]`: `points=my_dxcc:YU&dxcc:YU=1; dxcc:YU=10; same_dxcc=1; same_cont=2; other_cont=4`,
+  `mult=dxcc/band; exch/band/if:dxcc:YU&not_my_dxcc:YU`.
+
 ## Cosa resta approssimato
 
 - Zone CQ e ITU vengono dal database DXCC di Aurora, non dallo scambio ricevuto (un W6 che passa zona 3 conta la zona del paese).

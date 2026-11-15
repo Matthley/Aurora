@@ -40,6 +40,11 @@ m_bSuggestCqZone=0
 m_bSuggestItuZone=0
 m_bSuggestDomain=0
 m_bSuggestDxccPfx=0
-m_bDupeNoBand=1
+m_bDupeNoBand=0
 m_bDupeNoMode=0
 m_iLogBarDispMode=1
+
+[Score]
+bands=80,40,20,15,10
+points=any=1
+mult=dxcc; area:JA,K,VE,VK; cont/product

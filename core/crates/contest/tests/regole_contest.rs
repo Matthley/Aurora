@@ -399,3 +399,72 @@ fn jarts_rtty() {
     // punti 13; moltiplicatori 5; 13 x 5 = 65
     assert_eq!((t.punti, t.molt, t.punteggio), (13, 5, 65));
 }
+
+#[test]
+fn bartg_sprint_e_sprint75() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001"), // I; EU
+        r("W1AW", "20m", 1, "001"),   // K e K1; NA
+        r("W1AW", "40m", 2, "002"),   // un punto, niente di nuovo (una volta sola)
+        r("JA1ABC", "15m", 3, "001"), // JA e JA1; AS
+    ];
+    for nome in ["BARTG-Sprint RTTY", "BARTG Sprint 75 RTTY"] {
+        let t = punteggio(nome, &log, None);
+        // punti 4; moltiplicatori 5; continenti 3; 4 x 5 x 3 = 60
+        assert_eq!((t.doppi, t.punti, t.molt, t.punteggio), (0, 4, 15, 60), "{nome}");
+    }
+}
+
+#[test]
+fn sartg_new_year() {
+    let log = [
+        r("SM5ABC", "80m", 0, "001 OLE GODT NYTT AR"), // 1; area SM5 su 80 m (la Scandinavia conta per aree)
+        r("SM5XYZ", "80m", 1, "001 PER GODT NYTT AR"), // 1; niente di nuovo
+        r("SM3ABC", "80m", 2, "001 UNO GOTT NYTT AR"), // 1; SM3
+        r("DL1ABC", "80m", 3, "001 HANS FROHES NEUES"), // 1; DL su 80 m
+        r("DL1ABC", "40m", 4, "002 HANS FROHES NEUES"), // 1; DL su 40 m
+        r("W1AW", "20m", 5, "001 BOB HAPPY NEW YEAR"), // 20 m non e' del contest
+    ];
+    let t = punteggio("SARTG New Year RTTY Contest", &log, None);
+    // punti 5; moltiplicatori 4; 5 x 4 = 20
+    assert_eq!((t.esclusi, t.punti, t.molt, t.punteggio), (1, 5, 4, 20));
+}
+
+#[test]
+fn tara_melee() {
+    let log = [
+        r("W1AW", "20m", 0, "CT"),    // 1; stato CT
+        r("W1AW", "40m", 1, "CT"),    // 1; CT gia' preso (una volta sola)
+        r("VE3ABC", "20m", 2, "ON"),  // 1; provincia ON
+        r("DL1ABC", "20m", 3, "001"), // 1; DXCC DL
+    ];
+    let t = punteggio("TARA Mêlée Contest", &log, None);
+    // punti 4; moltiplicatori 3; 4 x 3 = 12
+    assert_eq!((t.punti, t.molt, t.punteggio), (4, 3, 12));
+}
+
+#[test]
+fn makrothen() {
+    let log = [
+        q("W1AW", "20m", "RTTY", 0, "JN65", "FN31"),   // 6610 km
+        q("IK2XYZ", "80m", "RTTY", 1, "JN65", "JN65"), // stesso quadrato: 100 senza fattore
+        q("DL1ABC", "40m", "RTTY", 2, "JN65", "JO62"), // 779 km x 1,5 = 1168
+    ];
+    let t = punteggio("Makrothen Contest", &log, None);
+    // nessun moltiplicatore: 6610 + 100 + 1168 = 7878
+    assert_eq!((t.punti, t.punteggio), (7878, 7878));
+}
+
+#[test]
+fn yu_dx() {
+    let log = [
+        q("YU1ABC", "20m", "CW", 0, "001", "BG"),  // stazione YU 10; YU e distretto BG
+        q("YU1XYZ", "20m", "CW", 1, "002", "BG"),  // 10; niente di nuovo
+        q("IK2XYZ", "20m", "CW", 2, "003", "28"),  // stesso paese 1; I
+        q("DL1ABC", "20m", "CW", 3, "004", "28"),  // stesso continente 2; DL
+        q("W1AW", "40m", "CW", 4, "005", "08"),    // altro continente 4; K
+    ];
+    let t = punteggio("YU-DX-HF Contest", &log, None);
+    // punti 27; moltiplicatori 5; 27 x 5 = 135
+    assert_eq!((t.punti, t.molt, t.punteggio), (27, 5, 135));
+}
