@@ -119,6 +119,7 @@ impl BandDecoder for RttyBandDecoder {
 
     fn set_max_channels(&mut self, n: usize) {
         self.max_channels = n.max(1);
+        self.multi.set_max_lanes(self.max_channels);
         self.lanes.truncate(self.max_channels);
     }
 

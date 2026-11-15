@@ -85,6 +85,8 @@ pub struct RttyMulti {
     /// Le potenze delle ultime finestre (un secondo), finestra per finestra.
     history: Vec<Vec<f64>>,
     lanes: Vec<Lane>,
+    /// Il massimo dei ricevitori attivi (lo abbassa il controllo del carico della banda).
+    max_lanes: usize,
     /// L'audio degli ultimi `PREROLL_S` secondi, fino al blocco in corso escluso.
     past: std::collections::VecDeque<f32>,
 }
@@ -103,6 +105,7 @@ impl RttyMulti {
             s2: vec![0.0; bins],
             history: Vec::new(),
             lanes: Vec::new(),
+            max_lanes: MAX_CHANNELS,
             past: std::collections::VecDeque::new(),
         }
     }
@@ -124,6 +127,12 @@ impl RttyMulti {
     }
 
     /// I centri dei canali aperti (Hz).
+    /// Limita i ricevitori attivi a `n` (1..=`MAX_CHANNELS`): quelli in piu', gli ultimi aperti, si chiudono subito.
+    pub fn set_max_lanes(&mut self, n: usize) {
+        self.max_lanes = n.clamp(1, MAX_CHANNELS);
+        self.lanes.truncate(self.max_lanes);
+    }
+
     pub fn channels(&self) -> Vec<f32> {
         self.lanes.iter().map(|l| l.centre_hz).collect()
     }
@@ -238,7 +247,7 @@ impl RttyMulti {
         let mut past: Option<Vec<f32>> = None;
         for &(centre, _, shift) in &found {
             let near = |l: &Lane| (l.centre_hz - centre).abs() < SAME_FRACTION * l.shift_hz.max(shift);
-            if self.lanes.iter().any(near) || self.lanes.len() >= MAX_CHANNELS {
+            if self.lanes.iter().any(near) || self.lanes.len() >= self.max_lanes {
                 continue;
             }
             let audio = past.get_or_insert_with(|| self.past.iter().copied().collect());
@@ -363,6 +372,33 @@ mod tests {
             assert!(ok, "stazione a {f} Hz ({parola}) non trovata: canali {:?}", testo);
         }
         assert!(multi.channels().len() <= 4, "canali: {:?}", multi.channels());
+    }
+
+    #[test]
+    fn il_limite_del_carico_ferma_i_ricevitori_in_piu() {
+        let mut audio = vec![0.0_f32; 3 * 12_000];
+        for f in [805.0, 1500.0, 2210.0] {
+            let p = RttyParams { centre_hz: f, shift_hz: 170.0, baud: 45.45, reverse: false };
+            let w = modulate("CQ CQ DE IU3ABC IU3ABC K ".repeat(3).as_bytes(), p, 0.2);
+            if audio.len() < w.len() {
+                audio.resize(w.len(), 0.0);
+            }
+            for (a, s) in audio.iter_mut().zip(w.iter()) {
+                *a += *s;
+            }
+        }
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        let meta = audio.len() / 2;
+        for blocco in audio[..meta].chunks(1200) {
+            multi.process(blocco);
+        }
+        assert!(multi.channels().len() >= 2, "canali: {:?}", multi.channels());
+        multi.set_max_lanes(1);
+        assert_eq!(multi.channels().len(), 1);
+        for blocco in audio[meta..].chunks(1200) {
+            multi.process(blocco);
+            assert!(multi.channels().len() <= 1, "canali: {:?}", multi.channels());
+        }
     }
 
     /// Una stazione fuori di 14 Hz dal centro del canale (fra due passi del banco e scivolata), debole: con la sintonia fine si leggono 10
