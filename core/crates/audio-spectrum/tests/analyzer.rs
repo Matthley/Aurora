@@ -63,8 +63,8 @@ fn sine_1500hz_peaks_at_its_channel_whatever_the_sample_rate() {
 }
 
 #[test]
-fn a_steady_tone_is_narrow_like_in_jtdx() {
-    // finestra gaussiana di JTDX: a 20 dB sotto il picco un tono fermo occupa pochi canali (qualche Hz), non decine
+fn a_steady_tone_is_narrow_like_in_wsjtx() {
+    // finestra di Nuttall di WSJT-X: a 20 dB sotto il picco un tono fermo occupa pochi canali (qualche Hz), non decine
     let mut a = SpectrumAnalyzer::new(48_000).unwrap();
     let rows = a.push(&sine(1500.0, 0.1, 48_000, 3.0));
     let row = rows.last().unwrap();
@@ -73,21 +73,38 @@ fn a_steady_tone_is_narrow_like_in_jtdx() {
 }
 
 #[test]
-fn an_ft8_symbol_is_narrower_than_the_old_long_window_smear() {
-    // un tono che cambia ogni 160 ms (come i simboli FT8): con la finestra di 0,144 s ogni riga ne mostra soprattutto uno,
-    // con una finestra lunga mezzo secondo se ne vedrebbero tre o quattro insieme
+fn an_ft8_signal_is_a_continuous_track_with_separate_tones_like_wsjtx() {
+    // finestra di Nuttall su 1,365 s come `symspec.f90` di WSJT-X: ogni riga raccoglie piu' simboli, quindi la traccia non si
+    // spezza tra una riga e l'altra (il massimo nella banda del segnale resta quasi fermo)
     let rate = 48_000u32;
     let mut signal = Vec::new();
-    for symbol in 0..40u32 {
+    for symbol in 0..60u32 {
         let tone = 1500.0 + 6.25 * ((symbol * 5) % 8) as f32;
         signal.extend(sine(tone, 0.1, rate, 0.16));
     }
     let mut a = SpectrumAnalyzer::new(rate).unwrap();
     let rows = a.push(&signal);
-    let row = &rows[rows.len() - 8];
-    let lit = row.iter().filter(|b| db_of(**b) > db_of(row[peak_bin(row)]) - 10.0).count();
-    // 8 toni da 6,25 Hz coprirebbero 50 Hz = 68 canali (a -10 dB dal picco); una riga ne deve illuminare molti meno
-    assert!(lit < 40, "canali accesi in una riga: {lit}");
+    // per ogni riga e ogni tono: quanto sta sotto il tono piu' forte della riga; con la finestra corta i toni si accendono e si
+    // spengono riga per riga (puntini e blocchetti), con quella lunga ogni tono resta acceso con continuita'
+    let mut dark = 0;
+    let mut cells = 0;
+    for r in &rows[30..rows.len() - 15] {
+        let levels: Vec<f32> = (0..8).map(|t| db_of(r[bin_of(1500.0 + 6.25 * t as f32).round() as usize])).collect();
+        let top = levels.iter().cloned().fold(f32::MIN, f32::max);
+        dark += levels.iter().filter(|v| top - **v > 10.0).count();
+        cells += levels.len();
+    }
+    // gaussiana di 0,144 s: 71 % di celle spente; Nuttall su 1,365 s: 53 %
+    assert!(dark * 10 < cells * 6, "toni spenti in {dark} celle su {cells}: traccia a puntini");
+
+    // due toni fermi a 6,25 Hz (due toni FT8 vicini) restano distinti, con una valle fra loro
+    let both = mix(&sine(1500.0, 0.1, rate, 3.0), &sine(1506.25, 0.1, rate, 3.0));
+    let mut b = SpectrumAnalyzer::new(rate).unwrap();
+    let rows = b.push(&both);
+    let row = rows.last().unwrap();
+    let peak = db_of(row[bin_of(1500.0).round() as usize]);
+    let valley = db_of(row[bin_of(1503.125).round() as usize]);
+    assert!(peak - valley > 6.0, "valle di {:.1} dB tra due toni a 6,25 Hz", peak - valley);
 }
 
 #[test]

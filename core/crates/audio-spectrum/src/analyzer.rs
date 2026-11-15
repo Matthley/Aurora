@@ -13,9 +13,12 @@ const JTDX_RATE: f32 = 12_000.0;
 const JTDX_NFFT: f32 = 16_384.0;
 /// Canali di uscita: `nint(5000 / 0,732422)` = 6827, uno per canale della FFT di JTDX, da 0 a 5000 Hz.
 pub const OUTPUT_BINS: usize = 6827;
-/// `nsps = 6912` per tutti i modi (`MainWindow::commonActions`, «For symspec only»); la finestra e' una gaussiana
-/// `exp(-z^2)` con `z = (i - nfft3/2) / (0,25 * nsps)`: larghezza 1728 campioni a 12 kHz = 0,144 s.
-const WINDOW_WIDTH_SECS: f32 = 0.25 * 6912.0 / JTDX_RATE;
+/// Coefficienti della finestra di Nuttall di WSJT-X (`lib/nuttal_window.f90`), applicata su tutti i `nfft3` campioni quando
+/// e' scelto «Low sidelobes» (`bLowSidelobes`, predefinito `true` in `Configuration.cpp`): `w(k) = a0 + a1 cos(2 pi k/n) + ...`.
+const NUTTALL: [f32; 4] = [0.363_581_9, -0.489_177_5, 0.136_599_5, -0.010_641_1];
+/// Larghezza della gaussiana di JTDX usata prima (0,25 * 6912 campioni a 12 kHz = 0,144 s): serve solo a tenere il rumore di
+/// fondo allo stesso livello di prima, cosi' Gain e Zero gia' regolati non cambiano.
+const OLD_GAUSS_WIDTH_SECS: f32 = 0.25 * 6912.0 / JTDX_RATE;
 /// JTDX fa una riga ogni mezzo simbolo (nsps/2 = 3456 campioni = 0,288 s, 3,47 righe al secondo). Qui 15 al secondo: la
 /// cascata scorre fluida e il client media le righe come l'opzione «N Avg» (4-5 righe nostre = una riga di JTDX).
 const ROWS_PER_SECOND: usize = 15;
@@ -52,7 +55,7 @@ impl std::fmt::Display for AnalyzerError {
 impl std::error::Error for AnalyzerError {}
 
 /// Trasforma l'audio in righe di 6827 byte su 0-5000 Hz (canali da 0,732 Hz), circa 15 al secondo, con lo spettro di JTDX:
-/// finestra gaussiana, FFT di 1,365 s, ampiezza `(|re| + |im|) / n`. Il byte e' l'ampiezza in dB (`DB_MIN`, `DB_STEP`):
+/// finestra di Nuttall di WSJT-X su tutta la FFT di 1,365 s, ampiezza `(|re| + |im|) / n`. Il byte e' l'ampiezza in dB (`DB_MIN`, `DB_STEP`):
 /// la scala mediana, i canali per pixel, il guadagno e i colori li applica il client come il Wide Graph.
 ///
 /// Anti-click (`aurora_core::waterfall::anticlick`, o [`SpectrumAnalyzer::set_anticlick`] nelle prove): i click di manipolazione trovati
@@ -87,14 +90,20 @@ impl SpectrumAnalyzer {
         // canali da 12000/16384 Hz come JTDX, qualunque sia la frequenza di campionamento
         let n = ((rate * JTDX_NFFT / JTDX_RATE).round() as usize).max(2);
         let hop = ((sample_rate as usize) / ROWS_PER_SECOND).max(1);
-        let width = WINDOW_WIDTH_SECS * rate;
-        // `z = (i - nfft3/2) / width` con i da 1 (indice di Fortran): il picco cade a meta' della finestra
-        let window = (0..n)
-            .map(|i| {
-                let z = ((i + 1) as f32 - n as f32 / 2.0) / width;
-                (-z * z).exp()
+        // `symspec.f90` di WSJT-X: `xc(0:n-1) = w3(1:n) * xc` con `w3` di Nuttall su tutta la FFT (1,365 s). Ogni riga raccoglie
+        // circa mezzo secondo di segnale (tre simboli FT8): la traccia resta continua e i toni, larghi 1,4 Hz, restano separati.
+        let raw: Vec<f32> = (0..n)
+            .map(|k| {
+                let x = 2.0 * std::f64::consts::PI * k as f64 / n as f64;
+                let [a0, a1, a2, a3] = NUTTALL.map(f64::from);
+                (a0 + a1 * x.cos() + a2 * (2.0 * x).cos() + a3 * (3.0 * x).cos()) as f32
             })
             .collect();
+        // stessa energia della gaussiana di prima (somma dei quadrati sqrt(pi/2) * larghezza): il rumore resta dov'era
+        let old_energy = (std::f32::consts::PI / 2.0).sqrt() * OLD_GAUSS_WIDTH_SECS * rate;
+        let energy: f32 = raw.iter().map(|w| w * w).sum();
+        let norm = if energy > 0.0 { (old_energy / energy).sqrt() } else { 1.0 };
+        let window = raw.into_iter().map(|w| w * norm).collect();
         let fft = FftPlanner::<f32>::new().plan_fft_forward(n);
         let scratch = vec![Complex::new(0.0, 0.0); fft.get_inplace_scratch_len()];
         // come JTDX, che azzera i campioni mancanti all'inizio: le prime righe sono scure invece di aspettare la finestra piena
