@@ -516,6 +516,16 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       // l'altezza vale comunque finche' la pagina e' aperta
     }
   };
+  // larghezza della cascata (maniglia sul bordo destro; null = tutta la colonna), ricordata per modo come le altre misure
+  const [wfWidth, setWfWidth] = useState<number | null>(() => {
+    const n = readSize('aurora.digi.wfw', sizeMode);
+    return Number.isFinite(n) && n >= 240 ? n : null;
+  });
+  const changeWfWidth = (px: number | null) => {
+    setWfWidth(px);
+    if (px === null) clearSize('aurora.digi.wfw', sizeMode);
+    else writeSize('aurora.digi.wfw', sizeMode, px);
+  };
   const windowsRef = useRef<HTMLDivElement>(null);
   // larghezza delle finestre RX e TX scelta con la maniglia sul loro bordo destro (null = tutta la colonna): log e DX Cluster restano fermi
   // dove sono, lo spazio che si libera resta vuoto (richiesta del proprietario, per esempio per tenere accanto la scheda del rotore)
@@ -603,6 +613,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     setWinW(ok(winw, 240) ? winw : null);
     const frac = readSize('aurora.digi.rxfrac', sizeMode);
     setRxFrac(ok(frac, 0.1, 0.9) ? frac : 0.55);
+    const wfw = readSize('aurora.digi.wfw', sizeMode);
+    setWfWidth(ok(wfw, 240) ? wfw : null);
   }, [sizeMode]);
   const dragSplit = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -1689,7 +1701,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         ) : null}
         {radarMode && views.rbn !== false ? <RbnList spots={rbnSpots} dialHz={status?.dial_hz ?? 0} onTune={(hz) => pickFreq(hz, false)} /> : null}
         {views.waterfall ? (
-          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? wfLabels : []} showWords={views.wfWords !== false} notches={notches} onNotches={setNotches}
+          <DigiWaterfall height={wfHeight} onHeight={changeWfHeight} widthPx={wfWidth} onWidth={changeWfWidth} minHz={WF_MIN} maxHz={views.wideWaterfall ? WF_MAX_WIDE : WF_MAX_NARROW} rxHz={rxHz} txHz={lock ? s.tx_freq_hz : null} dialHz={status?.dial_hz ?? 0} bandwidthHz={s.mode === 'rtty' ? s.rtty_shift_hz : 0} passbandHz={s.passband_on === true ? passbandWidth(s) : 0} split={lock} hairlines={views.hairlines} transmitting={sending} onRow={onRow} onPick={(hz, ctrl, commit = true) => pickFreq(hz, true, ctrl, commit)} labels={views.wfCalls ? wfLabels : []} showWords={views.wfWords !== false} notches={notches} onNotches={setNotches}
             extraRx={extras}
             onExtraMove={(id, hz, commit) => {
               const next = extras.map((x) => (x.id === id ? { ...x, freq_hz: hz } : x));

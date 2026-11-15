@@ -38,6 +38,9 @@ interface Props {
   dialHz?: number;
   /** Cambia l'altezza della cascata (si trascina la barra sul bordo alto). */
   onHeight?(px: number): void;
+  /** Larghezza scelta con la maniglia sul bordo destro (null o assente: tutta la colonna); con `onWidth` la maniglia si mostra. */
+  widthPx?: number | null;
+  onWidth?(px: number | null): void;
   /** I nominativi dei segnali di tutta la banda, scritti sopra la loro traccia (`cq`: chiama CQ; `sure`: verificato). */
   labels?: WaterfallLabel[];
   /** «Testo sulla cascata»: sotto ogni nominativo le ultime parole del suo canale (di base si'). */
@@ -62,7 +65,7 @@ const PALETTE = Array.from({ length: 256 }, (_, i) => paletteColor(i));
 const SCALE_H = 22;
 
 /** La cascata della pagina dei modi testuali: scala in Hz in alto, righe che scorrono, bandierine e clic per sintonizzare. */
-export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandHz = 0, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, labels = [], showWords = true, notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
+export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandHz = 0, split = false, hairlines = false, dialHz = 0, transmitting, height = 150, onRow, onPick, onHeight, widthPx = null, onWidth, labels = [], showWords = true, notches = [], onNotches, extraRx = [], onExtraMove, onMenu }: Props) {
   const t = useT();
   const wrap = useRef<HTMLDivElement>(null);
   const flow = useRef<HTMLCanvasElement>(null);
@@ -198,7 +201,37 @@ export function DigiWaterfall({ minHz, maxHz, rxHz, txHz, bandwidthHz, passbandH
   };
 
   return (
-    <div className="digi-wf" ref={wrap} style={{ height }}>
+    <div className="digi-wf" ref={wrap} style={widthPx ? { height, width: widthPx, maxWidth: '100%' } : { height }}>
+      {onWidth ? (
+        <div
+          className="digi-wf-wgrip"
+          role="separator"
+          aria-orientation="vertical"
+          title={t('digi.wf.resizeW')}
+          onDoubleClick={() => onWidth(null)}
+          onPointerDown={(e) => {
+            const el = wrap.current;
+            const col = el?.parentElement;
+            if (!el || !col) return;
+            e.preventDefault();
+            // con lo zoom dell'interfaccia le misure a schermo e quelle CSS differiscono: si riporta lo spostamento in pixel CSS
+            const scale = el.offsetWidth > 0 ? el.getBoundingClientRect().width / el.offsetWidth : 1;
+            const startX = e.clientX;
+            const startW = el.offsetWidth;
+            const full = col.clientWidth;
+            const move = (m: PointerEvent) => {
+              const w = Math.round(Math.min(full, Math.max(240, startW + (m.clientX - startX) / scale)));
+              onWidth(w >= full - 4 ? null : w);
+            };
+            const up = () => {
+              window.removeEventListener('pointermove', move);
+              window.removeEventListener('pointerup', up);
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up);
+          }}
+        />
+      ) : null}
       {onHeight ? (
         <div
           className="digi-wf-grip"

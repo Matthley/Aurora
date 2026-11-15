@@ -1685,6 +1685,7 @@ export const NL_UI: Record<string, string> = {
   "digi.txm.paste": "Plakken",
   "digi.wf.pileup": "DX luistert hier",
   "digi.wf.resize": "Sleep om de hoogte van de waterval te wijzigen",
+  "digi.wf.resizeW": "Sleep om de breedte van de waterval te wijzigen (dubbelklik: volle breedte)",
   "digi.wf.rxTip": "Ontvangen: de twee blauwe driehoeken zijn de tonen (mark en space bij RTTY). Met split blijven ze staan.",
   "digi.wf.txTip": "Zenden (split): een klik op de waterval verplaatst het; met Shift verplaatst in plaats daarvan de ontvangst.",
   "digi.winw.tip": "Sleep om de breedte van het ontvangst- en zendvenster te wijzigen (log en DX Cluster blijven waar ze zijn); dubbelklik om terug te gaan naar volle breedte",
