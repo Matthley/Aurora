@@ -83,5 +83,6 @@ Il modo pratico, in RTTY:
   - **Ricevere**: «QRV» chiede la serie, «Prendi dalla ricezione» legge dalla finestra RX l'intestazione `QTC n/m` e le righe, che si
     correggono a mano; «AGN n», «AGN ALL», «AGN QTC» chiedono le ripetizioni; «Salva» registra le righe e manda la conferma.
 - Il punteggio aggiunge i QTC ai punti; il Cabrillo ha le righe `QTC:` dopo quelle `QSO:`.
-- Moltiplicatori dei file WAE di Aurora: paesi DXCC per banda con i pesi 4/3/2. Le aree numeriche dei paesi grandi e l'elenco WAE (che
-  separa per esempio IT9, GM/Shetland, JW/Bear) non sono ancora distinti: il punteggio e' una stima, quello vero lo calcola il DARC.
+- Moltiplicatori del WAE RTTY (sezione `[Score]`, `docs/contest-regole.md`): paesi DXCC per banda, con le aree numeriche al posto del
+  paese per W, VE, VK, ZL, ZS, JA, BY, PY e Russia asiatica, pesi 4/3/2. L'elenco WAE (IT9, GM/Shetland, JW/Bear...) non e' ancora
+  distinto: il punteggio e' una stima, quello vero lo calcola il DARC. I file WAE CW e SSB hanno ancora le vecchie chiavi.

@@ -73,8 +73,57 @@ Il codice sta in `core/crates/contest/src/punti_testo.rs`, le rotte `GET /api/v1
   `QSO: freq(kHz) modo(CW/RY/PH/DG) aaaa-mm-gg hhmm mio-call rst+scambio-inviato call rst+scambio-ricevuto`. Potenza, assistenza
   e le altre categorie si aggiungono a mano prima dell'invio.
 
-La semantica dei codici dei moltiplicatori e' quella di Aurora: i file distribuiti hanno tutti 0 (nessun punteggio finche'
-l'utente non li imposta).
+Queste chiavi valgono solo per i file senza sezione `[Score]` (vedi sotto), che ha la precedenza.
+
+## Le regole del punteggio: sezione `[Score]`
+
+Dopo `[Contest]` un file puo' avere la sezione `[Score]` con le regole vere del contest, fatte di pezzi riusabili (codice in
+`core/crates/contest/src/regole_punti.rs`, regolamenti riassunti in `docs/contest-regole.md`). Una chiave per riga:
+
+| Chiave | Significato | Esempio |
+|---|---|---|
+| `points` | regole dei punti `condizione=punti` separate da `;`: vince la prima vera; nessuna vera = 0. `=cqtab` usa la tabella delle zone | `same_dxcc=1; same_cont=2; other_cont=3` |
+| `points_band` | fattore dei punti per banda | `80:2,40:2` |
+| `bands` | bande ammesse (le altre: QSO non ammesso) | `80,40,20,15,10` |
+| `valid` | condizione dei QSO ammessi (per i contest validi solo con un paese) | `dxcc:F` |
+| `mult` | moltiplicatori `tipo/opzione/...` separati da `;` | `cq/band; dxcc/band; exch/band/if:dxcc:K,VE` |
+| `mult_band` | peso dei moltiplicatori per banda (solo quelli con `band`) | `80:4,40:3,20:2,15:2,10:2` |
+| `bonus` | punti in piu' `condizione=punti` (si sommano tutti quelli veri) | `call:RAEM=300; dxcc:EA=5` |
+| `cq1` ... `cq40` | tabella dei punti zona CQ -> zona CQ: riga della propria zona, 40 valori separati da virgola | `cq15=10,10,...` |
+| `special` | regole scritte a mano | `raem` |
+
+Condizioni (pezzi uniti da `&`, tutti veri): `any`, `same_dxcc` (stesso paese della stazione), `same_cont` (stesso continente),
+`other_cont` (altro continente o sconosciuto), `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU,AS`, `my_dxcc:...`, `my_cont:...`, `call:RAEM`
+(nominativo o una sua parte fra le barre), `band:80,40`, `mode:RTTY,BPSK63`. I paesi sono i prefissi principali del database DXCC di
+Aurora (cty.dat): `K` Stati Uniti, `VE` Canada, `UA` Russia europea, `UA9` asiatica, `UA2` Kaliningrad, `UR` Ucraina...
+
+Tipi di moltiplicatore: `dxcc` paese, `cq` e `itu` zone (dal database DXCC), `wpx` prefisso WPX, `cont` continente, `area:K,VE,JA`
+area numerica dei paesi elencati (`K1`, `VE3`: la cifra dopo la barra `K5DJ/1`, altrimenti quella del prefisso), `exch` lo scambio
+ricevuto (la parola trovata nell'elenco `.dom` del contest, oppure l'ultima parola non numerica: stato, provincia, oblast).
+Opzioni: `band` per banda (con il peso di `mult_band`), `mode` per modo, `once` una volta sola (il predefinito), `product` moltiplica
+a parte, `if:<condizione>` solo per i QSO che la rispettano, `except:<paesi>` non per questi paesi.
+
+Punteggio = (punti + QTC) x (somma dei moltiplicatori pesati senza `product`) x (somma di quelli `product`) x fattore finale. Un QSO
+non ammesso (`bands`, `valid`) vale zero punti e nessun moltiplicatore e non fa doppio. Regole scritte a mano: `special=raem` aggiunge
+un punto per grado di differenza di latitudine e longitudine fra le coordinate mandate e ricevute (`57N85E`), 100 per una stazione
+polare (latitudine 66 o piu') e moltiplica il totale per 1,1 se la stazione sta dentro i circoli polari.
+
+Esempio (CQ WW RTTY):
+
+```
+[Score]
+bands=80,40,20,15,10
+points=same_dxcc=1; same_cont=2; other_cont=3
+mult=cq/band; dxcc/band; exch/band/if:dxcc:K,VE
+```
+
+Il salvataggio rifiuta una sezione con chiavi, condizioni o tipi sconosciuti. La finestra delle statistiche mostra punteggio, ritmo
+(QSO all'ora sugli ultimi 10 minuti, QSO nell'ultima ora, media), QSO non ammessi, moltiplicatori nuovi e la griglia banda x
+moltiplicatori con quelli che mancano (zone, continenti, aree e domini, che hanno un elenco chiuso). `GET /api/v1/contest-testo/ammesso?call=&band=&mode=&exch=`
+dice di un nominativo se e' ammesso (motivo `band` o `valid`), se e' doppio, quanti punti vale e quali moltiplicatori nuovi porta.
+
+I file distribuiti con la sezione `[Score]` sono quelli di `docs/contest-regole.md`; gli altri hanno ancora le vecchie chiavi a 0
+(un punto per QSO, nessun moltiplicatore).
 
 ## File di macro `.mc`
 
