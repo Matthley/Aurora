@@ -2,6 +2,8 @@
 
 ## Non rilasciato
 
+- WinKeyer (K1EL WK2, WK3 e compatibili WKUSB, WKmini) nel CW dei modi testuali (#66): uscita «WinKeyer» accanto all'audio, macro e finestra TX mandano il testo al manipolatore, avanzamento dalla sua eco, Esc e macro che riparte svuotano il buffer, paddle con precedenza. Impostazioni in Stazione › WinKeyer: porta, stato e firmware, velocita' o potenziometro, Farnsworth, peso, rapporto, compensazione, first extension, autospace, contest spacing, PTT lead/tail e hang time, modo e inversione del paddle, sidetone e nota, tasto «Prova» (VVV). Vedi `docs/winkeyer.md`.
+
 ## 0.11.262 - 2026-11-15
 
 - QTC del WAE DX Contest nei modi testuali: F12 manda e F11 riceve le serie, con le regole del DARC (fra continenti diversi in RTTY, dai non europei agli europei in CW/SSB, al massimo 10 per stazione), punteggio con i QTC e righe QTC nel Cabrillo; comandi macro `<QTCSEND>` e `<QTCREAD>`.

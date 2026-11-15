@@ -693,6 +693,7 @@ sw.sub.contest,Contest · Fox/Hound,Contest · Fox/Hound
 sw.pg.personal,Personal data,Persoonlijke gegevens
 sw.pg.radio,Radio (CAT and PTT),Radio (CAT en PTT)
 sw.pg.profiles,Radio profiles,Radioprofielen
+sw.pg.winkeyer,WinKeyer,WinKeyer
 sw.pg.sdr,SDR · TCI · QMAP,SDR · TCI · QMAP
 sw.pg.qso,Logging and behavior,Loggen en gedrag
 sw.pg.messages,Messages and filters,Berichten en filters
@@ -4251,6 +4252,59 @@ digi.word.nrr,Exchange received (contest),Ontvangen uitwisseling (contest)
 digi.word.copy,Copy,Kopiëren
 digi.cw.wide,"wide, overview","breed, overzicht"
 digi.cw.som,SOM decoding (straight key),SOM-decodering (handsleutel)
+digi.wk.output,CW output,CW-uitgang
+digi.wk.outputTip,"Audio: CW comes out of the sound card with Aurora's PTT. WinKeyer: text goes to the external K1EL keyer (WK2, WK3, WKUSB, WKmini), which generates the CW and drives PTT and key","Audio: CW komt uit de geluidskaart met de PTT van Aurora. WinKeyer: de tekst gaat naar de externe K1EL-keyer (WK2, WK3, WKUSB, WKmini), die de CW maakt en PTT en sleutel bedient"
+digi.wk.outAudio,Audio (sound card),Audio (geluidskaart)
+digi.wk.port,WinKeyer port,WinKeyer-poort
+digi.wk.portTip,"The WinKeyer COM port (1200 baud 8N2, set automatically)","De COM-poort van de WinKeyer (1200 baud 8N2, wordt vanzelf ingesteld)"
+digi.wk.pot,Speed from the pot,Snelheid van de potmeter
+digi.wk.potTip,The WinKeyer knob sets the speed instead of Aurora's WPM slider,De knop van de WinKeyer bepaalt de snelheid in plaats van de WPM-schuif van Aurora
+digi.wk.potRangeTip,Example: 10 and 25 means 10 to 35 WPM,Voorbeeld: 10 en 25 betekent 10 tot 35 WPM
+digi.wk.weight,Weight {w},Gewicht {w}
+digi.wk.weightTip,"50 is the normal 1:3 ratio; higher lengthens the elements, lower shortens them","50 is de normale verhouding 1:3; hoger verlengt de tekens, lager verkort ze"
+digi.wk.ptt,WinKeyer drives the PTT,WinKeyer bedient de PTT
+digi.wk.pttTip,Off if the radio keys itself with break-in (QSK/semi break-in),Uit als de radio zelf zendt met break-in (QSK/semi break-in)
+digi.wk.leadTailTip,"Delay before the first element and hang time after the last, in 10 ms steps","Voorloop vóór het eerste teken en naloop na het laatste, in stappen van 10 ms"
+digi.wk.paddle,Paddle mode,Paddle-modus
+digi.wk.paddleTip,How the WinKeyer handles the paddle connected to it,Hoe de WinKeyer de aangesloten paddle verwerkt
+digi.wk.bug,Bug (semi-automatic),Bug (halfautomatisch)
+digi.wk.swap,Swap paddles,Paddle omgewisseld
+digi.wk.swapTip,Swaps the dit and dah paddles,Wisselt punt- en streephendel om
+digi.wk.sidetone,WinKeyer sidetone,Meeluistertoon van de WinKeyer
+digi.wk.sidetoneTip,The monitor tone in the WinKeyer speaker,De controletoon in de luidspreker van de WinKeyer
+digi.wk.test,Test (VVV),Test (VVV)
+digi.wk.testTip,Opens the WinKeyer and sends «VVV»: the radio transmits,Opent de WinKeyer en zendt «VVV»: de radio gaat zenden
+digi.wk.testOk,WinKeyer ready: {v},WinKeyer klaar: {v}
+digi.wk.connected,WinKeyer connected on {port} ({v}),WinKeyer verbonden op {port} ({v})
+digi.wk.disconnected,WinKeyer not connected: it opens at the first transmission or with “Test”,WinKeyer niet verbonden: hij opent bij de eerste uitzending of met “Test”
+digi.wk.potNow,pot {wpm} WPM,potmeter {wpm} WPM
+digi.wk.whereHint,All WinKeyer settings: Settings › Station › WinKeyer,Alle WinKeyer-instellingen: Instellingen › Station › WinKeyer
+digi.wk.secLink,Connection,Verbinding
+digi.wk.secSpeed,Speed,Snelheid
+digi.wk.secKeying,Keying,Seinen
+digi.wk.secPtt,PTT,PTT
+digi.wk.secPaddle,Paddle and sidetone,Paddle en meeluistertoon
+digi.wk.potMin,Pot: minimum WPM,Potmeter: minimum WPM
+digi.wk.potSpan,Pot: range (WPM),Potmeter: bereik (WPM)
+digi.wk.farnsworth,"Farnsworth (WPM, 0 = off)","Farnsworth (WPM, 0 = uit)"
+digi.wk.farnsworthTip,Characters at the chosen speed with longer gaps: the average speed drops to this value (from 10 WPM),Tekens op de gekozen snelheid met langere pauzes: de gemiddelde snelheid zakt naar deze waarde (vanaf 10 WPM)
+digi.wk.ratio,Dit/dah ratio 1:{r},Punt/streep-verhouding 1:{r}
+digi.wk.ratioTip,Dah length compared with the dit; 1:3 is standard,Lengte van de streep ten opzichte van de punt; 1:3 is standaard
+digi.wk.keyComp,Keying compensation (ms),Seincompensatie (ms)
+digi.wk.keyCompTip,"Milliseconds added to every dit and dah, for radios that shorten them in QSK","Milliseconden bij elke punt en streep, voor radio’s die ze bij QSK inkorten"
+digi.wk.firstExt,First extension (ms),First extension (ms)
+digi.wk.firstExtTip,Milliseconds added only to the first element after a pause: for slow-switching radios that clip the first dit,Milliseconden alleen bij het eerste teken na een pauze: voor trage radio’s die de eerste punt afkappen
+digi.wk.autospace,Autospace,Autospace
+digi.wk.autospaceTip,With the paddle the gap between letters is added automatically,Met de paddle komt de ruimte tussen letters er vanzelf in
+digi.wk.contestSpacing,Contest spacing,Contest-spatiëring
+digi.wk.contestSpacingTip,Word gap of 6 units instead of 7: a little faster in contests,Woordafstand van 6 eenheden in plaats van 7: iets sneller in contests
+digi.wk.lead,PTT lead (ms),PTT-voorloop (ms)
+digi.wk.tail,PTT tail (ms),PTT-naloop (ms)
+digi.wk.hang,Paddle hang time (word spaces),Paddle-houdtijd (woordafstanden)
+digi.wk.hangTip,How long PTT stays on after the last element sent with the paddle,Hoe lang de PTT aan blijft na het laatste paddle-teken
+digi.wk.breakin,Paddle has priority,Paddle heeft voorrang
+digi.wk.breakinTip,Touching the paddle during a macro clears the buffer and stops the text transmission,"Raak je de paddle aan tijdens een macro, dan wordt de buffer geleegd en stopt de tekst"
+digi.wk.sidetoneHz,Sidetone pitch,Toonhoogte meeluistertoon
 digi.cw.somTip,Instead of the table it picks the character closest to the lengths of dots and dashes (like fldigi’s SOM decoding): it helps with an irregular straight key.,In plaats van de tabel kiest hij het teken dat het dichtst bij de lengtes van punten en strepen ligt (zoals de SOM-decodering van fldigi): helpt bij een onregelmatige handsleutel.
 digi.st.menu,Bar options,Opties van de balk
 digi.st.threshold,Squelch threshold…,Squelch-drempel…
@@ -6443,6 +6497,15 @@ t.1hlqrnchsjx,"Filter bandwidth: “[[digi.cw.bandwidth]]” from 50 to 500 Hz, 
 t.ljvyi8gwq2,"“[[digi.cw.som]]”: to receive an irregular hand key, it chooses the character closest to the durations of dots and dashes. Off by default; turn it on only with stations that do not key regularly.","“[[digi.cw.som]]”: om een onregelmatige sleutel met de hand te ontvangen, kiest het het teken dat het dichtst bij de duur van punten en strepen ligt. Standaard uit; zet het alleen aan bij stations die niet regelmatig seinen."
 t.ny812tiou9,"Squelch threshold: S/N from -30 to +20 dB (default -15), measured in 3 kHz as in WSJT-X. It is set in the “[[digi.ms.title]]” window; below about -16 dB nothing is printed even with squelch off.","Squelchdrempel: S/N van -30 tot +20 dB (standaard -15), gemeten in 3 kHz zoals in WSJT-X. Je stelt hem in in het venster “[[digi.ms.title]]”; onder ongeveer -16 dB wordt niets getoond, ook niet met squelch uit."
 t.ea58klys71,"Procedure signs are written <AR>, <BT>, <KN>, <SK> and go out as a single sign; in the other modes they become letters.","Procedureseinen worden geschreven als <AR>, <BT>, <KN>, <SK> en gaan als één enkel teken de lucht in; in de andere modi worden het letters."
+t.1dmm5rd94h7,CW with the WinKeyer,CW met de WinKeyer
+t.19obzwu62gl,"The WinKeyer (K1EL WK2, WK3 and compatibles such as WKUSB and WKmini) is an external keyer on a USB or serial port: it receives the text, generates the CW, drives the radio’s PTT and key and accepts your paddle. Its settings are in Settings › [[sw.sec.station]] › [[sw.pg.winkeyer]], next to the radio and audio.","De WinKeyer (K1EL WK2, WK3 en compatibele zoals WKUSB en WKmini) is een externe keyer op een USB- of seriële poort: hij ontvangt de tekst, maakt de CW, bedient PTT en sleutel van de radio en accepteert je paddle. De instellingen staan in Instellingen › [[sw.sec.station]] › [[sw.pg.winkeyer]], naast de radio en audio."
+t.1gc3gttye3r,[[digi.wk.secLink]]: choose [[digi.wk.output]] “WinKeyer” and the [[digi.wk.port]]. The line below shows whether it is connected and its firmware (WK2 or WK3).,[[digi.wk.secLink]]: kies [[digi.wk.output]] “WinKeyer” en de [[digi.wk.port]]. De regel eronder toont of hij verbonden is en welke firmware hij heeft (WK2 of WK3).
+t.1ep1kkm0xz4,[[digi.wk.test]] opens the WinKeyer and sends “VVV”: the radio transmits. Without a test it opens by itself at the first macro.,[[digi.wk.test]] opent de WinKeyer en zendt “VVV”: de radio gaat zenden. Zonder test opent hij vanzelf bij de eerste macro.
+t.28tz0vcjkbd,"[[digi.wk.secSpeed]]: Aurora’s WPM slider (also <WPM:n> in macros), or [[digi.wk.pot]] with [[digi.wk.potMin]] and [[digi.wk.potSpan]]; [[digi.wk.farnsworth]] for longer gaps.","[[digi.wk.secSpeed]]: de WPM-schuif van Aurora (ook <WPM:n> in macro’s), of [[digi.wk.pot]] met [[digi.wk.potMin]] en [[digi.wk.potSpan]]; [[digi.wk.farnsworth]] voor langere pauzes."
+t.23atwqme89o,"[[digi.wk.secKeying]]: weight, dit/dah ratio, [[digi.wk.keyComp]] and [[digi.wk.firstExt]] for radios that shorten or clip elements, [[digi.wk.autospace]] and [[digi.wk.contestSpacing]].","[[digi.wk.secKeying]]: gewicht, punt/streep-verhouding, [[digi.wk.keyComp]] en [[digi.wk.firstExt]] voor radio’s die tekens inkorten of afkappen, [[digi.wk.autospace]] en [[digi.wk.contestSpacing]]."
+t.1pow3d1vysk,"[[digi.wk.secPtt]]: [[digi.wk.ptt]] (off if the radio uses its own break-in), [[digi.wk.lead]], [[digi.wk.tail]] and [[digi.wk.hang]].","[[digi.wk.secPtt]]: [[digi.wk.ptt]] (uit als de radio zijn eigen break-in gebruikt), [[digi.wk.lead]], [[digi.wk.tail]] en [[digi.wk.hang]]."
+t.1goxoqbvsnl,"[[digi.wk.secPaddle]]: [[digi.wk.paddle]] (Iambic A/B, Ultimatic, Bug), [[digi.wk.swap]], [[digi.wk.breakin]], [[digi.wk.sidetone]] and [[digi.wk.sidetoneHz]].","[[digi.wk.secPaddle]]: [[digi.wk.paddle]] (Iambic A/B, Ultimatic, Bug), [[digi.wk.swap]], [[digi.wk.breakin]], [[digi.wk.sidetone]] en [[digi.wk.sidetoneHz]]."
+t.1byp51rg0t2,While transmitting: macros and the TX window send the text to the WinKeyer; characters are marked as sent when it echoes them back. Esc and a restarted macro clear its buffer at once.,Tijdens het zenden: macro’s en het TX-venster sturen de tekst naar de WinKeyer; tekens gelden als verzonden zodra hij ze terugstuurt (echo). Esc en een opnieuw gestarte macro legen meteen zijn buffer.
 t.hvxn9j9d0d,Right column: the “[[digi.tab.cluster]]” tab,Rechterkolom: het tabblad “[[digi.tab.cluster]]”
 t.2008xw2r7nc,The first tab of the right column shows the spots of Aurora’s DX Cluster; a click on a spot takes the radio to that station. The chosen tab is remembered.,Het eerste tabblad van de rechterkolom toont de spots van het DX Cluster van Aurora; een klik op een spot brengt de radio naar dat station. Het gekozen tabblad wordt onthouden.
 t.bfl67i7yhl,[[ctl.spot]]: opens the “[[digi.spot.title]]” window to report a station to DXSummit (see “Sending a spot”).,[[ctl.spot]]: opent het venster “[[digi.spot.title]]” om een station aan DXSummit te melden (zie “Een spot versturen”).
@@ -7395,6 +7458,7 @@ t.1108re41lyh,"The yellow card says how many seconds decoding took and, if the d
 t.24x12qzxet1,"The card’s buttons: “[[diag.slow_pc.to2]]” or “[[diag.slow_pc.to1]]” (changes the decoding depth at once; it applies from the next period), “[[diag.slow_pc.setting]]” (opens the Decoding page) and the “×” that closes the card. Once closed, it does not come back for the same depth until Aurora restarts. If the change fails, the card says so. After a change the count of slow periods starts again from zero.","De knoppen van de kaart: “[[diag.slow_pc.to2]]” of “[[diag.slow_pc.to1]]” (verandert meteen de decodeerdiepte; het geldt vanaf de volgende periode), “[[diag.slow_pc.setting]]” (opent de pagina Decoderen) en de “×” die de kaart sluit. Eenmaal gesloten komt hij niet terug voor dezelfde diepte tot Aurora opnieuw start. Als de wijziging mislukt, zegt de kaart dat. Na een wijziging begint de telling van trage periodes weer bij nul."
 t.2akh9th7n56,"By hand: [[nav.settings]] › [[sw.fam.modes]] › [[sw.sub.ft8]] › [[fil.decode]] › “[[dec.depth]]”, with the three entries “[[dec.depth1]]”, “[[dec.depth2]]” and “[[dec.depth3]]” (factory Deep; Q65 always uses deep). The deeper it is, the more weak messages it finds and the more CPU it uses. If FT8 works well only with “[[dec.depth1]]” or “[[dec.depth2]]”, it means the PC is below the recommended requirements (4 cores and 8 GB; Aurora decodes with all processors but one).","Met de hand: [[nav.settings]] › [[sw.fam.modes]] › [[sw.sub.ft8]] › [[fil.decode]] › “[[dec.depth]]”, met de drie keuzes “[[dec.depth1]]”, “[[dec.depth2]]” en “[[dec.depth3]]” (standaard Diep; Q65 gebruikt altijd diep). Hoe dieper, hoe meer zwakke berichten het vindt en hoe meer CPU het gebruikt. Als FT8 alleen goed werkt met “[[dec.depth1]]” of “[[dec.depth2]]”, zit de pc onder de aanbevolen vereisten (4 kernen en 8 GB; Aurora decodeert met alle processors op één na)."
 t.1o45n1jb3w0,"Other things that lighten the load: turn off “[[jx.SWLMode]]” (it searches deeper and on a wider window: it is only useful when you do not transmit) and close heavy programs. Right after Aurora starts, while the radio and audio are still coming up, the card does not appear (about 20 seconds), and a card already shown disappears by itself after about 10 minutes.","Andere dingen die de belasting verlichten: zet “[[jx.SWLMode]]” uit (het zoekt dieper en in een breder venster: het is alleen nuttig als je niet zendt) en sluit zware programma’s. Direct na het starten van Aurora, terwijl radio en audio nog opstarten, verschijnt de kaart niet (ongeveer 20 seconden), en een al getoonde kaart verdwijnt vanzelf na ongeveer 10 minuten."
+t.xvscydm3tg,"In the text modes CW you can choose the “WinKeyer” output (K1EL WK2, WK3, WKUSB, WKmini) next to audio: macros and the TX window send the text to the keyer, which generates the CW and drives PTT and key. Progress comes from its echo; Esc and a restarted macro clear its buffer. Settings: port, speed or pot, weight, PTT, paddle, sidetone and a “Test” button.","In CW van de tekstmodi kun je naast audio de uitgang “WinKeyer” (K1EL WK2, WK3, WKUSB, WKmini) kiezen: macro’s en het TX-venster sturen de tekst naar de keyer, die de CW maakt en PTT en sleutel bedient. De voortgang komt uit zijn echo; Esc en een opnieuw gestarte macro legen zijn buffer. Instellingen: poort, snelheid of potmeter, gewicht, PTT, paddle, meeluistertoon en de knop “Test”."
 t.s64vvfvgdz,"In the text modes Aurora sends and receives WAE QTCs. F12 opens the QTC window with the contest QSOs you can still send to the station (not its own, not already sent, at most 10 per station) and the «QTC n/m» series; header, all lines or a single one go out with one click and confirmed lines are saved. F11 receives: it takes the series from the receive window, you can correct it, AGN asks for repeats and «Save and confirm» stores it. In RTTY QTCs go both ways between different continents, in CW and SSB from non-European to European stations. The score counts QTCs and the Cabrillo has the QTC lines of the rules.","In de tekstmodi verstuurt en ontvangt Aurora de QTC’s van de WAE. F12 opent het QTC-venster met de contest-QSO’s die je het station nog kunt sturen (niet de zijne, niet al verstuurd, hoogstens 10 per station) en de serie «QTC n/m»; kop, alle regels of één regel gaan met één klik de lucht in en bevestigde regels worden opgeslagen. F11 ontvangt: de serie komt uit het ontvangstvenster, je kunt hem verbeteren, AGN vraagt herhalingen en «Opslaan en bevestigen» legt hem vast. In RTTY gaan QTC’s in beide richtingen tussen verschillende continenten, in CW en SSB van niet-Europese naar Europese stations. De score telt de QTC’s en de Cabrillo heeft de QTC-regels van het reglement."
 t.6gyaax8nla,RTTY and CW: better decoding,RTTY en CW: betere decodering
 t.116ladu8qn6,"RTTY: no more false characters in silences and crackle; Aurora BIGScan RTTY works out the speed by itself (45.45 baud too) and also works with the radio in LSB. CW: callsigns are read correctly much more often, hand-keyed ones included, and no invented characters on pure noise.","RTTY: geen valse tekens meer in stiltes en geknetter; Aurora BIGScan RTTY bepaalt zelf de snelheid (ook 45,45 baud) en werkt ook met de radio in LSB. CW: roepletters worden veel vaker goed gelezen, ook bij handseinen, en er verschijnen geen verzonnen tekens op pure ruis."
@@ -7471,8 +7535,6 @@ t.2b73cpwlbty,Clearer alerts and windows,Duidelijkere meldingen en vensters
 t.1tknk4zfu22,"Alerts on a white background, cluster comment tooltip, DXpedition card in the dark theme, tiled Settings menu and cluster buttons with a blue border. The weak input alert only appears if it lasts and never while transmitting.","Meldingen op een witte achtergrond, tooltip van de clusteropmerking, DXpeditiekaart in het donkere thema, Instellingenmenu in tegels en clusterknoppen met een blauwe rand. De melding over een zwak ingangssignaal verschijnt alleen als het aanhoudt en nooit tijdens het zenden."
 t.2g1u7jyfmp0,"TX during TUNE, split, false crashes and the frequency table","TX tijdens TUNE, split, valse crashes en frequentietabel"
 t.201lsgz12us,The TX indicator stays lit while the radio tunes with TUNE; “Split off” is always visible. No more false crashes after an update or PC shutdown; one bad row no longer loses the frequency table; the Log4OM database gives a clear message.,De TX-aanduiding blijft branden terwijl de radio afstemt met TUNE; «Split uit» is altijd zichtbaar. Geen valse crashes meer na een update of het uitschakelen van de pc; één foute regel kost niet meer de hele frequentietabel; de Log4OM-database geeft een duidelijke melding.
-t.3l9tyiobvx,Split off button next to the radio display,Split uit-knop naast het display van de radio
-t.1n7wotaua2i,"When the radio is in split a button appears that puts it back in simplex, whatever turned it on: an “UP” spot, FT8, the radio itself or another program. Never while transmitting.","Staat de radio in split, dan verschijnt een knop die hem terugzet naar simplex, wie hem ook aanzette: een «UP»-spot, FT8, de radio zelf of een ander programma. Nooit tijdens het zenden."
 t.v68amzrc7k,your callsign,je roepnaam
 t.dw2fq6eg5o,"your callsign without /P, /M...","je roepnaam zonder /P, /M..."
 t.klukfbk9vr,your name,je naam

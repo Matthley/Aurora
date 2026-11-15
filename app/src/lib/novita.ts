@@ -25,6 +25,20 @@ export const NOVITA: readonly Novita[] = [
     version: '0.11.262',
     released: '2026-11-15T10:16:01Z',
     kind: 'new',
+    title: ['CW con il WinKeyer', 'CW with the WinKeyer', 'CW mit dem WinKeyer', 'CW avec le WinKeyer', 'CW con el WinKeyer', 'CW com o WinKeyer'],
+    text: [
+      'Nel CW dei modi testuali puoi scegliere l’uscita «WinKeyer» (K1EL WK2, WK3, WKUSB, WKmini) accanto all’audio: macro e finestra TX mandano il testo al manipolatore, che genera la CW e comanda PTT e tasto. L’avanzamento viene dalla sua eco, Esc e la macro che riparte svuotano il suo buffer. Impostazioni: porta, velocità o potenziometro, peso, PTT, paddle, sidetone e il tasto «Prova».',
+      'In the text modes CW you can choose the “WinKeyer” output (K1EL WK2, WK3, WKUSB, WKmini) next to audio: macros and the TX window send the text to the keyer, which generates the CW and drives PTT and key. Progress comes from its echo; Esc and a restarted macro clear its buffer. Settings: port, speed or pot, weight, PTT, paddle, sidetone and a “Test” button.',
+      'Im CW der Textmodi kannst du neben Audio den Ausgang „WinKeyer“ (K1EL WK2, WK3, WKUSB, WKmini) wählen: Makros und TX-Fenster senden den Text an den Keyer, der CW erzeugt und PTT und Taste steuert. Der Fortschritt kommt aus seinem Echo; Esc und ein neu gestartetes Makro leeren seinen Puffer. Einstellungen: Port, Tempo oder Poti, Gewichtung, PTT, Paddle, Mithörton und die Taste „Test“.',
+      'En CW des modes texte tu peux choisir la sortie « WinKeyer » (K1EL WK2, WK3, WKUSB, WKmini) à côté de l’audio : macros et fenêtre TX envoient le texte au manipulateur, qui génère la CW et commande PTT et clé. L’avancement vient de son écho ; Esc et une macro relancée vident son tampon. Réglages : port, vitesse ou potentiomètre, poids, PTT, manipulateur, sidetone et le bouton « Essai ».',
+      'En el CW de los modos de texto puedes elegir la salida «WinKeyer» (K1EL WK2, WK3, WKUSB, WKmini) junto al audio: macros y ventana TX envían el texto al manipulador, que genera el CW y controla PTT y manipulación. El avance viene de su eco; Esc y una macro que vuelve a empezar vacían su búfer. Ajustes: puerto, velocidad o potenciómetro, peso, PTT, manipulador, tono local y el botón «Prueba».',
+      'No CW dos modos de texto podes escolher a saída «WinKeyer» (K1EL WK2, WK3, WKUSB, WKmini) ao lado do áudio: macros e janela TX enviam o texto ao manipulador, que gera o CW e comanda PTT e manipulação. O avanço vem do seu eco; Esc e uma macro que recomeça esvaziam o seu buffer. Definições: porta, velocidade ou potenciómetro, peso, PTT, manipulador, sidetone e o botão «Teste».',
+    ],
+  },
+  {
+    version: '0.11.262',
+    released: '2026-11-15T10:16:01Z',
+    kind: 'new',
     featured: true,
     title: [
       'QTC del WAE DX Contest',
@@ -848,27 +862,6 @@ export const NOVITA: readonly Novita[] = [
       'Le voyant TX reste allumé pendant que la radio s’accorde avec TUNE ; «Couper le split» est toujours visible. Plus de faux crashs après une mise à jour ou l’arrêt du PC ; une ligne erronée ne fait plus perdre la table des fréquences ; la base de Log4OM donne un message clair.',
       'El indicador TX permanece encendido mientras la radio sintoniza con TUNE; «Apagar split» siempre es visible. Se acabaron los falsos cierres tras una actualización o al apagar el PC; una fila errónea ya no hace perder la tabla de frecuencias; la base de datos de Log4OM da un mensaje claro.',
       'O indicador TX fica aceso enquanto o rádio sintoniza com TUNE; «Desligar split» está sempre visível. Acabaram os falsos crashes depois de uma atualização ou ao desligar o PC; uma linha errada já não faz perder a tabela de frequências; a base de dados do Log4OM dá uma mensagem clara.',
-    ],
-  },
-  {
-    version: '0.11.244',
-    released: '2026-11-13T09:23:34Z',
-    kind: 'new',
-    title: [
-      'Spegni split accanto al display della radio',
-      'Split off button next to the radio display',
-      '«Split aus» neben der Geräteanzeige',
-      '«Couper le split» près de l’afficheur de la radio',
-      '«Apagar split» junto a la pantalla de la radio',
-      '«Desligar split» junto ao ecrã do rádio',
-    ],
-    text: [
-      'Quando la radio è in split compare il pulsante che la riporta in simplex, qualunque cosa l’abbia acceso: spot «UP», FT8, la radio o un altro programma. Mai durante la trasmissione.',
-      'When the radio is in split a button appears that puts it back in simplex, whatever turned it on: an “UP” spot, FT8, the radio itself or another program. Never while transmitting.',
-      'Ist das Gerät im Split, erscheint eine Taste, die es in den Simplex zurückbringt, egal wer ihn eingeschaltet hat: «UP»-Spot, FT8, das Gerät selbst oder ein anderes Programm. Nie während des Sendens.',
-      'Quand la radio est en split, un bouton la remet en simplex, quelle que soit l’origine : spot «UP», FT8, la radio ou un autre programme. Jamais pendant l’émission.',
-      'Cuando la radio está en split aparece un botón que la devuelve a símplex, lo haya activado quien sea: spot «UP», FT8, la radio u otro programa. Nunca durante la transmisión.',
-      'Quando o rádio está em split aparece um botão que o devolve a simplex, seja quem for que o ligou: spot «UP», FT8, o rádio ou outro programa. Nunca durante a transmissão.',
     ],
   },
 ];
