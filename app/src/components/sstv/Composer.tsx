@@ -513,7 +513,7 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
       </div>
 
       <div className="sstv-editor">
-        {/* a sinistra, per primi, la foto di sfondo (o il livello scelto) e i livelli; l'anteprima accanto */}
+        {/* da sinistra: foto di sfondo (o il livello scelto), anteprima, livelli e modelli */}
         <aside className="sstv-panel sstv-panel--photo">
           {sel ? <LayerInspector layer={sel} patch={patchSel} /> : <BackgroundInspector background={comp.background} hasPhoto={bg !== null} patch={patchBg} onFolderPhoto={(b) => void takeFile(b)} onPick={() => fileInput.current?.click()} onRemove={() => setBg(null)} />}
           <input
@@ -533,6 +533,64 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
             </button>
           ) : null}
         </aside>
+        <div className="sstv-center">
+          <div
+            ref={stage}
+            className={`sstv-artboard${dropping ? ' sstv-artboard--drop' : ''}`}
+            style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(38vh / var(--ui-zoom, 1) * ${W} / ${H}))` }}
+            onDragOver={(e) => {
+              if ([...e.dataTransfer.items].some((i) => i.kind === 'file')) {
+                e.preventDefault();
+                setDropping(true);
+              }
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDropping(false);
+              const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name));
+              if (file) void takeFile(file);
+              else setProblem(t('sstv.bg.badFile'));
+            }}
+          >
+            <canvas ref={canvas} width={W} height={H} className="sstv-canvas sstv-canvas--edit" />
+            <canvas
+              ref={overlay}
+              className="sstv-overlay"
+              onPointerDown={onDown}
+              onPointerMove={onMove}
+              onPointerUp={onUp}
+              onPointerCancel={onUp}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label={t('sstv.p.hint')}
+            />
+            {/* in trasmissione: la linea che scende dove si e' arrivati; sopra, la parte gia' inviata e' piu' scura */}
+            {sending ? (
+              <>
+                <div className="sstv-txsent" style={{ height: `${Math.min(100, snap.tx.progress * 100)}%` }} aria-hidden="true" />
+                <div className="sstv-txline" style={{ top: `${Math.min(100, snap.tx.progress * 100)}%` }} aria-hidden="true" />
+              </>
+            ) : null}
+            {!bg && !sending ? <div className="sstv-drop-hint">{t('sstv.bg.drop')}</div> : null}
+          </div>
+          <p className="sstv-hint sstv-preview-cap">{t('sstv.preview', { w: W, h: H })}</p>
+
+          {sending ? (
+            <div className="sstv-sendbar">
+              <div className="sstv-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(snap.tx.progress * 100)}>
+                <span style={{ width: `${snap.tx.progress * 100}%` }} />
+                <em>{t('sstv.tx.progress', { mode: snap.modes.find((m) => m.id === snap.tx.mode)?.name ?? '', done: formatDuration(snap.tx.elapsed_s), total: formatDuration(snap.tx.total_s) })}</em>
+              </div>
+            </div>
+          ) : null}
+          {!snap.can_transmit ? <p className="notice">{t('sstv.tx.notReady')}</p> : null}
+          {problem ? (
+            <p className="notice sstv-bad" role="alert">
+              {problem}
+            </p>
+          ) : null}
+        </div>
+
         <aside className="sstv-panel sstv-panel--layers">
           <h3>{t('sstv.layers')}</h3>
           <div className="sstv-add">
@@ -634,64 +692,6 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
             </>
           ) : null}
         </aside>
-
-        <div className="sstv-center">
-          <div
-            ref={stage}
-            className={`sstv-artboard${dropping ? ' sstv-artboard--drop' : ''}`}
-            style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(38vh / var(--ui-zoom, 1) * ${W} / ${H}))` }}
-            onDragOver={(e) => {
-              if ([...e.dataTransfer.items].some((i) => i.kind === 'file')) {
-                e.preventDefault();
-                setDropping(true);
-              }
-            }}
-            onDragLeave={() => setDropping(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDropping(false);
-              const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name));
-              if (file) void takeFile(file);
-              else setProblem(t('sstv.bg.badFile'));
-            }}
-          >
-            <canvas ref={canvas} width={W} height={H} className="sstv-canvas sstv-canvas--edit" />
-            <canvas
-              ref={overlay}
-              className="sstv-overlay"
-              onPointerDown={onDown}
-              onPointerMove={onMove}
-              onPointerUp={onUp}
-              onPointerCancel={onUp}
-              onContextMenu={(e) => e.preventDefault()}
-              aria-label={t('sstv.p.hint')}
-            />
-            {/* in trasmissione: la linea che scende dove si e' arrivati; sopra, la parte gia' inviata e' piu' scura */}
-            {sending ? (
-              <>
-                <div className="sstv-txsent" style={{ height: `${Math.min(100, snap.tx.progress * 100)}%` }} aria-hidden="true" />
-                <div className="sstv-txline" style={{ top: `${Math.min(100, snap.tx.progress * 100)}%` }} aria-hidden="true" />
-              </>
-            ) : null}
-            {!bg && !sending ? <div className="sstv-drop-hint">{t('sstv.bg.drop')}</div> : null}
-          </div>
-          <p className="sstv-hint sstv-preview-cap">{t('sstv.preview', { w: W, h: H })}</p>
-
-          {sending ? (
-            <div className="sstv-sendbar">
-              <div className="sstv-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(snap.tx.progress * 100)}>
-                <span style={{ width: `${snap.tx.progress * 100}%` }} />
-                <em>{t('sstv.tx.progress', { mode: snap.modes.find((m) => m.id === snap.tx.mode)?.name ?? '', done: formatDuration(snap.tx.elapsed_s), total: formatDuration(snap.tx.total_s) })}</em>
-              </div>
-            </div>
-          ) : null}
-          {!snap.can_transmit ? <p className="notice">{t('sstv.tx.notReady')}</p> : null}
-          {problem ? (
-            <p className="notice sstv-bad" role="alert">
-              {problem}
-            </p>
-          ) : null}
-        </div>
 
       </div>
     </section>
