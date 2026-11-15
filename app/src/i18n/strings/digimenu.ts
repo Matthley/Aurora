@@ -169,6 +169,8 @@ export const digiMenuStrings = {
     'Pone la velocidad de transmisión CW en la medida sobre la estación que estás recibiendo, redondeada al WPM entero.',
     'Define a velocidade de transmissão CW para a medida na estação que estás a receber, arredondada ao WPM inteiro.',
   ],
+  'digi.st.wpmDown': ['Diminuisci la velocità CW di trasmissione di 1 WPM (con Maiuscolo di 5)', 'Decrease the CW transmit speed by 1 WPM (with Shift by 5)', 'Das CW-Sendetempo um 1 WPM verringern (mit Umschalt um 5)', 'Diminuer la vitesse d’émission CW de 1 WPM (avec Maj de 5)', 'Disminuir la velocidad de transmisión CW en 1 WPM (con Mayús en 5)', 'Diminuir a velocidade de transmissão CW em 1 WPM (com Maiúsculas em 5)'],
+  'digi.st.wpmUp': ['Aumenta la velocità CW di trasmissione di 1 WPM (con Maiuscolo di 5)', 'Increase the CW transmit speed by 1 WPM (with Shift by 5)', 'Das CW-Sendetempo um 1 WPM erhöhen (mit Umschalt um 5)', 'Augmenter la vitesse d’émission CW de 1 WPM (avec Maj de 5)', 'Aumentar la velocidad de transmisión CW en 1 WPM (con Mayús en 5)', 'Aumentar a velocidade de transmissão CW em 1 WPM (com Maiúsculas em 5)'],
   'digi.st.txAtRx': ['TX = RX', 'TX = RX', 'TX = RX', 'TX = RX', 'TX = RX', 'TX = RX'],
   'digi.mi.wideWaterfall': ['Cascata larga (0-5 kHz)', 'Wide waterfall (0-5 kHz)', 'Breiter Wasserfall (0-5 kHz)', 'Cascade large (0-5 kHz)', 'Cascada ancha (0-5 kHz)', 'Cascata larga (0-5 kHz)'],
   'digi.mi.listen': ['Ascolto', 'Listen', 'Empfang', 'Écoute', 'Escucha', 'Escuta'],

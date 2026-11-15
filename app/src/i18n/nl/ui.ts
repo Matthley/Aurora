@@ -1667,6 +1667,8 @@ export const NL_UI: Record<string, string> = {
   "digi.st.threshold": "Squelch-drempel…",
   "digi.st.txAtRx": "TX = RX",
   "digi.st.txrx": "Klik: wisselen tussen ontvangen en zenden (ook de toets Pause)",
+  "digi.st.wpmDown": "De CW-zendsnelheid met 1 WPM verlagen (met Shift met 5)",
+  "digi.st.wpmUp": "De CW-zendsnelheid met 1 WPM verhogen (met Shift met 5)",
   "digi.state.listening": "Luisteren",
   "digi.state.off": "Niet aan het luisteren",
   "digi.state.sending": "Zenden",

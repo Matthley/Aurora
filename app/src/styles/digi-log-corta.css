@@ -193,6 +193,7 @@ html[data-theme='light'] .digi-topline .digi-bandbar .freq-picker-btn .freq-pick
 .digi-status .digi-st { min-height: 30px; padding: 3px 13px; border-radius: 9px; font: 600 13px var(--font-ui); border: 1.5px solid #3f5290; background: #1a2848; color: #dbe5ff; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
 .digi-status button.digi-st:hover { border-color: #8e7bff; background: #24366a; color: #fff; }
 .digi-status button.digi-st.on { background: linear-gradient(180deg, #7b66f2, #5a47d6); border-color: #b3a6ff; color: #fff; box-shadow: 0 0 10px rgba(142, 123, 255, 0.55); }
+.digi-status button.digi-st.digi-st--step { min-width: 26px; padding: 3px 7px; margin-left: -4px; font-size: 15px; line-height: 1; }
 .digi-status .digi-st--rx { background: #0f5a46; border-color: #2cf5a4; color: #c9ffe9; }
 .digi-status .digi-st--tx { background: linear-gradient(180deg, #ff6a77, #d92f42); border-color: #ffb3bb; color: #fff; box-shadow: 0 0 10px rgba(255, 93, 108, 0.6); }
 .digi-status .digi-st--freq input { color: #fff; font: 600 13px var(--font-ui); }

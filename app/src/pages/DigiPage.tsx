@@ -1822,7 +1822,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
                 }
               : undefined
           }
-          cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx } : undefined}
+          cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx, txWpm: s.cw_wpm, onTxWpm: (wpm) => save({ cw_wpm: wpm }) } : undefined}
           modeName={MODE_NAMES[s.mode]}
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
           modes={snap.modes.map((m) => ({ id: m.id, name: m.name }))}

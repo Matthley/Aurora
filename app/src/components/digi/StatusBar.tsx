@@ -25,6 +25,17 @@ export interface CwStatus {
   rxWpm?: number | null;
   /** La velocita' di trasmissione diventa quella ricevuta. */
   onTxAtRx?(): void;
+  /** Velocita' di trasmissione CW (WPM) e minimo/massimo: i pulsanti − e + accanto ai dati del modo la cambiano di 1 (con Maiuscolo di 5). */
+  txWpm?: number;
+  onTxWpm?(wpm: number): void;
+}
+
+export const CW_WPM_MIN = 5;
+export const CW_WPM_MAX = 60;
+
+/** La nuova velocita' CW dopo un clic su − (dir -1) o + (dir +1): passo 1, con Maiuscolo 5, entro minimo e massimo. */
+export function stepCwWpm(current: number, dir: -1 | 1, shift: boolean): number {
+  return Math.min(CW_WPM_MAX, Math.max(CW_WPM_MIN, Math.round(current) + dir * (shift ? 5 : 1)));
 }
 
 interface Props {
@@ -233,6 +244,16 @@ export function DigiStatusBar(p: Props) {
       {p.rtty ? null : p.modeData !== '' ? (
         <button type="button" className="digi-st" title={t('digi.st.modeData')} onClick={p.onModeSettings}>
           {p.modeData}
+        </button>
+      ) : null}
+      {p.cw?.onTxWpm && p.cw.txWpm != null ? (
+        <button type="button" className="digi-st digi-st--step" disabled={p.cw.txWpm <= CW_WPM_MIN} aria-label={t('digi.st.wpmDown')} title={t('digi.st.wpmDown')} onClick={(e) => p.cw?.onTxWpm?.(stepCwWpm(p.cw.txWpm ?? CW_WPM_MIN, -1, e.shiftKey))}>
+          −
+        </button>
+      ) : null}
+      {p.cw?.onTxWpm && p.cw.txWpm != null ? (
+        <button type="button" className="digi-st digi-st--step" disabled={p.cw.txWpm >= CW_WPM_MAX} aria-label={t('digi.st.wpmUp')} title={t('digi.st.wpmUp')} onClick={(e) => p.cw?.onTxWpm?.(stepCwWpm(p.cw.txWpm ?? CW_WPM_MIN, 1, e.shiftKey))}>
+          +
         </button>
       ) : null}
       {p.measures ? (
