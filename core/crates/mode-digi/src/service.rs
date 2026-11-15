@@ -22,6 +22,11 @@ use crate::{CwDemodulator, PskDemodulator, PskMode, RATE, RttyDemodulator, RttyP
 
 /// La trasmissione a flusso: aperta a levetta e scritta dal vivo, con l'avanzamento carattere per carattere (vedi `service/live.rs`).
 mod live;
+/// Il CW con il WinKeyer: il testo va al manipolatore esterno, l'avanzamento viene dalla sua eco (vedi `service/keyer.rs`).
+mod keyer;
+
+pub use keyer::{KeyerOpener, KeyerStatus};
+pub use rig_control::winkeyer::{PaddleMode, WinKeyerConfig};
 
 /// La catena di trasmissione vista dai modi testuali (la fornisce il programma: `tx-native` con il PTT scelto).
 pub trait DigiTxPort: Send + Sync {
@@ -199,6 +204,17 @@ pub(crate) fn valid_macro_name(name: &str) -> bool {
     key.strip_prefix('F').and_then(|n| n.parse::<u8>().ok()).is_some_and(|n| (1..=12).contains(&n))
 }
 
+/// L'uscita della trasmissione CW.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CwOutput {
+    /// Audio della scheda, con il PTT di Aurora.
+    #[default]
+    Audio,
+    /// Manipolatore esterno WinKeyer (K1EL WK2/WK3 e compatibili): CW, PTT e tasto li fa lui.
+    WinKeyer,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DigiSettings {
@@ -233,6 +249,10 @@ pub struct DigiSettings {
     pub cw_squelch_snr_db: f32,
     /// CW: decodifica SOM di fldigi (aiuta col tasto a mano irregolare).
     pub cw_som: bool,
+    /// CW: da dove esce la trasmissione, audio della scheda o WinKeyer.
+    pub cw_output: CwOutput,
+    /// CW: le impostazioni del WinKeyer.
+    pub winkeyer: WinKeyerConfig,
     /// Anti-click della cascata (menu Vista): i click di manipolazione si tolgono dalle righe mentre la pagina ascolta.
     pub wf_anticlick: bool,
     /// PSK: soglia dello squelch sulla metrica di qualita' della fase (0-100, come fldigi).
@@ -341,6 +361,8 @@ impl Default for DigiSettings {
             cw_bandwidth_hz: cw::BANDWIDTH_DEFAULT,
             cw_squelch_snr_db: cw::SQUELCH_DEFAULT_DB,
             cw_som: false,
+            cw_output: CwOutput::Audio,
+            winkeyer: WinKeyerConfig::default(),
             wf_anticlick: true,
             psk_squelch: psk::SQUELCH_DEFAULT,
             afc_on: true,
@@ -604,6 +626,8 @@ pub struct Snapshot {
     pub settings: DigiSettings,
     pub can_transmit: bool,
     pub modes: Vec<ModeInfo>,
+    /// Il WinKeyer: collegato o no e versione del firmware.
+    pub keyer: KeyerStatus,
 }
 
 /// Una finestra RX in piu': un ricevitore che decodifica un'altra frequenza della stessa banda audio, accanto a quello principale.
@@ -666,6 +690,10 @@ struct Inner {
     radio_lsb: AtomicBool,
     /// La trasmissione a flusso in corso: il testo ancora da modulare e se e' aperta.
     session: Mutex<Option<live::Session>>,
+    /// Il WinKeyer aperto (CW con uscita WinKeyer): si apre alla prima trasmissione e resta aperto.
+    keyer: Mutex<Option<rig_control::winkeyer::WinKeyer>>,
+    /// Come si apre il WinKeyer (la porta seriale; le prove ne mettono uno finto).
+    keyer_opener: Mutex<KeyerOpener>,
     /// Il thread di tutta la banda (CW, PSK).
     band: crate::band::BandLink,
     /// I notch della ricezione: non si salvano, si azzerano all'avvio e a ogni cambio di frequenza della radio.
@@ -795,6 +823,8 @@ impl DigiService {
             radio_mode: Mutex::new(None),
             radio_lsb: AtomicBool::new(false),
             session: Mutex::new(None),
+            keyer: Mutex::new(None),
+            keyer_opener: Mutex::new(keyer::serial_opener()),
             band: crate::band::BandLink::spawn(&settings),
             notches: Mutex::new(Vec::new()),
             extra: Mutex::new(Vec::new()),
@@ -908,13 +938,11 @@ impl DigiService {
     }
 
     pub fn snapshot(&self) -> Snapshot {
-        Snapshot {
-            rx: lock(&self.inner.rx).clone(),
-            tx: lock(&self.inner.tx).clone(),
-            settings: lock(&self.inner.settings).clone(),
-            can_transmit: lock(&self.inner.port).is_some(),
-            modes: DigiMode::ALL.iter().map(|m| ModeInfo { id: m.id(), name: m.name() }).collect(),
-        }
+        // un lucchetto alla volta: i temporanei di un'espressione restano chiusi fino alla sua fine
+        let settings = self.settings();
+        let keyer = self.winkeyer_status();
+        let can_transmit = lock(&self.inner.port).is_some() || keyer::selected(&settings);
+        Snapshot { rx: lock(&self.inner.rx).clone(), tx: lock(&self.inner.tx).clone(), settings, can_transmit, modes: DigiMode::ALL.iter().map(|m| ModeInfo { id: m.id(), name: m.name() }).collect(), keyer }
     }
 
     pub fn settings(&self) -> DigiSettings {
@@ -927,6 +955,7 @@ impl DigiService {
         std::fs::write(&self.inner.settings_path, json).map_err(|e| DigiError::Io(e.to_string()))?;
         let _ = self.inner.queue.send(Msg::Config(s.clone()));
         self.inner.band.configure(&s);
+        self.sync_keyer(&s);
         *lock(&self.inner.settings) = s;
         self.inner.sync_anticlick();
         self.inner.rx_status_event();
@@ -991,6 +1020,9 @@ impl DigiService {
         if text.trim().is_empty() {
             return Err(DigiError::Empty);
         }
+        if self.keyer_selected() {
+            return self.keyer_session(text, false);
+        }
         let port = lock(&self.inner.port).clone().ok_or(DigiError::NoTransmitter)?;
         if port.can_stream() {
             return self.start_session(port, text, false);
@@ -1029,6 +1061,7 @@ impl DigiService {
             return;
         }
         self.inner.tx_abort.store(true, Ordering::SeqCst);
+        self.keyer_clear();
         if let Some(port) = lock(&self.inner.port).clone() {
             port.halt();
         }

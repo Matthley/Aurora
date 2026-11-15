@@ -1237,6 +1237,7 @@ dependencies = [
  "aurora-core",
  "cc",
  "mode-sstv",
+ "rig-control",
  "rustfft",
  "serde",
  "serde_json",

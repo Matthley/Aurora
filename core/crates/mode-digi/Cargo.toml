@@ -19,7 +19,12 @@ cc = { version = "1.11.1", optional = true }
 [dependencies]
 aurora-core = { path = "../aurora-core" }
 mode-sstv = { path = "../mode-sstv" }
+# il WinKeyer (manipolatore CW esterno) per l'uscita CW
+rig-control = { path = "../rig-control" }
 rustfft = "6.4.1"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+rig-control = { path = "../rig-control", features = ["testing"] }

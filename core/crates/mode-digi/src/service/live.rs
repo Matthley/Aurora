@@ -28,17 +28,21 @@ const STEP: Duration = Duration::from_millis(20);
 
 /// Il testo di una trasmissione a flusso ancora da modulare.
 pub(super) struct Session {
-    pending: VecDeque<char>,
-    open: bool,
+    pub(super) pending: VecDeque<char>,
+    pub(super) open: bool,
     /// Caratteri gia' passati al modulatore: non si possono piu' togliere ne' cambiare.
-    taken: usize,
+    pub(super) taken: usize,
     /// Il testo e' finito e la coda di chiusura sta partendo: niente si accoda piu' (andrebbe perso), serve una trasmissione nuova.
-    ended: bool,
+    pub(super) ended: bool,
 }
 
 impl Session {
+    pub(super) fn new(text: &str, open: bool) -> Session {
+        Session { pending: text.chars().collect(), open, taken: 0, ended: false }
+    }
+
     /// I caratteri della trasmissione in tutto (modulati e in coda): le posizioni di [`DigiService::tx_replace`] contano da qui.
-    fn total(&self) -> usize {
+    pub(super) fn total(&self) -> usize {
         self.taken + self.pending.len()
     }
 }
@@ -56,6 +60,9 @@ impl DigiService {
     /// Apre la trasmissione (levetta): si resta in trasmissione finche' non si chiude con [`DigiService::tx_close`]; `text` (anche
     /// vuoto) e' il testo gia' scritto. Con una trasmissione in corso la rende aperta e ci accoda il testo.
     pub fn tx_open(&self, text: &str) -> Result<TxStatus, DigiError> {
+        if self.keyer_selected() {
+            return self.keyer_session(text, true);
+        }
         let port = lock(&self.inner.port).clone().ok_or(DigiError::NoTransmitter)?;
         if !port.can_stream() {
             return Err(DigiError::Tx("questa catena di trasmissione non trasmette a flusso".into()));
@@ -117,6 +124,9 @@ impl DigiService {
         if text.trim().is_empty() {
             return Err(DigiError::Empty);
         }
+        if self.keyer_selected() {
+            return self.keyer_restart(text, open);
+        }
         let port = lock(&self.inner.port).clone().ok_or(DigiError::NoTransmitter)?;
         if port.can_stream() {
             {
@@ -144,7 +154,7 @@ impl DigiService {
     }
 
     /// Aspetta (al massimo `limit`) che la trasmissione in corso sia finita del tutto.
-    fn wait_idle(&self, limit: Duration) {
+    pub(super) fn wait_idle(&self, limit: Duration) {
         let t0 = Instant::now();
         while self.inner.tx_active.load(Ordering::SeqCst) && t0.elapsed() < limit {
             std::thread::sleep(STEP);

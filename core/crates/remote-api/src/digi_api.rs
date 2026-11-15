@@ -185,6 +185,15 @@ pub(crate) async fn digi_tx_close(State(state): State<AppState>, _: Authed) -> R
     Ok(Json(json!({ "ok": true })))
 }
 
+/// «Prova» del WinKeyer: apre la porta delle impostazioni del CW (anche con l'uscita audio) e manda «VVV». Risponde con la versione del firmware.
+#[utoipa::path(post, path = "/api/v1/digi/winkeyer/test", responses((status = 200, description = "`{version}`"), (status = 502, description = "WinKeyer non aperto o muto (tx_failed)"), (status = 409, description = "Trasmissione in corso (busy)")))]
+pub(crate) async fn digi_winkeyer_test(State(state): State<AppState>, _: Authed, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
+    check_tx_allowed(&state, &headers)?;
+    let svc = service(&state)?;
+    let version = blocking(move || svc.winkeyer_test()).await?.map_err(api_error)?;
+    Ok(Json(json!({ "version": version })))
+}
+
 /// Ferma la trasmissione (audio e PTT). Sempre consentito.
 #[utoipa::path(post, path = "/api/v1/digi/tx/abort", responses((status = 200, description = "Fermata")))]
 pub(crate) async fn digi_tx_abort(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
