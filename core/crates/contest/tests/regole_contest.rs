@@ -261,6 +261,10 @@ fn ukrainian_dx_digi() {
 
 // --- secondo gruppo ---
 
+fn p(call: &str, band: &str, min: i64, rcvd: &str) -> QsoTesto {
+    q(call, band, "BPSK63", min, &format!("{:03}", min + 1), rcvd)
+}
+
 #[test]
 fn dl_dx_rtty() {
     let log = [
@@ -467,4 +471,69 @@ fn yu_dx() {
     let t = punteggio("YU-DX-HF Contest", &log, None);
     // punti 27; moltiplicatori 5; 27 x 5 = 135
     assert_eq!((t.punti, t.molt, t.punteggio), (27, 5, 135));
+}
+
+#[test]
+fn russian_ww_psk() {
+    let dom = dominio("dom/russian.dom");
+    let log = [
+        p("UA3ABC", "20m", 0, "MA"),  // altro paese 3; UA e MA su 20 m
+        p("UA3ABC", "40m", 1, "MA"),  // 3 x2 su 40 m = 6; UA e MA su 40 m
+        p("W1AW", "20m", 2, "001"),   // altro continente 5; K
+        p("IK2XYZ", "80m", 3, "002"), // stesso paese 1 x2 = 2; I su 80 m
+    ];
+    let t = punteggio("Russian WW PSK Contest", &log, Some(&dom));
+    // punti 3+6+5+2 = 16; moltiplicatori 2+2+1+1 = 6; 16 x 6 = 96
+    assert_eq!((t.punti, t.molt, t.punteggio), (16, 6, 96));
+}
+
+#[test]
+fn ea_psk63() {
+    let log = [
+        p("EA4URE", "20m", 0, "HQ"), // con EA 3; EA e HQ (EA4URE vale come moltiplicatore)
+        p("W1AW", "20m", 1, "001"),  // 1; K e K1
+    ];
+    let t = punteggio("EA PSK63 Contest", &log, None);
+    // punti 4; moltiplicatori 4; 4 x 4 = 16
+    assert_eq!((t.punti, t.molt, t.punteggio), (4, 4, 16));
+}
+
+#[test]
+fn poland_ww_bpsk63() {
+    let log = [
+        p("SP5ABC", "20m", 0, "R"),   // stesso continente 2; SP e provincia R
+        p("IK2XYZ", "20m", 1, "001"), // stesso paese 1; I
+        p("W1AW", "20m", 2, "001"),   // altro continente 3; K
+        p("SP5ABC", "40m", 3, "R"),   // 2; SP e R su 40 m
+    ];
+    let t = punteggio("Poland WW BPSK63 Contest", &log, None);
+    // punti 8; moltiplicatori 6; 8 x 6 = 48
+    assert_eq!((t.punti, t.molt, t.punteggio), (8, 6, 48));
+}
+
+#[test]
+fn arr_psk63() {
+    let log = [
+        p("CT1ARR", "20m", 0, "001"), // stazione speciale 10; CT e la stazione CT1ARR
+        p("CT1ABC", "20m", 1, "001"), // stazione portoghese 5; CT1ABC
+        p("DL1ABC", "20m", 2, "001"), // 1; DL
+        p("CT1ABC", "40m", 3, "002"), // 5; CT e CT1ABC su 40 m
+    ];
+    let t = punteggio("ARR PSK63 Contest", &log, None);
+    // punti 21; moltiplicatori 2+1+1+2 = 6; 21 x 6 = 126
+    assert_eq!((t.punti, t.molt, t.punteggio), (21, 6, 126));
+}
+
+#[test]
+fn uba_psk63_prefix() {
+    let log = [
+        p("ON4ABC", "20m", 0, "ANT"), // 1; prefisso ON4 e sezione ANT
+        p("ON5ABC", "20m", 1, "ANT"), // 1; ON5
+        p("DL1ABC", "20m", 2, "001"), // 1; DL1
+        p("UA3ABC", "20m", 3, "001"), // Russia: zero punti e nessun moltiplicatore (non ammesso)
+        p("DL1ABC", "40m", 4, "002"), // 1; DL1 su 40 m
+    ];
+    let t = punteggio("UBA PSK63 Prefix Contest", &log, None);
+    // punti 4; moltiplicatori 5; 4 x 5 = 20
+    assert_eq!((t.esclusi, t.punti, t.molt, t.punteggio), (1, 4, 5, 20));
 }

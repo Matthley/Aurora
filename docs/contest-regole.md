@@ -206,9 +206,54 @@ Fonte: <https://www.yudx.yu1srs.org.rs/2025/INTERNATIONAL_YUDX_HF_CONTEST_2025.p
 - `[Score]`: `points=my_dxcc:YU&dxcc:YU=1; dxcc:YU=10; same_dxcc=1; same_cont=2; other_cont=4`,
   `mult=dxcc/band; exch/band/if:dxcc:YU&not_my_dxcc:YU`.
 
+### Russian WW PSK Contest
+Fonte: <https://rdrclub.ru/russian-ww-psk-contest/49-rus-ww-psk-rules> (Russian Digital Radio Club, indicato da
+<https://www.digitalrus.ru/>), confrontato con il riassunto di `INDICE.md` dei dati digitalrus.
+- BPSK31, BPSK63, BPSK125, bande 160-10 m. Scambio: russi RST + oblast, gli altri RST + numero.
+- Punti su 20/15/10 m: stesso paese 1, altro paese 3, altro continente 5; su 160/80/40 m il doppio.
+- Moltiplicatori per banda: paesi DXCC e oblast russi (elenco `dom/russian.dom`).
+- `[Score]`: `points=same_dxcc=1; same_cont=3; other_cont=5`, `points_band=160:2,80:2,40:2`, `mult=dxcc/band; exch/band/if:dxcc:UA,UA9,UA2`;
+  `m_sStateListFile=dom/russian.dom`.
+
+### EA PSK63 Contest (URE)
+Fonte: <https://concursos.ure.es/en/eapsk63/bases/> (URE).
+- BPSK63, bande 80-10 m. Punti, scambio e moltiplicatori come l'EA RTTY.
+- `[Score]`: come l'EA RTTY.
+
+### Poland WW BPSK63 Contest (EPC SP)
+Fonte: la pagina indicata da <https://www.digitalrus.ru/> (<http://epc-sp.pl/>) non c'e' piu'; regole 2015-2016 riportate da
+<https://f6kss.wordpress.com/2016/10/>.
+- BPSK63, bande 80-10 m. Scambio: SP RST + provincia, gli altri RST + numero.
+- Punti: stesso paese 1, stesso continente 2, altro continente 3.
+- Moltiplicatori per banda: paesi DXCC e province polacche.
+- `[Score]`: `points=same_dxcc=1; same_cont=2; other_cont=3`, `mult=dxcc/band; exch/band/if:dxcc:SP`.
+
+### ARR PSK63 Contest
+Fonte: il sito <http://www.ct1arr.org/> non ha il regolamento; regole del bando 2012 riportate da
+<https://forum.bfra.bg/viewtopic.php?p=8802>.
+- BPSK63, bande 80-10 m. Scambio RST + numero.
+- Punti: CT1ARR, CQ3EPC, CS2EPC 10; stazioni portoghesi 5; le altre 1.
+- Moltiplicatori per banda: paesi DXCC e il numero delle stazioni portoghesi.
+- `[Score]`: `points=call:CT1ARR,CQ3EPC,CS2EPC=10; dxcc:CT,CT3,CU=5; any=1`, `mult=dxcc/band; call/band/if:dxcc:CT,CT3,CU`.
+
+### UBA PSK63 Prefix Contest
+Fonte: <https://www.uba.be/en/hf/contest-rules/uba-psk63-prefix-contest> (UBA, edizione 2027).
+- BPSK63, bande 80-10 m. Scambio: ON RST + sezione UBA (tre lettere, XXX per chi non e' socio), gli altri RST + numero.
+- Punti: 1 per QSO. I QSO con Russia e Bielorussia valgono zero punti e nessun moltiplicatore.
+- Moltiplicatori per banda: prefissi WPX e sezioni UBA.
+- `[Score]`: `valid=not_dxcc:UA,UA9,UA2,EU`, `mult=wpx/band; exch/band/if:dxcc:ON`.
+
 ## Cosa resta approssimato
 
 - Zone CQ e ITU vengono dal database DXCC di Aurora, non dallo scambio ricevuto (un W6 che passa zona 3 conta la zona del paese).
 - Elenco WAE (IT9, GM/Shetland, JW/Bear, 4U1V...) non distinto dal DXCC; nel WAE RTTY contano tutti i paesi per tutti.
 - Stazioni /MM, QRP (5 punti nel Russian WW Digital) e i segmenti di frequenza del BARTG non sono riconosciuti.
 - Stati, province e oblast si prendono dallo scambio cosi' com'e' scritto: senza elenco dei domini non si controlla che esistano.
+- Alessandro Volta: i QSO nella stessa area di VK, VE, JA, ZL, W non sono esclusi (lo e' solo lo stesso paese) e manca il moltiplicatore
+  per i paesi di un altro continente lavorati su 4 bande.
+- SCC RTTY: i 2 punti fra aree diverse di W, VE, VK, ZL, ZS, JA, PY, LU, UA9/UA0 non sono distinti (contano come stesso paese, 1).
+- Open Ukraine RTTY: i turni della parte bassa (160 e 80 m) non sono distinti.
+- UBA PSK63 Prefix: la sezione XXX dei non soci conta come moltiplicatore.
+- I moltiplicatori `call` (stazioni OK, stazioni portoghesi) non compaiono nella griglia della finestra delle statistiche.
+- DRCG WW RTTY e Aegean RTTY non hanno ancora la sezione `[Score]`: il regolamento non si trova (sito DRCG chiuso e contest sospesi,
+  nessuna pagina dell'Aegean DX Group raggiungibile).

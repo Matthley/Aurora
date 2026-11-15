@@ -43,3 +43,8 @@ m_bSuggestDxccPfx=0
 m_bDupeNoBand=0
 m_bDupeNoMode=0
 m_iLogBarDispMode=1
+
+[Score]
+bands=80,40,20,15,10
+points=call:CT1ARR,CQ3EPC,CS2EPC=10; dxcc:CT,CT3,CU=5; any=1
+mult=dxcc/band; call/band/if:dxcc:CT,CT3,CU
