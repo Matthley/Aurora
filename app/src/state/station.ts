@@ -32,6 +32,8 @@ const MAX_WANTED = 20;
 const PENDING_MS = 20_000;
 /** Quanto vale un cambio comandato (banda, modo) prima che il motore lo confermi: oltre, vince lo stato del motore. */
 const PATCH_MS = 8_000;
+/** Quanto la frequenza comandata resta sopra quella letta dalla radio (il CAT la rilegge ogni 100-200 ms). */
+const DIAL_PATCH_MS = 1_200;
 /** Dopo un cambio di banda uno stato in ritardo con il vecchio chiamante si ignora per questo tempo. */
 const STALE_DX_MS = 3_000;
 /** Cio' che mostra la Stazione DX quando e' azzerata. */
@@ -105,8 +107,11 @@ function withPending(s: { pending: Partial<StationStatus>; pendingAt: number }, 
   if (keys.length === 0 || Date.now() - s.pendingAt > PATCH_MS) return { status, pending: {} };
   const merged = { ...status } as Record<string, unknown>;
   const pending: Record<string, unknown> = { ...s.pending };
+  // la frequenza comandata vince sullo stato del motore solo per poco: dopo DIAL_PATCH_MS conta quella letta dalla radio, cosi' la manopola
+  // girata subito dopo un clic in Aurora (banda, spot, frequenza) si vede in tempo reale invece di restare ferma fino a 8 s
+  const dialStale = Date.now() - s.pendingAt > DIAL_PATCH_MS;
   for (const key of keys) {
-    if (status[key] === s.pending[key]) delete pending[key];
+    if (status[key] === s.pending[key] || (key === 'dial_hz' && dialStale)) delete pending[key];
     else merged[key] = s.pending[key];
   }
   return { status: merged as unknown as StationStatus, pending: pending as Partial<StationStatus> };
