@@ -20,6 +20,8 @@ const VERIFIED_SCORE_UNUSUAL: f32 = 2.0;
 const VERIFIED_SCORE_SUSPICIOUS: f32 = 3.0;
 /// La probabilita' media dei caratteri perche' una sola lettura dopo CQ basti (vedi `HeardCall::first_read_is_enough`).
 const FIRST_READ_SCORE: f32 = 0.99;
+/// Probabilita' sotto cui il primo carattere di una parola e' incerto: se il resto e' una parola fissa del QSO («TDE» per «DE») cade.
+const UNSURE_FIRST: f32 = 0.6;
 /// Silenzio (s) dopo cui il testo che arriva e' un'altra trasmissione: le parole di prima non danno piu' il ruolo (chi risponde a un CQ
 /// ripetendo il proprio nominativo non e' chi chiama).
 const PHRASE_GAP_S: f64 = 2.5;
@@ -191,6 +193,11 @@ fn is_locator(w: &str) -> bool {
 }
 
 /// Le parole che cambiano il ruolo del nominativo che segue (o che precede).
+/// Le parole fisse del QSO che possono restare attaccate al rumore di un'accensione.
+fn is_fixed_word(w: &str) -> bool {
+    cq_word(w) || matches!(w, "DE" | "TU")
+}
+
 fn cq_word(w: &str) -> bool {
     matches!(w, "CQ" | "TEST" | "QRZ" | "QRZ?" | "CQDX" | "POTA" | "SOTA")
 }
@@ -201,6 +208,8 @@ pub struct CallTracker {
     /// La parola in costruzione, con la somma delle probabilità dei suoi caratteri.
     word: String,
     word_conf: f32,
+    /// La probabilita' del primo carattere della parola in costruzione.
+    word_first_p: f32,
     /// Le ultime parole (per i ruoli).
     recent: Vec<String>,
     calls: HashMap<String, HeardCall>,
@@ -238,6 +247,9 @@ impl CallTracker {
             if c == b' ' || c == b'\n' || c == b'\r' {
                 self.end_word(now_s);
             } else {
+                if self.word.is_empty() {
+                    self.word_first_p = p;
+                }
                 self.word.push(char::from(c.to_ascii_uppercase()));
                 self.word_conf += p;
             }
@@ -259,9 +271,16 @@ impl CallTracker {
         if self.word.is_empty() {
             return;
         }
-        let word = std::mem::take(&mut self.word);
-        let conf = self.word_conf / word.len().max(1) as f32;
+        let mut word = std::mem::take(&mut self.word);
+        let mut word_conf = self.word_conf;
         self.word_conf = 0.0;
+        // il rumore all'accensione di una stazione attaccato alla parola che segue («CQ TDE UC0A», «CQ VDE UT4LW»): la parola fissa torna
+        // tale e chi chiama resta chi chiama. Solo davanti a una parola fissa: tolto altrove creava nominativi mai trasmessi
+        if self.word_first_p < UNSURE_FIRST && word.len() > 1 && word.is_char_boundary(1) && is_fixed_word(&word[1..]) {
+            word.remove(0);
+            word_conf -= self.word_first_p;
+        }
+        let conf = word_conf / word.len().max(1) as f32;
         if cq_word(&word) {
             // contest: «CT7BJG TEST», «CT7BJG QRZ»: il nominativo subito prima di TEST, CQ o QRZ e' di chi chiama (una sola volta per
             // frase: «CQ CQ» non conta doppio)
@@ -632,6 +651,27 @@ mod tests {
         assert!(!one(b"CQ TEST EC1RS ", &[255, 255, 0, 255, 255, 255, 255, 0, 255, 255, 200, 255, 255, 0], "EC1RS"));
         assert!(!one(b"CQ ICT7BJG ", &[], "ICT7BJG"));
         assert!(!one(b"CQ EA8/EC1RS ", &[], "EA8/EC1RS"));
+    }
+
+    /// Un primo carattere incerto attaccato a una parola fissa cade («CQ TDE UC0A»); davanti a un nominativo resta.
+    #[test]
+    fn an_unsure_first_character_falls_only_before_a_fixed_word() {
+        let role = |text: &[u8], conf: &[u8], call: &str| {
+            let mut t = CallTracker::new();
+            t.push(text, conf, 1.0);
+            t.flush(2.0);
+            t.calls(Validation::Minimal, &|_| CallCheck::default()).into_iter().find(|c| c.call == call).map(|c| c.role)
+        };
+        let text = b"CQ TDE UC0A UC0A ";
+        let mut conf = [255u8; 17];
+        conf[3] = 130;
+        assert_eq!(role(text, &conf, "UC0A"), Some(Role::Cq));
+        // il primo carattere sicuro resta: «TDE» non e' «DE»
+        assert_eq!(role(text, &[255; 17], "UC0A"), Some(Role::Other));
+        // davanti a un nominativo non si toglie: «XE6SR» non diventa «E6SR»
+        let mut conf = [255u8; 9];
+        conf[3] = 130;
+        assert_eq!(role(b"CQ XE6SR ", &conf, "E6SR"), None);
     }
 
     #[test]
