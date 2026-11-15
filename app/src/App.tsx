@@ -226,7 +226,7 @@ export function App() {
       <header className="app-header">
         <a className="app-brand" href="#/">
           AURORA
-          <span className="app-brand-by">by IU3CYV</span>
+          <span className="app-brand-by">by IU3WJQ</span>
         </a>
         <nav className="app-nav" aria-label={t('nav.pages')}>
           <ModeNav route={route} showQmap={showQmap} remote={REMOTE} />
