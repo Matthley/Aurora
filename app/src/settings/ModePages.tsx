@@ -5,6 +5,7 @@ import { getControls, getDigi, getSat, putDigi, putSat, satRefreshTle, type Digi
 import { ClusterOptionsFields } from '../components/digi/ClusterOptionsDialog';
 import { MacroEditor } from '../components/digi/MacroEditor';
 import { ModeSettingsFields } from '../components/digi/ModeSettings';
+import { WinKeyerFields } from '../components/digi/WinKeyerFields';
 import { SatSettingsPane, type SatCategory } from '../components/sat/SatSettingsPane';
 import { WsprExtras } from '../components/WsprExtras';
 import { useT } from '../i18n';
@@ -55,6 +56,19 @@ export function DigiModePage() {
   return (
     <Page>
       <ModeSettingsFields settings={snap.settings} levelDb={null} onSave={save} allModes section={box} />
+    </Page>
+  );
+}
+
+/** Stazione › WinKeyer: il manipolatore CW esterno (porta, stato, velocita', manipolazione, PTT, paddle e sidetone). */
+export function WinKeyerPage() {
+  const t = useT();
+  const { query, snap, save } = useDigiSettings();
+  if (query.isError) return <p className="notice">{t('set.loadError')}</p>;
+  if (!snap) return <p className="muted">{t('sw.digi.loading')}</p>;
+  return (
+    <Page>
+      <WinKeyerFields settings={snap.settings} keyer={snap.keyer ?? null} onSave={save} full section={box} />
     </Page>
   );
 }

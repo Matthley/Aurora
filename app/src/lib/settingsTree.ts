@@ -45,6 +45,7 @@ export const SETTINGS_TREE: readonly TreeFamily[] = [
       page('radio', 'sw.pg.radio'),
       page('profiles', 'sw.pg.profiles'),
       page('audio', 'sw.tab.audio'),
+      page('winkeyer', 'sw.pg.winkeyer'),
       page('rotator', 'sw.tab.rotator'),
       page('sdr', 'sw.pg.sdr'),
       page('clock', 'tab.clock'),

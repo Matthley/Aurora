@@ -201,3 +201,8 @@ button.digi-st.on, button.digi-st:active { border-style: inset; background: #c0b
 .digi-wf-pair--single { border-top: 0; }
 .digi-wf-pair--single::after { display: none; }
 .digi-wf-pair--single::before { left: -4px; }
+
+/* WinKeyer: due numeri affiancati (minimo e ampiezza del potenziometro, anticipo e coda del PTT) e il tasto Prova */
+.digi-wk-pair { display: flex; gap: 6px; }
+.digi-wk-pair input { width: 5.5em; }
+.digi-wk-test { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

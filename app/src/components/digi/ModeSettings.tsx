@@ -1,6 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react';
-import type { DigiSettings } from '../../api/client';
+import type { DigiSettings, KeyerStatus } from '../../api/client';
 import { useT } from '../../i18n';
+import { WinKeyerFields } from './WinKeyerFields';
 
 /** Gli spostamenti e le velocita' RTTY piu' usati (gli stessi elenchi di fldigi, piu' 450 Hz). */
 export const RTTY_SHIFTS = [23, 85, 160, 170, 182, 200, 240, 350, 425, 450, 850];
@@ -27,6 +28,7 @@ interface Props {
   onSave(patch: Partial<DigiSettings>): void;
   onPersonal(patch: Partial<Personal>): void;
   onClose(): void;
+  keyer?: KeyerStatus | null;
 }
 
 /** La velocita' RTTY arriva dal motore in virgola mobile corta (45,45 → 45,4500007…): si arrotonda a due decimali per mostrarla e confrontarla. */
@@ -57,6 +59,7 @@ export function ModeSettingsFields({
   onSave,
   allModes = false,
   section = fieldset,
+  keyer = null,
 }: {
   settings: DigiSettings;
   levelDb: number | null;
@@ -65,6 +68,8 @@ export function ModeSettingsFields({
   onSave(patch: Partial<DigiSettings>): void;
   allModes?: boolean;
   section?: Section;
+  /** Lo stato del WinKeyer (collegato, firmware). */
+  keyer?: KeyerStatus | null;
 }) {
   const t = useT();
   // numeri interi: il valore del motore e' un numero a 32 bit e mostrava code come 2037,800048828125 (niente cifre dopo la virgola,
@@ -163,11 +168,15 @@ export function ModeSettingsFields({
       </p>
     </Fragment>
   );
+  // CW in trasmissione: velocita' e uscita (audio o WinKeyer, con le sue impostazioni)
   const cw = (
-    <label key="cw">
-      <span>{t('digi.cw.wpm', { wpm: Math.round(s.cw_wpm) })}</span>
-      <input type="range" min={5} max={60} step={1} value={s.cw_wpm} onChange={(e) => onSave({ cw_wpm: Number(e.target.value) })} />
-    </label>
+    <Fragment key="cw">
+      <label>
+        <span>{t('digi.cw.wpm', { wpm: Math.round(s.cw_wpm) })}</span>
+        <input type="range" min={5} max={60} step={1} value={s.cw_wpm} onChange={(e) => onSave({ cw_wpm: Number(e.target.value) })} />
+      </label>
+      <WinKeyerFields settings={s} keyer={keyer} onSave={onSave} />
+    </Fragment>
   );
   const rtty = (
     <Fragment key="rtty">
@@ -257,7 +266,7 @@ export function ModeSettingsFields({
 }
 
 /** Le impostazioni del modo: le voci del modo in uso e i dati personali (gli stessi di Impostazioni › Stazione › Dati personali). */
-export function ModeSettings({ settings: s, personal, levelDb, snrDb = null, quality = null, onSave, onPersonal, onClose }: Props) {
+export function ModeSettings({ settings: s, personal, levelDb, snrDb = null, quality = null, onSave, onPersonal, onClose, keyer = null }: Props) {
   const t = useT();
   return (
     <div className="digi-modal" role="dialog" aria-modal="true" aria-label={t('digi.ms.title')} onKeyDown={(e) => (e.key === 'Escape' ? onClose() : undefined)}>
@@ -266,7 +275,7 @@ export function ModeSettings({ settings: s, personal, levelDb, snrDb = null, qua
           <strong>{t('digi.ms.title')}</strong>
         </header>
         <div className="digi-ms-grid">
-          <ModeSettingsFields settings={s} levelDb={levelDb} snrDb={snrDb} quality={quality} onSave={onSave} />
+          <ModeSettingsFields settings={s} levelDb={levelDb} snrDb={snrDb} quality={quality} onSave={onSave} keyer={keyer} />
           <fieldset>
             <legend>{t('digi.ms.personal')}</legend>
             <label>

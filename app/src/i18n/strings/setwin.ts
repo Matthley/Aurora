@@ -61,6 +61,7 @@ export const setWinStrings = {
   'sw.pg.personal': ['Dati personali', 'Personal data', 'Persönliche Daten', 'Données personnelles', 'Datos personales', 'Dados pessoais'],
   'sw.pg.radio': ['Radio (CAT e PTT)', 'Radio (CAT and PTT)', 'Funkgerät (CAT und PTT)', 'Radio (CAT et PTT)', 'Radio (CAT y PTT)', 'Rádio (CAT e PTT)'],
   'sw.pg.profiles': ['Profili radio', 'Radio profiles', 'Funkgeräteprofile', 'Profils radio', 'Perfiles de radio', 'Perfis de rádio'],
+  'sw.pg.winkeyer': ['WinKeyer', 'WinKeyer', 'WinKeyer', 'WinKeyer', 'WinKeyer', 'WinKeyer'],
   'sw.pg.sdr': ['SDR · TCI · QMAP', 'SDR · TCI · QMAP', 'SDR · TCI · QMAP', 'SDR · TCI · QMAP', 'SDR · TCI · QMAP', 'SDR · TCI · QMAP'],
   'sw.pg.qso': ['Registrazione e comportamento', 'Logging and behavior', 'Protokollierung und Verhalten', 'Enregistrement et comportement', 'Registro y comportamiento', 'Registo e comportamento'],
   'sw.pg.messages': ['Messaggi e filtri', 'Messages and filters', 'Meldungen und Filter', 'Messages et filtres', 'Mensajes y filtros', 'Mensagens e filtros'],

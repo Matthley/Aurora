@@ -1930,6 +1930,10 @@ export interface DigiSettings {
   cw_squelch_snr_db: number;
   /** CW: decodifica SOM di fldigi (per il tasto a mano). */
   cw_som: boolean;
+  /** CW: uscita della trasmissione, audio della scheda o manipolatore esterno WinKeyer. */
+  cw_output?: 'audio' | 'winkeyer';
+  /** CW: impostazioni del WinKeyer. */
+  winkeyer?: WinKeyerSettings;
   /** Anti-click della cascata mentre la pagina ascolta (acceso di base). */
   wf_anticlick: boolean;
   /** PSK: soglia dello squelch sulla qualita' della fase (0-100, come fldigi). */
@@ -2037,6 +2041,8 @@ export interface DigiSnapshot {
   settings: DigiSettings;
   can_transmit: boolean;
   modes: { id: string; name: string }[];
+  /** Il WinKeyer (core recenti). */
+  keyer?: KeyerStatus;
 }
 
 export async function getDigi(): Promise<DigiSnapshot> {
@@ -2094,6 +2100,70 @@ export async function digiTextFile(name: string): Promise<string> {
 
 export async function digiAbort(): Promise<void> {
   await request('/digi/tx/abort', { method: 'POST' });
+}
+
+/** Le impostazioni del WinKeyer (K1EL WK2/WK3 e compatibili). */
+export interface WinKeyerSettings {
+  port: string;
+  use_pot: boolean;
+  pot_min_wpm: number;
+  pot_range_wpm: number;
+  weight: number;
+  lead_ms: number;
+  tail_ms: number;
+  paddle: 'iambic_b' | 'iambic_a' | 'ultimatic' | 'bug';
+  paddle_swap: boolean;
+  ptt: boolean;
+  sidetone: boolean;
+  sidetone_hz: number;
+  /** Rapporto punto/linea (33-66, 50 = 1:3). */
+  ratio: number;
+  /** Attesa del PTT dopo il paddle: 0 = 1 spazio di parola, 1 = 1,33, 2 = 1,67, 3 = 2. */
+  hang_time: number;
+  autospace: boolean;
+  contest_spacing: boolean;
+  key_comp_ms: number;
+  first_extension_ms: number;
+  /** 0 = spento. */
+  farnsworth_wpm: number;
+  /** Il paddle toccato durante una macro svuota il buffer e ferma la trasmissione. */
+  paddle_breakin: boolean;
+}
+
+/** Lo stato del WinKeyer: collegato, porta, firmware (23 = WK2.3, 31 = WK3.1), velocita' del potenziometro. */
+export interface KeyerStatus {
+  connected: boolean;
+  port: string;
+  version: number;
+  pot_wpm: number | null;
+}
+
+export const WINKEYER_DEFAULTS: WinKeyerSettings = {
+  port: '',
+  use_pot: false,
+  pot_min_wpm: 10,
+  pot_range_wpm: 25,
+  weight: 50,
+  lead_ms: 50,
+  tail_ms: 100,
+  paddle: 'iambic_b',
+  paddle_swap: false,
+  ptt: true,
+  sidetone: true,
+  sidetone_hz: 800,
+  ratio: 50,
+  hang_time: 0,
+  autospace: false,
+  contest_spacing: false,
+  key_comp_ms: 0,
+  first_extension_ms: 0,
+  farnsworth_wpm: 0,
+  paddle_breakin: true,
+};
+
+/** «Prova» del WinKeyer: manda «VVV»; risponde con la versione del firmware. */
+export async function digiWinKeyerTest(): Promise<number> {
+  return ((await (await request('/digi/winkeyer/test', { method: 'POST' })).json()) as { version: number }).version;
 }
 
 /** Apre la trasmissione (levetta RX/TX): resta in trasmissione finche' non si chiude; `text` e' il testo gia' scritto. */

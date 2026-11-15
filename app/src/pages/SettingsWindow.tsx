@@ -39,7 +39,7 @@ import { WishlistTab } from '../settings/WishlistTab';
 import { BandsTab, WindowsTab } from '../settings/WindowsBandsTabs';
 import { SessionDraft, type SharedDraft } from '../settings/session';
 import { PersonalTab } from '../settings/PersonalTab';
-import { ContestSettingsPage, DigiClusterPage, DigiMacrosPage, DigiScanPage, DigiModePage, SatSettingsPage, WsprPage } from '../settings/ModePages';
+import { ContestSettingsPage, DigiClusterPage, DigiMacrosPage, DigiScanPage, DigiModePage, SatSettingsPage, WinKeyerPage, WsprPage } from '../settings/ModePages';
 import '../styles/settings-window.css';
 
 /** Una pagina dell'albero: il nome e cosa disegna. */
@@ -59,6 +59,7 @@ const RENDER: Readonly<Record<string, () => ReactNode>> = {
   radio: () => <RadioTab part="link" />,
   profiles: () => <RadioTab part="profiles" />,
   audio: () => <AudioTab />,
+  winkeyer: () => <WinKeyerPage />,
   rotator: () => <RotatorTab />,
   sdr: () => <SdrTab />,
   clock: () => <ClockTab />,
