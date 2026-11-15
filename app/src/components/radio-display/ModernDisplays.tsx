@@ -15,7 +15,6 @@ import {
 import { actionTip } from './RadioExtras';
 import type { FaceExtras } from './RigFaceDisplays';
 import { useT } from '../../i18n';
-import { SplitButton } from './SplitButton';
 
 /**
  * Sei display «moderni»: tre estesi (640 x 90, nella riga dei comandi) e tre quasi quadrati (330 x 130, nell'angolo della testata
@@ -136,11 +135,6 @@ function Needle({ model, height = 54, dim = false }: { model: DisplayModel; heig
   );
 }
 
-/** Il tasto SPLIT dentro il display (negli stili senza PWR), solo in testata: nelle anteprime non c'e' la radio da comandare. */
-function InSplit({ data, onAction }: { data?: FaceExtras | null; onAction?: (i: CatExtraItem) => void }) {
-  return onAction ? <SplitButton split={data?.split} className="md-split-in" /> : null;
-}
-
 const freq = (hz: number) => formatRadioFrequency(hz, 'hz');
 
 function Frame({ cls, ariaLabel, children }: { cls: string; ariaLabel: string; children: ReactNode }) {
@@ -180,7 +174,6 @@ export function IcDualDisplay({ model, noRadio, ariaLabel, data, onAction, waiti
         )}
         {s.vfoB ? <div className="md-row md-wrap md-col md-chips-side"><FunctionChips data={data} onAction={onAction} waiting={waiting} /></div> : null}
       </div>
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );
@@ -200,7 +193,6 @@ export function IcBlueDisplay({ model, noRadio, ariaLabel, data, onAction, waiti
         <div className="md-row md-wrap"><FunctionChips data={data} onAction={onAction} waiting={waiting} /></div>
       </div>
       {s.meters ? <Bars model={model} cls="md-bars--blue" /> : <span />}
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );
@@ -219,7 +211,6 @@ export function LedLineDisplay({ model, noRadio, ariaLabel, data, onAction, wait
         </div>
       </div>
       {s.vfoB ? <div className="md-right"><span className="md-soft">VFO B</span><span className="md-freq md-freq--sub md-mono">{formatRadioFrequency(s.x.vfo_b_hz ?? 0)}</span></div> : <span />}
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );
@@ -239,7 +230,6 @@ export function IcBlueSquare({ model, noRadio, ariaLabel, data, onAction, waitin
         <Passband hz={s.passband} height={28} />
       </div>
       {s.meters ? <Bars model={model} cls="md-bars--blue md-q1-bars" /> : null}
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );
@@ -256,7 +246,6 @@ export function IcBlackSquare({ model, noRadio, ariaLabel, data, onAction, waiti
         {s.meters ? <Needle model={model} height={56} /> : <span />}
         <div className="md-row md-base"><span className="md-tag md-tag--on">{model.mode || '—'}</span><span className="md-freq">{freq(model.dialHz)}</span></div>
       </div>
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );
@@ -270,7 +259,6 @@ export function YaesuSquare({ model, noRadio, ariaLabel, data, onAction, waiting
       <div className="md-row md-wrap"><span className="md-amber">MAIN · {model.mode || '—'}</span>{model.transmitting ? <span className="md-tag md-tag--tx">TX</span> : null}<FunctionChips data={data} onAction={onAction} waiting={waiting} /></div>
       <div className="md-row md-base"><span className="md-freq md-freq--big md-mono">{formatRadioFrequency(model.dialHz)}</span>{s.vfoB ? <span className="md-freq md-freq--sub md-mono md-blue md-push">{formatRadioFrequency(s.x.vfo_b_hz ?? 0)}</span> : null}</div>
       {s.meters ? <Bars model={model} cls="md-bars--yaesu" /> : <span />}
-      <InSplit data={data} onAction={onAction} />
       <NoRadio model={model} noRadio={noRadio} />
     </Frame>
   );

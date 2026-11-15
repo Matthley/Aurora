@@ -1,4 +1,3 @@
-import { powerPct } from '../../lib/radioDisplay';
 import { useGroups } from '../../lib/detached';
 import { DetachButton } from '../DetachButton';
 import { createPortal } from 'react-dom';
@@ -17,7 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCat } from '../../api/client';
 import { SetupCta } from '../SetupCta';
 import { RigSwitch } from './RigSwitch';
-import { SplitButton } from './SplitButton';
+import { PwrSplitBox } from './PwrSplitBox';
 import { useTuning } from './RadioExtras';
 
 /**
@@ -93,16 +92,25 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
     );
   }
 
-  if (isSquareStyle(pref.style) || pref.style === 'icdual' || pref.style === 'icblue' || pref.style === 'ledline') {
-    return solo ? <ModernHeader model={model} style={pref.style} solo /> : isSquareStyle(pref.style) ? <ModernHeader model={model} style={pref.style} /> : <Detachable><ModernHeader model={model} style={pref.style} /></Detachable>;
+  // il riquadro PWR + SPLIT sta accanto al display, uguale in ogni stile (fuori dalla lente e dal pulsantino di stacco)
+  const withBox = (display: ReactNode) => (
+    <div className="rd-face-row">
+      {display}
+      <PwrSplitBox />
+    </div>
+  );
+
+  if (isSquareStyle(pref.style)) return <ModernHeader model={model} style={pref.style} solo={solo} />;
+  if (pref.style === 'icdual' || pref.style === 'icblue' || pref.style === 'ledline') {
+    return withBox(solo ? <ModernHeader model={model} style={pref.style} solo /> : <Detachable><ModernHeader model={model} style={pref.style} /></Detachable>);
   }
 
   if (isFaceStyle(pref.style)) {
-    return solo ? <FaceHeader model={model} style={pref.style} /> : (
+    return withBox(solo ? <FaceHeader model={model} style={pref.style} /> : (
       <Zoom off={inSplit}>
         <FaceHeader model={model} style={pref.style} />
       </Zoom>
-    );
+    ));
   }
 
   // due blocchi uguali affiancati, oppure un blocco unico a doppio VFO (VFO A grande a sinistra, VFO B e indicatori a destra)
@@ -112,11 +120,11 @@ function RadioDisplayHeaderInner({ solo = false }: { solo?: boolean } = {}) {
         <RadioDisplay model={model} style={pref.style} size="mini" />
       </div>
       <div className="rd-slot rd-slot--extras">
-        <RadioExtras />
+        <RadioExtras hidePwr />
       </div>
     </div>
   );
-  return solo ? duo : <Zoom off={inSplit}>{duo}</Zoom>;
+  return withBox(solo ? duo : <Zoom off={inSplit}>{duo}</Zoom>);
 }
 
 /** Il pulsantino discreto per portare il display su un altro schermo, nell'angolo in alto a destra (si vede passandoci sopra). */
@@ -193,43 +201,7 @@ function FaceHeader({ model, style }: { model: DisplayModel; style: 'ft2000' | '
   const { rig, waiting, click } = useCatExtras();
   const data = { extras: rig?.extras ?? {}, passbandHz: rig?.passband_hz ?? null, split: rig?.split ?? null };
   const props = { model, noRadio: t('rd.noRadio'), ariaLabel: describeDisplay(model, t), data, waiting, onAction: (item: Parameters<typeof click>[0]) => void click(item) };
-  const power = rig?.extras?.power_set;
-  // il riquadro PWR e' uno solo e il tasto SPLIT sta dentro: nel pannello FT-2000 e' disegnato nel display stesso (PWR, - e +, SPLIT);
-  // nell'IC-7610 e' il blocco a destra, dall'alto PWR e sotto SPLIT. Senza potenza SPLIT resta nel display (nessuna colonna a parte)
-  const showPower = power != null && style !== 'ft2000';
-  return (
-    <div className="rd-face-row">
-      <div className="rd-header rd-face-slot">{style === 'ft2000' ? <Ft2000Display {...props} /> : <Ic7610Display {...props} />}</div>
-      {showPower ? (
-        <SidePanel split={rig?.split}>
-          {showPower ? (
-            <div className="rd-pwr-top" role="group" aria-label="PWR">
-              <span className="rd-pwr-lbl">PWR</span>
-              <span className="rd-pwr-val data">{powerPct(power)}%</span>
-              <div className="rd-pwr-btns">
-                <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrDown')} aria-label={t('rx.act.pwrDown')} disabled={waiting !== null} onClick={() => void click('pwr_down')}>
-                  −
-                </button>
-                <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrUp')} aria-label={t('rx.act.pwrUp')} disabled={waiting !== null} onClick={() => void click('pwr_up')}>
-                  +
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </SidePanel>
-      ) : null}
-    </div>
-  );
-}
-
-/** Il riquadro scuro accanto al display (IC-7610): potenza sopra e tasto SPLIT sotto, tutto nello stesso blocco. */
-function SidePanel({ split, children }: { split: boolean | null | undefined; children?: ReactNode }) {
-  return (
-    <div className="rd-pwr rd-side">
-      {children}
-      <SplitButton split={split} />
-    </div>
-  );
+  return <div className="rd-header rd-face-slot">{style === 'ft2000' ? <Ft2000Display {...props} /> : <Ic7610Display {...props} />}</div>;
 }
 
 /** I display moderni in testata: gli estesi nella riga dei comandi, i quasi quadrati fissi nell'angolo (le icone diventano piccole). */
@@ -251,12 +223,13 @@ function ModernHeader({ model, style, solo = false }: { model: DisplayModel; sty
     : style === 'icblueq' ? <IcBlueSquare {...props} />
     : style === 'icblackq' ? <IcBlackSquare {...props} />
     : <YaesuSquare {...props} />;
-  // il tasto SPLIT sta dentro il display (questi stili non hanno il PWR): nessun blocchetto a parte accanto
+  // il riquadro PWR + SPLIT sta a sinistra del display, fuori dal suo angolo (dove si vede il pulsantino di stacco)
   // il quasi quadrato va sulla pagina (non dentro la riga dei comandi, che fa da contenitore e lo spostava sotto la testata)
-  if (square && solo) return <div className="rd-square-preview">{view}</div>;
+  if (square && solo) return <div className="rd-square-preview"><PwrSplitBox />{view}</div>;
   if (square)
     return createPortal(
       <div className="rd-square-slot rd-detachable">
+        <PwrSplitBox />
         {view}
         <span className="rd-detach-corner">
           <DetachButton item="display" className="dock-detach" />

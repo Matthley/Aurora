@@ -150,79 +150,51 @@ describe('RadioDisplayHeader', () => {
     expect(container.textContent).toContain('BW 3.0k');
   });
 
-  it('shows PWR, its value, the minus/plus row and the SPLIT button in one block on the IC-7610 panel', async () => {
-    const cat = { config: { backend: 'omnirig', model: 0 }, status: { state: 'connected', rig: { split: true, extras: { power_set: 1 } } } };
-    vi.mocked(getCat).mockResolvedValue(cat as never);
-    act(() => useStation.setState({ status }));
-    act(() => useRadioDisplay.getState().set({ style: 'ic7610' }));
-    const { container } = render(<RadioDisplayHeader />, { wrapper });
-    const block = await waitFor(() => {
-      const el = container.querySelector('.rd-face-row .rd-side');
-      expect(el).not.toBeNull();
-      return el as HTMLElement;
-    });
-    // dall'alto in basso: gruppo PWR (scritta, valore, tasti) e poi il tasto SPLIT, tutto nello stesso riquadro
-    const kids = Array.from(block.children) as HTMLElement[];
-    const [top, split] = [kids[0]!, kids[1]!];
-    expect(top.classList.contains('rd-pwr-top')).toBe(true);
-    expect(Array.from(top.children).map((c) => c.className.split(' ')[0])).toEqual(['rd-pwr-lbl', 'rd-pwr-val', 'rd-pwr-btns']);
-    expect(top.querySelectorAll('.rd-pwr-btn')).toHaveLength(2);
-    expect(split.classList.contains('rd-split-btn')).toBe(true);
-    expect(split.classList.contains('rd-split-btn--on')).toBe(true);
-    expect(split.textContent).toBe('SPLIT');
-    // un solo blocco: nessun altro tasto SPLIT fuori dal riquadro
-    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-  });
-  // il tasto SPLIT sta sempre nello stesso riquadro del PWR (sotto i tasti - e +); negli stili senza PWR dentro il display, mai in una colonna a parte
-  const splitCat = (power: boolean) =>
-    ({ config: { backend: 'omnirig', model: 0 }, status: { state: 'connected', rig: { split: true, extras: power ? { power_set: 1 } : {} } } }) as never;
+  // il riquadro PWR + SPLIT e' uno solo, uguale in ogni stile, accanto al display e mai nel pulsantino di stacco
   const showStyle = async (style: (typeof RADIO_DISPLAY_STYLES)[number], power: boolean) => {
-    vi.mocked(getCat).mockResolvedValue(splitCat(power));
+    const cat = { config: { backend: 'omnirig', model: 0 }, status: { state: 'connected', rig: { split: true, extras: power ? { power_set: 1 } : {} } } };
+    vi.mocked(getCat).mockResolvedValue(cat as never);
     act(() => useStation.setState({ status }));
     act(() => useRadioDisplay.getState().set({ style }));
     const view = render(<RadioDisplayHeader />, { wrapper });
-    await waitFor(() => expect(document.querySelector('.rd-split-btn')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.rd-pwrsplit')).not.toBeNull());
     return view;
   };
 
-  it('puts SPLIT inside the PWR box drawn in the FT-2000 panel, with no side column', async () => {
-    const { container } = await showStyle('ft2000', true);
-    const face = container.querySelector('.rd-face') as HTMLElement;
-    expect(face.textContent).toContain('PWR');
-    expect(face.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    expect(container.querySelector('.rd-side')).toBeNull();
-    // i tasti - e + del riquadro e SPLIT sono nel disegno, con la stessa colonna di x
-    expect(face.querySelectorAll('.rd-face-hit[aria-label^="PWR"]')).toHaveLength(2);
-  });
-
-  it('puts SPLIT inside the PWR block of the IC-7610 panel, and in the drawing when there is no power', async () => {
-    const withPwr = await showStyle('ic7610', true);
-    const side = withPwr.container.querySelector('.rd-side') as HTMLElement;
-    expect(side.querySelector('.rd-pwr-top')).not.toBeNull();
-    expect(side.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    expect(withPwr.container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    withPwr.unmount();
-    const noPwr = await showStyle('ic7610', false);
-    expect(noPwr.container.querySelector('.rd-side')).toBeNull();
-    expect((noPwr.container.querySelector('.rd-face') as HTMLElement).querySelectorAll('.rd-split-btn')).toHaveLength(1);
-  });
-
-  it.each(['fluorescent', 'analog', 'color', 'amber', 'led'] as const)('puts SPLIT in the same box as PWR, - and + in the %s style', async (style) => {
-    const { container } = await showStyle(style, true);
-    const box = container.querySelector('.rx-pwrbox') as HTMLElement;
-    expect(box.textContent).toContain('PWR');
-    expect(box.querySelectorAll('button.rx-chip')).toHaveLength(2);
-    expect(box.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    expect(container.querySelectorAll('.rd-split-btn')).toHaveLength(1);
-    expect(container.querySelector('.rd-side')).toBeNull();
-  });
-
-  it.each(['icdual', 'icblue', 'ledline', 'icblueq', 'icblackq', 'yaesuq'] as const)('puts SPLIT inside the %s display, with no PWR and no side column', async (style) => {
-    await showStyle(style, false);
-    const frame = document.querySelector('[role="img"].md') as HTMLElement;
-    expect(frame.querySelectorAll('.rd-split-btn')).toHaveLength(1);
+  const checkBox = async (style: (typeof RADIO_DISPLAY_STYLES)[number], power: boolean) => {
+    await showStyle(style, power);
+    // il riquadro compare subito; il valore e lo SPLIT acceso arrivano con lo stato della radio
+    await waitFor(() => expect(document.querySelector('.rd-split-btn--on')).not.toBeNull());
+    const boxes = document.querySelectorAll('.rd-pwrsplit');
+    expect(boxes).toHaveLength(1);
+    const box = boxes[0] as HTMLElement;
+    // dall'alto: PWR, valore («—» senza potenza), - e +, SPLIT acceso
+    expect(Array.from(box.children).map((c) => c.className.split(' ')[0])).toEqual(['rd-pwrsplit-lbl', 'rd-pwrsplit-val', 'rd-pwrsplit-btns', 'rd-split-btn']);
+    expect(box.querySelector('.rd-pwrsplit-lbl')?.textContent).toBe('PWR');
+    expect(box.querySelector('.rd-pwrsplit-val')?.textContent).toBe(power ? '100%' : '—');
+    expect(box.querySelectorAll('.rd-pwrsplit-btn')).toHaveLength(2);
+    // un solo tasto SPLIT in tutto il display, niente PWR doppio ne' colonna a parte, il pulsantino di stacco fuori dal riquadro
     expect(document.querySelectorAll('.rd-split-btn')).toHaveLength(1);
     expect(document.querySelector('.rd-side')).toBeNull();
+    expect(Array.from(document.querySelectorAll('.rx-chip')).some((c) => c.textContent?.includes('PWR'))).toBe(false);
+    expect(box.closest('.rd-detach-corner')).toBeNull();
+    expect(box.querySelector('.rd-detach-corner, .dock-detach')).toBeNull();
+  };
+
+  it.each(RADIO_DISPLAY_STYLES)('shows one PWR + SPLIT box in the %s style', (style) => checkBox(style, true));
+  it.each(RADIO_DISPLAY_STYLES)('shows the same PWR + SPLIT box with a dash instead of the power in the %s style', (style) => checkBox(style, false));
+
+  it('keeps the PWR + SPLIT box narrower and not taller than the smallest display next to it (CSS)', async () => {
+    // il foglio di stile si legge dal disco (nei test i CSS importati sono vuoti); si parte dalla cartella dell'app
+    const fs = (await import('node:fs')) as { readFileSync: (p: string, enc: string) => string };
+    const css = fs.readFileSync('src/styles/radiodisplay.css', 'utf8');
+    const rule = /\.rd-pwrsplit \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const rem = (prop: string) => Number(new RegExp(`(?:^|[\\s;])${prop}:\\s*([0-9.]+)rem`).exec(rule)?.[1]);
+    // i display piu' bassi (pannelli, estesi e due blocchi) sono alti 5,625rem
+    expect(rem('height')).toBeGreaterThan(0);
+    expect(rem('height')).toBeLessThanOrEqual(5.625);
+    expect(rem('width')).toBeGreaterThan(0);
+    expect(rem('width')).toBeLessThanOrEqual(3.6);
+    expect(rule).not.toContain('min-height');
   });
 });

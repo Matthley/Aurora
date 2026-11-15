@@ -7,7 +7,6 @@ import { coreText } from '../../lib/coreText';
 import { toast } from '../../lib/toast';
 import { agcName, formatVfo, useRadioExtras } from '../../lib/radioExtras';
 import { useStation } from '../../state/station';
-import { SplitButton } from './SplitButton';
 
 /** Cosa fa il clic su ogni indicatore (suggerimento ed etichetta per gli screen reader). */
 const ACTION_TIP = {
@@ -99,7 +98,7 @@ export function actionTip(item: CatExtraItem) {
  * Il display esteso sotto quello della radio: secondo VFO piu' piccolo, strumenti, filtri e impostazioni, ognuno solo se acceso
  * nelle impostazioni e se la radio lo da'. In trasmissione SWR e ALC (S-meter e potenza sono gia' nel display).
  */
-export function RadioExtras() {
+export function RadioExtras({ hidePwr = false }: { hidePwr?: boolean } = {}) {
   const t = useT();
   const prefs = useRadioExtras((s) => s.prefs);
   const status = useStation((s) => s.status);
@@ -129,7 +128,7 @@ export function RadioExtras() {
     chips.push({ key: 'tune', text: 'TUNE', on: false });
   }
   // potenza RF impostata, a passi del 5%
-  if (x.power_set != null) {
+  if (x.power_set != null && !hidePwr) {
     chips.push({ key: 'pwr_down', text: `PWR ${powerPct(x.power_set)}% −`, on: false });
     chips.push({ key: 'pwr_up', text: '+', on: false });
   }
@@ -160,10 +159,7 @@ export function RadioExtras() {
 
   // le voci sono accese ma la radio non manda i dati in piu': lo si dice, invece di non mostrare niente
   const extrasOff = cat.data !== undefined && cat.data.config.read_extras !== true && (prefs.vfoB || prefs.frontEnd || prefs.agc || prefs.noise || prefs.gains || prefs.ritXit || prefs.tuner || prefs.vfo);
-  // il tasto SPLIT sta nello stesso riquadro del PWR (sotto - e +); senza PWR chiude i tasti, il piu' vicino possibile al display
-  const hasPwr = x.power_set != null;
-  const splitKnown = rig?.split != null;
-  if (!vfoB && meters.length === 0 && supply.length === 0 && chips.length === 0 && gains.length === 0 && !extrasOff && !splitKnown) return null;
+  if (!vfoB && meters.length === 0 && supply.length === 0 && chips.length === 0 && gains.length === 0 && !extrasOff) return null;
   return (
     <div className="rx-extras" aria-label={t('rx.grp')}>
       {extrasOff && !vfoB && chips.length === 0 && gains.length === 0 ? (
@@ -186,36 +182,9 @@ export function RadioExtras() {
         </div>
       ) : null}
       {supply.length > 0 ? <div className="rx-line" title={t('tip.rx.supply')}>{supply.join(' · ')}</div> : null}
-      {chips.length > 0 || splitKnown ? (
+      {chips.length > 0 ? (
         <div className="rx-chips">
-          {chips.map((c) => {
-            // PWR, - e + in un solo riquadro, con il tasto SPLIT a tutta larghezza sotto
-            if (c.key === 'pwr_up') return null;
-            if (c.key === 'pwr_down') {
-              const up = chips.find((k) => k.key === 'pwr_up');
-              return (
-                <div key="pwr" className="rx-pwrbox" role="group" aria-label="PWR">
-                  <div className="rx-pwrbox-row">
-                    {[c, ...(up ? [up] : [])].map((k) => (
-                      <button
-                        key={k.key}
-                        type="button"
-                        className={`rx-chip rx-chip--btn${waiting === k.key ? ' rx-chip--wait' : ''}`}
-                        title={t(k.tip ?? ACTION_TIP[k.key])}
-                        aria-label={`${k.text}: ${t(k.tip ?? ACTION_TIP[k.key])}`}
-                        aria-busy={waiting === k.key}
-                        disabled={waiting !== null}
-                        onClick={() => void click(k.key)}
-                      >
-                        {k.text}
-                      </button>
-                    ))}
-                  </div>
-                  <SplitButton split={rig?.split} className="rx-split" />
-                </div>
-              );
-            }
-            return (
+          {chips.map((c) => (
             <button
               key={c.key}
               type="button"
@@ -228,9 +197,7 @@ export function RadioExtras() {
             >
               {c.text}
             </button>
-            );
-          })}
-          {hasPwr ? null : <SplitButton split={rig?.split} className="rx-split" />}
+          ))}
         </div>
       ) : null}
       {gains.length > 0 ? <div className="rx-line" title={t('tip.rx.gains')}>{gains.map(([k, v]) => `${k} ${v}`).join(' · ')}</div> : null}

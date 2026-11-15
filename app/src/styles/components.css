@@ -1322,7 +1322,7 @@ body.rd-radio-off .rd-header::after, body.rd-radio-off .rd-square-slot::after, b
 body.rd-radio-off .rd-header, body.rd-radio-off .rd-square-slot, body.rd-radio-off .rd-square-preview { filter: none; }
 body.rd-radio-off .rd-header > *, body.rd-radio-off .rd-square-slot > *, body.rd-radio-off .rd-square-preview > * { filter: grayscale(1) brightness(0.55); }
 body.rd-radio-off .rd-face-row { filter: none; }
-body.rd-radio-off .rd-face-row > :not(.rd-header) { filter: grayscale(1) brightness(0.55); }
+body.rd-radio-off .rd-face-row > :not(.rd-header):not(.rd-zoom-host):not(.rd-detachable) { filter: grayscale(1) brightness(0.55); }
 body.rd-radio-off .rd-square-slot::after, body.rd-radio-off .rd-square-preview::after { font-size: clamp(12px, 1vw, 18px); }
 /* issue #55: la scritta resta testo vero (prima un'immagine a 14 segmenti: se non si generava, il display era solo un riquadro nero) */
 
