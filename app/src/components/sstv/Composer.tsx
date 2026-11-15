@@ -33,6 +33,7 @@ import {
 } from '../../lib/sstv';
 import { boxPoint, fontString, layerBox, loadImageFile, renderComposition } from '../../lib/sstvRender';
 import { browserStorage } from '../../lib/theme';
+import { askConfirm } from '../ConfirmHost';
 import { useStatusPick } from '../../state/station';
 import { useSstvMode } from '../../lib/sstvMode';
 
@@ -856,7 +857,7 @@ function TxFolderPhotos({ onPhoto }: { onPhoto: (b: Blob) => void }) {
     setPicked(new Set());
   };
   const remove = async () => {
-    if (picked.size === 0 || !window.confirm(t('sstv.sel.confirmPhotos', { n: picked.size }))) return;
+    if (picked.size === 0 || !(await askConfirm(t('sstv.sel.confirmPhotos', { n: picked.size })))) return;
     await deleteSstvTxPhotos([...picked]).catch(() => 0);
     stop();
     void client.invalidateQueries({ queryKey: ['sstv-tx-folder'] });

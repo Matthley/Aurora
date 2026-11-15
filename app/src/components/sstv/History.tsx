@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { deleteSstvImage, deleteSstvImages, getSstvImageBlob, getSstvImageCleanBlob, sstvImageCleanUrl, sstvImageUrl, type SstvImageEntry, type SstvModeInfo } from '../../api/client';
 import { useT } from '../../i18n';
+import { askConfirm } from '../ConfirmHost';
 
 function when(ms: number): string {
   const d = new Date(ms);
@@ -92,7 +93,7 @@ export function History({ images, modes, onChanged, onReuse }: { images: SstvIma
     setPicked(new Set());
   };
   const removePicked = async () => {
-    if (picked.size === 0 || !window.confirm(t('sstv.sel.confirmImages', { n: picked.size }))) return;
+    if (picked.size === 0 || !(await askConfirm(t('sstv.sel.confirmImages', { n: picked.size })))) return;
     await deleteSstvImages([...picked]);
     stopSelecting();
     onChanged();
@@ -233,7 +234,7 @@ function Lightbox({ entry, modeName, when, onClose, onDeleted, onReuse, onPrev, 
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
   const remove = async () => {
-    if (!window.confirm(t('sstv.img.deleteConfirm'))) return;
+    if (!(await askConfirm(t('sstv.img.deleteConfirm')))) return;
     await deleteSstvImage(entry.id);
     onDeleted();
   };
