@@ -1933,6 +1933,8 @@ export interface DigiSettings {
   mode: 'psk31' | 'psk63' | 'rtty' | 'cw';
   /** Velocita' della CW in parole al minuto. */
   cw_wpm: number;
+  /** CW: la velocita' di trasmissione segue quella misurata in ricezione (interruttore «TX = RX»). */
+  cw_wpm_follow_rx?: boolean;
   /** CW: banda del filtro di ricezione (50, 100, 150, 250 o 500 Hz). */
   cw_bandwidth_hz: number;
   /** CW: soglia dello squelch sul rapporto segnale/rumore (dB in 3 kHz, -30..+20). */

@@ -255,6 +255,8 @@ pub struct DigiSettings {
     pub rtty_profiles: Vec<RttyProfile>,
     /// Velocita' della CW in parole al minuto (trasmissione; in ricezione e' il valore di partenza, poi si adatta al segnale).
     pub cw_wpm: f32,
+    /// CW: la velocita' di trasmissione segue quella misurata in ricezione (interruttore «TX = RX» della barra; spento di base).
+    pub cw_wpm_follow_rx: bool,
     /// CW: banda del filtro di ricezione (Hz: 50, 100, 150, 250 o 500; 150 di base come fldigi).
     pub cw_bandwidth_hz: f32,
     /// CW: soglia dello squelch sul rapporto segnale/rumore (dB in 3 kHz, media nel tempo; -30..+20).
@@ -372,6 +374,7 @@ impl Default for DigiSettings {
             rtty_profile: 0,
             rtty_profiles: RttyProfile::factory(),
             cw_wpm: 20.0,
+            cw_wpm_follow_rx: false,
             cw_bandwidth_hz: cw::BANDWIDTH_DEFAULT,
             cw_squelch_snr_db: cw::SQUELCH_DEFAULT_DB,
             cw_som: false,
@@ -1609,6 +1612,7 @@ mod tests {
         assert_eq!(s.cw_squelch_snr_db, cw::SQUELCH_DEFAULT_DB);
         assert_eq!(s.cw_bandwidth_hz, cw::BANDWIDTH_DEFAULT);
         assert!(!s.cw_som);
+        assert!(!s.cw_wpm_follow_rx);
         assert!(s.validate().is_ok());
         let json = serde_json::to_string(&s).expect("json");
         assert!(!json.contains("\"squelch_db\""), "la soglia vecchia non si riscrive: {json}");

@@ -39,7 +39,7 @@ import { CW_BANDWIDTHS, CW_WIDE_HZ, ModeSettings, RTTY_BAUDS, RTTY_SHIFTS, round
 import { usePersonal } from '../lib/personal';
 import { openSettingsWindow } from '../lib/settingsWindow';
 import { readMemories, readScan, SCAN_KEY, writeMemories, type DigiMemory, type ScanProps } from '../lib/digiScan';
-import { DigiStatusBar } from '../components/digi/StatusBar';
+import { DigiStatusBar, followRxPatch, followRxTarget, wpmStepPatch } from '../components/digi/StatusBar';
 import { useT } from '../i18n';
 import { ListenGate } from '../components/ListenGate';
 import { REMOTE_HOST } from '../lib/phone';
@@ -1081,8 +1081,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         case 'alarm': toast(a.text, 'info'); break;
         case 'wpm': {
           const next = Math.round(Math.min(60, Math.max(5, a.relative ? l.snap.settings.cw_wpm + a.wpm : a.wpm)));
-          if (l.snap.settings.mode !== 'cw') save({ mode: 'cw', cw_wpm: next });
-          else save({ cw_wpm: next });
+          if (l.snap.settings.mode !== 'cw') save({ mode: 'cw', cw_wpm: next, cw_wpm_follow_rx: false });
+          else save({ cw_wpm: next, cw_wpm_follow_rx: false });
           break;
         }
         case 'audioFq': pickFreq(Math.max(200, Math.min(3500, a.relative ? l.rxHz + a.hz : a.hz)), false); break;
@@ -1354,6 +1354,11 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const txAtRx = () => {
     if (rxWpm != null) save({ cw_wpm: rxWpm });
   };
+  // interruttore «TX = RX» acceso: a ogni nuova misura la velocita' di trasmissione la segue (se la misura manca resta l'ultima)
+  const followWpm = s.mode === 'cw' ? followRxTarget(s.cw_wpm_follow_rx, rxWpm, s.cw_wpm) : null;
+  useEffect(() => {
+    if (followWpm != null) save({ cw_wpm: followWpm });
+  }, [followWpm, save]);
 
   // ---- i menu ----
   // il menu Contest (dalla Vista): elenco dei contest, modifica di quello attivo, «Nessun contest» e i dati di quello attivo
@@ -1827,7 +1832,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
                 }
               : undefined
           }
-          cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, onTxAtRx: txAtRx, txWpm: s.cw_wpm, onTxWpm: (wpm) => save({ cw_wpm: wpm }) } : undefined}
+          cw={s.mode === 'cw' ? { bandwidthHz: s.cw_bandwidth_hz, onBandwidth: (hz) => save({ cw_bandwidth_hz: hz }), rxWpm, followRx: s.cw_wpm_follow_rx === true, onFollowRx: (on) => save(followRxPatch(on, rxWpm)), txWpm: s.cw_wpm, onTxWpm: (wpm) => save(wpmStepPatch(wpm)) } : undefined}
           modeName={MODE_NAMES[s.mode]}
           onModeClick={s.mode === 'rtty' ? () => setRttyOpen(true) : undefined}
           modes={snap.modes.map((m) => ({ id: m.id, name: m.name }))}

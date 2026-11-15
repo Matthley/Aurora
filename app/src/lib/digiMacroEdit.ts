@@ -45,6 +45,7 @@ export function digiWithDefaults(snap: DigiSnapshot): DigiSnapshot {
     tx_follow_rx: raw.tx_follow_rx ?? true,
     tx_freq_hz: raw.tx_freq_hz ?? 1000,
     cw_wpm: raw.cw_wpm ?? 20,
+    cw_wpm_follow_rx: raw.cw_wpm_follow_rx ?? false,
     cw_bandwidth_hz: raw.cw_bandwidth_hz ?? 150,
     cw_squelch_snr_db: raw.cw_squelch_snr_db ?? -15,
     cw_som: raw.cw_som ?? false,

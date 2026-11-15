@@ -23,8 +23,9 @@ export interface CwStatus {
   onBandwidth(hz: number): void;
   /** La velocita' capita in ricezione (WPM interi), se c'e' un segnale. */
   rxWpm?: number | null;
-  /** La velocita' di trasmissione diventa quella ricevuta. */
-  onTxAtRx?(): void;
+  /** Interruttore «TX = RX»: acceso, la velocita' di trasmissione segue quella ricevuta (campo `cw_wpm_follow_rx`). */
+  followRx?: boolean;
+  onFollowRx?(on: boolean): void;
   /** Velocita' di trasmissione CW (WPM) e minimo/massimo: i pulsanti − e + accanto ai dati del modo la cambiano di 1 (con Maiuscolo di 5). */
   txWpm?: number;
   onTxWpm?(wpm: number): void;
@@ -36,6 +37,27 @@ export const CW_WPM_MAX = 60;
 /** La nuova velocita' CW dopo un clic su − (dir -1) o + (dir +1): passo 1, con Maiuscolo 5, entro minimo e massimo. */
 export function stepCwWpm(current: number, dir: -1 | 1, shift: boolean): number {
   return Math.min(CW_WPM_MAX, Math.max(CW_WPM_MIN, Math.round(current) + dir * (shift ? 5 : 1)));
+}
+
+/** Cio' che l'interruttore «TX = RX» salva: acceso, la velocita' di trasmissione diventa subito quella misurata (se c'e'). */
+export function followRxPatch(on: boolean, rxWpm: number | null | undefined): { cw_wpm_follow_rx: boolean; cw_wpm?: number } {
+  return on && rxWpm != null ? { cw_wpm_follow_rx: true, cw_wpm: clampCwWpm(rxWpm) } : { cw_wpm_follow_rx: on };
+}
+
+/** Interruttore acceso: la velocita' di trasmissione da salvare perche' segua la misura, o null se non c'e' nulla da fare. */
+export function followRxTarget(follow: boolean | undefined, rxWpm: number | null | undefined, txWpm: number): number | null {
+  if (!follow || rxWpm == null || !Number.isFinite(rxWpm)) return null;
+  const next = clampCwWpm(rxWpm);
+  return next === txWpm ? null : next;
+}
+
+/** Cio' che salvano i tasti − e +: la nuova velocita' e l'interruttore «TX = RX» spento. */
+export function wpmStepPatch(wpm: number): { cw_wpm: number; cw_wpm_follow_rx: false } {
+  return { cw_wpm: wpm, cw_wpm_follow_rx: false };
+}
+
+function clampCwWpm(w: number): number {
+  return Math.min(CW_WPM_MAX, Math.max(CW_WPM_MIN, Math.round(w)));
 }
 
 interface Props {
@@ -236,8 +258,8 @@ export function DigiStatusBar(p: Props) {
           </select>
         </label>
       ) : null}
-      {p.cw?.onTxAtRx ? (
-        <button type="button" className="digi-st" disabled={p.cw.rxWpm == null} title={t('digi.mi.txAtRxTip')} onClick={p.cw.onTxAtRx}>
+      {p.cw?.onFollowRx ? (
+        <button type="button" className={`digi-st${p.cw.followRx ? ' on' : ''}`} aria-pressed={p.cw.followRx === true} title={t('digi.st.txAtRxSwitchTip')} onClick={() => p.cw?.onFollowRx?.(p.cw?.followRx !== true)}>
           {t('digi.st.txAtRx')}
         </button>
       ) : null}

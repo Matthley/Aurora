@@ -1670,6 +1670,7 @@ export const NL_UI: Record<string, string> = {
   "digi.st.squelch": "Squelch: alleen signalen boven de drempel worden afgedrukt (rechtsklik: drempel). “Sq *” = het signaal ligt erboven",
   "digi.st.threshold": "Squelch-drempel…",
   "digi.st.txAtRx": "TX = RX",
+  "digi.st.txAtRxSwitchTip": "Aan: je snelheid volgt die van het station dat je ontvangt. Uit: je gebruikt de ingestelde snelheid.",
   "digi.st.txrx": "Klik: wisselen tussen ontvangen en zenden (ook de toets Pause)",
   "digi.st.wpmDown": "De CW-zendsnelheid met 1 WPM verlagen (met Shift met 5)",
   "digi.st.wpmUp": "De CW-zendsnelheid met 1 WPM verhogen (met Shift met 5)",
