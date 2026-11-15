@@ -58,6 +58,9 @@ import { useListenWhileOpen } from '../lib/listenWhileOpen';
 import { parseSpotSplit } from '../lib/spotSplit';
 import { browserStorage } from '../lib/theme';
 import { clearSize, readSize, writeSize } from '../lib/modeSizes';
+
+/** Altezza minima del pannello BIGScan (px) con la maniglia del bordo inferiore. */
+const RADAR_H_MIN = 160;
 import { toast, toastAction } from '../lib/toast';
 import { useStation, useStatusPick } from '../state/station';
 import '../styles/digi.css';
@@ -537,6 +540,35 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
     const n = readSize('aurora.digi.radarw', sizeMode);
     return Number.isFinite(n) && n >= 220 && n <= 900 ? n : 330;
   });
+  // altezza del pannello (px), scelta dalla maniglia sul bordo inferiore; null = quella di partenza (alto quanto le finestre RX/TX)
+  const [radarH, setRadarH] = useState<number | null>(() => {
+    const n = readSize('aurora.digi.radarh', sizeMode);
+    return Number.isFinite(n) && n >= RADAR_H_MIN ? n : null;
+  });
+  const dragRadarH = (e: React.PointerEvent) => {
+    const box = (e.currentTarget as HTMLElement).closest('.radar') as HTMLElement | null;
+    if (!box) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = box.offsetHeight;
+    const scale = box.offsetHeight > 0 ? box.getBoundingClientRect().height / box.offsetHeight : 1;
+    let last = startH;
+    const move = (m: PointerEvent) => {
+      last = Math.round(Math.min(Math.max(RADAR_H_MIN, startH + (m.clientY - startY) / scale), Math.max(RADAR_H_MIN, window.innerHeight / scale - 160)));
+      setRadarH(last);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      writeSize('aurora.digi.radarh', sizeMode, last);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const resetRadarH = () => {
+    setRadarH(null);
+    clearSize('aurora.digi.radarh', sizeMode);
+  };
   const dragRadarW = (e: React.PointerEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -1585,7 +1617,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       <div className={`digi-main${views.log ? '' : ' digi-main--nolog'}`} style={views.log ? { gridTemplateColumns: `minmax(0, 1fr) ${logW}px` } : undefined}>
         <div className="digi-leftcol">
         {/* Radar: a destra delle finestre RX e TX, alto quanto loro; la cascata sotto resta larga */}
-        <div className={`digi-winrow${radarMode && radarOn ? ' digi-winrow--radar' : ''}`}>
+        <div className={`digi-winrow${radarMode && radarOn ? ' digi-winrow--radar' : ''}`} style={radarMode && radarOn && radarH ? { minHeight: radarH } : undefined}>
         <div className="digi-windows" ref={windowsRef} style={winW !== null && !(radarMode && radarOn) ? { width: winW, maxWidth: '100%', alignSelf: 'flex-start' } : undefined}>
           <div className="digi-wingrip" role="separator" aria-orientation="vertical" title={t('digi.winw.tip')} onPointerDown={dragWinW} onDoubleClick={resetWinW} />
           {/* barra sopra la finestra RX: posto per i pulsantini */}
@@ -1701,7 +1733,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
           }} />
         ) : null}
         {radarMode ? (
-          <RadarList on={radarOn} onToggle={toggleRadar} width={radarW} answering={views.radarAnswering} onAnswering={(v) => setView({ radarAnswering: v })} stations={radar} showWpm={s.mode === 'cw'} showSnr={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} modeName={s.mode === 'cw' ? 'CW' : 'RTTY'} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} qsoCall={qso.call} onPileupTx={(hz) => save({ tx_follow_rx: false, tx_freq_hz: Math.max(200, Math.min(3500, Math.round(hz))) })} />
+          <RadarList on={radarOn} onToggle={toggleRadar} width={radarW} height={radarH ?? undefined} onHeightDrag={dragRadarH} onHeightReset={resetRadarH} answering={views.radarAnswering} onAnswering={(v) => setView({ radarAnswering: v })} stations={radar} showWpm={s.mode === 'cw'} showSnr={s.mode === 'cw'} dialHz={status?.dial_hz ?? 0} rxHz={rxHz} modeName={s.mode === 'cw' ? 'CW' : 'RTTY'} onTune={(hz) => pickFreq(hz, false)} onCall={takeCall} qsoCall={qso.call} onPileupTx={(hz) => save({ tx_follow_rx: false, tx_freq_hz: Math.max(200, Math.min(3500, Math.round(hz))) })} />
         ) : null}
         </div>
         {bandOn && !radarMode && views.signals ? (

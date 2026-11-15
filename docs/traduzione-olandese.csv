@@ -303,6 +303,7 @@ tx.alert.highSwr,Transmission stopped: SWR {swr} above the {limit} limit. Check 
 tx.alert.inhibited,TX inhibited by an external controller: {holder},TX geblokkeerd door een externe controller: {holder}
 tx.alert.hound,Hound mode on: Tx at {hz} Hz,Hound-modus aan: Tx op {hz} Hz
 tx.alert.houndSplit,"Hound mode on: Tx at {hz} Hz, Split on","Hound-modus aan: Tx op {hz} Hz, split aan"
+tx.alert.houndNoRadioSplit,"Hound needs the radio split: Settings › Radio (CAT and PTT) › Split, mode and polling › Split “Radio (real split)” or “Emulated”, otherwise below 1500 Hz the radio does not move the transmit frequency","Hound heeft de split van de radio nodig: Instellingen › Radio (CAT en PTT) › Split, mode en polling › Split „Zender (echte split)” of „Geëmuleerd”, anders verschuift de radio onder 1500 Hz de zendfrequentie niet"
 tx.alert.foxDetected,{call} is working Fox/Hound: Hound on (Tx at {hz} Hz),{call} werkt Fox/Hound: Hound aan (Tx op {hz} Hz)
 tx.alert.houndOff,{call} is not working Fox/Hound: Hound off,{call} werkt geen Fox/Hound: Hound uit
 tx.foxHoundOn,FOX · Hound on,FOX · Hound aan
@@ -4750,6 +4751,7 @@ radar.srcLogFrom,"Marks from the local log, QSOs since {t} UTC","Markeringen uit
 radar.logWorkedTip,Already worked on this band and mode,Al gewerkt op deze band en in deze mode
 radar.tip,"Aurora BIGScan: Aurora listens to the whole band and shows, next to the waterfall, the stations read reliably, one row per callsign. Off: no list, only the station you are listening to is decoded.","Aurora BIGScan: Aurora luistert naar de hele band en toont naast de waterval de betrouwbaar gelezen stations, één regel per roepnaam. Uit: geen lijst, alleen het station waarnaar je luistert wordt gedecodeerd."
 radar.resize,Drag to change the Aurora BIGScan width (double-click: default),Sleep om de breedte van Aurora BIGScan te wijzigen (dubbelklik: standaard)
+radar.resizeH,Drag to lengthen or shorten Aurora BIGScan (double-click: default height),Sleep om Aurora BIGScan langer of korter te maken (dubbelklik: standaardhoogte)
 radar.dotLive,"The station colour (always the same for the same callsign, also on the waterfall). Bright: the station is heard now.","De kleur van het station (altijd dezelfde voor dezelfde roepnaam, ook op de waterval). Fel: het station is nu te horen."
 radar.dotStale,"The station colour. Paler: not heard for over 75 seconds (it stays in the list, but its callsign leaves the waterfall).","De kleur van het station. Lichter: al meer dan 75 seconden niet gehoord (het blijft in de lijst, maar de roepnaam verdwijnt van de waterval)."
 radar.cqTip,The station is calling CQ (or TEST): you can answer it.,Het station roept CQ (of TEST): je kunt antwoorden.

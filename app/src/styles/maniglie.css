@@ -27,7 +27,7 @@ html:root:root .solo-divider { position: absolute; }
 
 /* il disegno: lineetta centrata */
 html:root:root :is(.digi-wingrip, .digi-wf-wgrip, .digi-radargrip, .digi-macrogrip, .digi-log-grip, .live-bottom-split, .dock-splitter, .grid-divider, .solo--row .solo-divider,
-  .digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize, .solo--col .solo-divider)::before {
+  .digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize, .radar-hgrip, .solo--col .solo-divider)::before {
   content: '';
   position: absolute;
   top: 50%;
@@ -47,7 +47,7 @@ html:root:root :is(.digi-wingrip, .digi-wf-wgrip, .digi-radargrip, .digi-macrogr
   height: var(--grip-len);
   max-height: 100%;
 }
-html:root:root :is(.digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize, .solo--col .solo-divider)::before {
+html:root:root :is(.digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize, .radar-hgrip, .solo--col .solo-divider)::before {
   width: var(--grip-len);
   height: var(--grip-thick);
   max-width: 100%;
@@ -55,7 +55,7 @@ html:root:root :is(.digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .l
 
 /* al passaggio e durante il trascinamento */
 html:root:root :is(.digi-wingrip, .digi-wf-wgrip, .digi-radargrip, .digi-macrogrip, .digi-log-grip, .live-bottom-split, .dock-splitter, .grid-divider, .solo-divider,
-  .digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize):is(:hover, :active)::before,
+  .digi-split, .digi-wf-grip, .digi-band-grip, .wf-splitter, .live-bottom-resizer, .dock-resize, .radar-hgrip):is(:hover, :active)::before,
 html:root:root .grid-board--moving .grid-divider::before {
   background: var(--grip-color-hover);
   opacity: 1;

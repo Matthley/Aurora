@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clearDigiBand, getClusterSpots, getDigi, getLogQsos } from '../../api/client';
 import { useT } from '../../i18n';
@@ -27,6 +27,10 @@ interface Props {
   onToggle?(): void;
   /** Larghezza scelta con la maniglia (px). */
   width?: number;
+  /** Altezza scelta con la maniglia del bordo inferiore (px): assente = alto quanto le finestre accanto. */
+  height?: number;
+  onHeightDrag?(e: ReactPointerEvent): void;
+  onHeightReset?(): void;
   /** Anche chi risponde (dopo DE o TU), non solo chi chiama CQ; e chi la cambia. */
   answering?: boolean;
   onAnswering?(v: boolean): void;
@@ -83,7 +87,7 @@ function freqLabel(hz: number, dialHz: number): string {
  * il suo colore. Clic: la ricezione va sulla stazione; doppio clic: ricezione sulla stazione e nominativo nel QSO. Accanto al nominativo il
  * segno del log locale: paese nuovo, gia' collegato su questa banda e modo, collegato altrove (colori dei tipi della pagina FT8).
  */
-export function RadarList({ on = true, onToggle, width, answering = false, onAnswering, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall, qsoCall = '', onPileupTx }: Props) {
+export function RadarList({ on = true, onToggle, width, height, onHeightDrag, onHeightReset, answering = false, onAnswering, stations, showWpm, showSnr, dialHz, rxHz, modeName, onTune, onCall, qsoCall = '', onPileupTx }: Props) {
   const t = useT();
   const pileup = useSyncExternalStore(onPileup, getPileup);
   const pileTarget = pileupTarget(pileup);
@@ -176,7 +180,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
     }
   };
   return (
-    <section className={`radar${on ? '' : ' radar--off'}`} style={on && width ? { width } : undefined} aria-label={`${t('radar.title')} ${modeName}`}>
+    <section className={`radar${on ? '' : ' radar--off'}`} style={on && (width || height) ? { width: width || undefined, height: height || undefined, alignSelf: height ? 'flex-start' : undefined } : undefined} aria-label={`${t('radar.title')} ${modeName}`}>
       <header className="radar-head">
         {onToggle ? (
           <button type="button" role="switch" aria-checked={on} className={`radar-switch${on ? ' radar-switch--on' : ''}`} title={t('radar.tip')} onClick={onToggle}>
@@ -347,6 +351,7 @@ export function RadarList({ on = true, onToggle, width, answering = false, onAns
         ) : null}
       </PopupMenu>
       {spot ? <SpotDialog call={spot.call} dialHz={dialHz} audioHz={spot.freqHz} modeName={modeName} lsb={lsb} khzDecimals={2} onClose={() => setSpot(null)} /> : null}
+      {on && onHeightDrag ? <div className="radar-hgrip" role="separator" aria-orientation="horizontal" title={t('radar.resizeH')} onPointerDown={onHeightDrag} onDoubleClick={onHeightReset} /> : null}
     </section>
   );
 }

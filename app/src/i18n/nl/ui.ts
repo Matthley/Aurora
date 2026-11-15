@@ -3397,6 +3397,7 @@ export const NL_UI: Record<string, string> = {
   "radar.pileupUp": "gaat omhoog",
   "radar.pileupWait": "DX {call}: wacht op de eerste gewerkte aanroeper…",
   "radar.resize": "Sleep om de breedte van Aurora BIGScan te wijzigen (dubbelklik: standaard)",
+  "radar.resizeH": "Sleep om Aurora BIGScan langer of korter te maken (dubbelklik: standaardhoogte)",
   "radar.rowTip": "Klik: naar dit station luisteren · dubbelklik: luisteren en roepnaam naar de QSO",
   "radar.snrTip": "Signaal-ruisverhouding van het station in dB",
   "radar.spot": "Spot DX…",
