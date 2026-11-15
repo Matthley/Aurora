@@ -23,6 +23,28 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.261',
+    released: '2026-11-15T10:00:00Z',
+    kind: 'new',
+    featured: true,
+    title: [
+      'QTC del WAE DX Contest',
+      'WAE DX Contest QTCs',
+      'QTCs im WAE DX Contest',
+      'QTC du WAE DX Contest',
+      'QTC del WAE DX Contest',
+      'QTC do WAE DX Contest',
+    ],
+    text: [
+      'Nei modi testuali Aurora manda e riceve i QTC del WAE. F12 apre la finestra QTC con i QSO del contest che puoi ancora mandare alla stazione (non i suoi, non già mandati, al massimo 10 per stazione) e la serie «QTC n/m»; intestazione, tutte le righe o una sola partono con un clic e le righe confermate si salvano. F11 riceve: prende la serie dalla finestra di ricezione, si corregge, AGN chiede le ripetizioni e «Salva e conferma» la registra. In RTTY i QTC vanno in entrambe le direzioni fra continenti diversi, in CW e SSB dalle stazioni non europee alle europee. Il punteggio conta i QTC e il Cabrillo ha le righe QTC del regolamento.',
+      'In the text modes Aurora sends and receives WAE QTCs. F12 opens the QTC window with the contest QSOs you can still send to the station (not its own, not already sent, at most 10 per station) and the «QTC n/m» series; header, all lines or a single one go out with one click and confirmed lines are saved. F11 receives: it takes the series from the receive window, you can correct it, AGN asks for repeats and «Save and confirm» stores it. In RTTY QTCs go both ways between different continents, in CW and SSB from non-European to European stations. The score counts QTCs and the Cabrillo has the QTC lines of the rules.',
+      'In den Textmodi sendet und empfängt Aurora die QTCs des WAE. F12 öffnet das QTC-Fenster mit den Contest-QSOs, die du der Station noch senden kannst (nicht ihre eigenen, nicht schon gesendete, höchstens 10 pro Station), und der Serie «QTC n/m»; Kopf, alle Zeilen oder eine einzelne gehen mit einem Klick raus, bestätigte Zeilen werden gespeichert. F11 empfängt: es übernimmt die Serie aus dem Empfangsfenster, du kannst sie korrigieren, AGN fordert Wiederholungen an und «Speichern und bestätigen» legt sie ab. In RTTY gehen QTCs in beide Richtungen zwischen verschiedenen Kontinenten, in CW und SSB von außereuropäischen an europäische Stationen. Das Ergebnis zählt die QTCs und das Cabrillo hat die QTC-Zeilen der Regeln.',
+      'Dans les modes texte Aurora envoie et reçoit les QTC du WAE. F12 ouvre la fenêtre QTC avec les QSO du contest que tu peux encore envoyer à la station (pas les siens, pas déjà envoyés, 10 au plus par station) et la série « QTC n/m » ; en-tête, toutes les lignes ou une seule partent d’un clic et les lignes confirmées sont enregistrées. F11 reçoit : la série est prise dans la fenêtre de réception, tu peux la corriger, AGN demande les répétitions et « Enregistrer et confirmer » la garde. En RTTY les QTC vont dans les deux sens entre continents différents, en CW et SSB des stations non européennes aux européennes. Le score compte les QTC et le Cabrillo a les lignes QTC du règlement.',
+      'En los modos de texto Aurora envía y recibe los QTC del WAE. F12 abre la ventana QTC con los QSO del contest que aún puedes enviar a la estación (no los suyos, no ya enviados, como mucho 10 por estación) y la serie «QTC n/m»; cabecera, todas las líneas o una sola salen con un clic y las líneas confirmadas se guardan. F11 recibe: toma la serie de la ventana de recepción, se corrige, AGN pide las repeticiones y «Guardar y confirmar» la registra. En RTTY los QTC van en ambas direcciones entre continentes distintos, en CW y SSB de las estaciones no europeas a las europeas. La puntuación cuenta los QTC y el Cabrillo tiene las líneas QTC del reglamento.',
+      'Nos modos de texto o Aurora envia e recebe os QTC do WAE. F12 abre a janela QTC com os QSO do contest que ainda podes enviar à estação (não os seus, não já enviados, no máximo 10 por estação) e a série «QTC n/m»; cabeçalho, todas as linhas ou só uma saem com um clique e as linhas confirmadas guardam-se. F11 recebe: tira a série da janela de receção, corrige-se, AGN pede as repetições e «Guardar e confirmar» regista-a. Em RTTY os QTC vão nos dois sentidos entre continentes diferentes, em CW e SSB das estações não europeias para as europeias. A pontuação conta os QTC e o Cabrillo tem as linhas QTC do regulamento.',
+    ],
+  },
+  {
+    version: '0.11.261',
     released: '2026-11-15T02:23:53Z',
     kind: 'changed',
     title: [
@@ -847,27 +869,6 @@ export const NOVITA: readonly Novita[] = [
       'Les fichiers enregistrés sont gardés 7 jours (réglable) et ALL.TXT tourne tout seul. Si le CAT s’arrête, Aurora reconnecte la radio avec des pauses croissantes. Trois causes de blocage de la réception et du décodage sont supprimées.',
       'Los archivos guardados se conservan 7 días (ajustable) y ALL.TXT rota solo. Si el CAT se detiene, Aurora reconecta la radio con pausas crecientes. Eliminadas tres causas de bloqueo de la recepción y la decodificación.',
       'Os ficheiros guardados mantêm-se 7 dias (ajustável) e o ALL.TXT roda sozinho. Se o CAT parar, o Aurora volta a ligar o rádio com pausas crescentes. Eliminadas três causas de bloqueio da receção e da descodificação.',
-    ],
-  },
-  {
-    version: '0.11.244',
-    released: '2026-11-13T09:23:34Z',
-    kind: 'changed',
-    title: [
-      'Frequenze dai piani di banda dell’ARI',
-      'Frequencies from the ARI band plans',
-      'Frequenzen aus den ARI-Bandplänen',
-      'Fréquences des plans de bande de l’ARI',
-      'Frecuencias de los planes de banda de ARI',
-      'Frequências dos planos de banda da ARI',
-    ],
-    text: [
-      'Le frequenze di CW, SSTV, RTTY e PSK seguono i piani di banda: HF dal piano IARU Regione 1, dal 6 m in su dal piano ARI. Compaiono centri di attività, QRS, QRP, EME e meteor scatter.',
-      'CW, SSTV, RTTY and PSK frequencies follow the band plans: HF from the IARU Region 1 plan, 6 m and up from the ARI plan. Activity centres, QRS, QRP, EME and meteor scatter are included.',
-      'Die Frequenzen für CW, SSTV, RTTY und PSK folgen den Bandplänen: KW nach dem IARU-Plan Region 1, ab 6 m nach dem ARI-Plan. Aktivitätszentren, QRS, QRP, EME und Meteorscatter sind enthalten.',
-      'Les fréquences CW, SSTV, RTTY et PSK suivent les plans de bande : HF selon le plan IARU Région 1, à partir du 6 m selon le plan ARI. Centres d’activité, QRS, QRP, EME et meteor scatter y figurent.',
-      'Las frecuencias de CW, SSTV, RTTY y PSK siguen los planes de banda: HF según el plan IARU Región 1, desde 6 m según el plan ARI. Se incluyen centros de actividad, QRS, QRP, EME y meteor scatter.',
-      'As frequências de CW, SSTV, RTTY e PSK seguem os planos de banda: HF pelo plano IARU Região 1, a partir dos 6 m pelo plano ARI. Incluem centros de atividade, QRS, QRP, EME e meteor scatter.',
     ],
   },
 ];
