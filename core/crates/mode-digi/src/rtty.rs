@@ -727,14 +727,22 @@ struct Frames {
     next_min: f64,
     /// La ricerca in corso: inizio, centro migliore, punteggio migliore.
     search: Option<(f64, f64, f32)>,
+    /// La decodifica di sequenza, se accesa, decide gli inizi dei caratteri al posto della ricerca.
+    seq: Option<Seq>,
+    /// Centri di start decisi dalla sequenza e non ancora consegnati.
+    pending: std::collections::VecDeque<f64>,
+    /// Presenza istantanea della portante (per il ramo di silenzio della sequenza).
+    inst: f32,
 }
 
 impl Frames {
-    fn new(spb: f32, w: usize) -> Self {
+    fn new(spb: f32, w: usize, seq: bool) -> Self {
         let t = f64::from(spb);
         // la storia copre il bit prima dello start, il carattere e la finestra di ricerca lunga un bit
-        let len = (9.5 * t).ceil() as usize + w + 8;
-        Self { t, w: w.max(1), prefix: vec![0.0; len], n: 0, next_min: 0.0, search: None }
+        let seq = seq.then(|| Seq::new(t));
+        let extra = seq.as_ref().map_or(0, |s| (s.hist + 8) * s.q);
+        let len = (9.5 * t).ceil() as usize + w + 8 + extra;
+        Self { t, w: w.max(1), prefix: vec![0.0; len], n: 0, next_min: 0.0, search: None, seq, pending: std::collections::VecDeque::new(), inst: 0.0 }
     }
 
     /// La somma delle LLR intorno al centro `c` (in campioni dall'inizio).
@@ -769,6 +777,20 @@ impl Frames {
         let last = self.prefix[(self.n % len) as usize];
         self.n += 1;
         self.prefix[(self.n % len) as usize] = last + f64::from(llr);
+        if let Some(seq) = &mut self.seq {
+            let half = self.t / 2.0;
+            let starts = seq.push(llr, self.inst);
+            self.pending.extend(starts.into_iter().map(|b| b + half));
+            let c = self.pending.pop_front()?;
+            let sums = self.sums(c);
+            let mut code = 0;
+            for k in 0..5 {
+                if sums[k + 1] > 0.0 {
+                    code |= 1 << k;
+                }
+            }
+            return Some(Frame { code, sums, t: c, main: true, pres: f32::INFINITY });
+        }
         // l'ultimo centro di start per cui lo stop e' gia' tutto arrivato
         let c = self.n as f64 - 6.0 * self.t - self.w as f64 / 2.0 - 1.0;
         if c - self.t - (self.w as f64) < 0.0 || c < self.next_min {
@@ -807,6 +829,255 @@ impl Frames {
                 }
             }
         }
+    }
+}
+
+/// Decodifica di sequenza: passi rilegguti all'indietro e ogni quanti passi si rilegge (ritardo fra 80 e 96 passi, circa 11-12 bit).
+/// Con una storia di 64 passi (meno di un carattere) il percorso non si assesta e si perde molto.
+const SEQ_HIST: usize = 96;
+const SEQ_EMIT: usize = 16;
+/// Lo stop: durata minima, picco, larghezza della campana e fondo piatto (in bit).
+const SEQ_STOP_MIN: f64 = 0.9;
+const SEQ_STOP_PEAK: f64 = 1.5;
+const SEQ_STOP_WIDTH: f64 = 0.35;
+const SEQ_STOP_FLAT: f64 = 0.08;
+/// Probabilita' per passo che dal riposo parta uno start, che si entri nel silenzio e che se ne esca (verso il riposo: una portante
+/// comincia sempre a mark, e uno start subito dopo il silenzio inventava un carattere a ogni accensione).
+const SEQ_START_P: f32 = 0.02;
+const SEQ_SIL_IN: f32 = 0.01;
+const SEQ_SIL_OUT: f32 = 0.01;
+/// Il silenzio vale quanto il migliore dei due toni piu' `SEQ_SIL_K` per quanto la presenza della portante sta sotto `PRES_MIN`.
+const SEQ_SIL_K: f32 = 0.5;
+/// Quanti bit il `Fuser` aspetta le varianti: con la sequenza i caratteri arrivano gia' in ritardo, a blocchi.
+const FUSE_WAIT_BITS: f64 = 11.0;
+const FUSE_WAIT_SEQ_BITS: f64 = 15.0;
+
+/// Decodifica di sequenza a durate esplicite: i valori morbidi, a passi di circa un ottavo di bit, entrano in un modello di stati
+/// (riposo a mark, start, cinque bit a mark o space, stop di durata variabile, silenzio) e il percorso migliore (Viterbi) dice dove
+/// cominciano i caratteri. Il percorso si rilegge all'indietro ogni `emit` passi e i caratteri piu' vecchi di `hist - emit` passi escono.
+struct Seq {
+    /// Campioni decimati per passo.
+    q: usize,
+    hist: usize,
+    emit: usize,
+    /// Primo stato di ogni sezione: riposo (0), start, bit 1..5 per valore (0 = space, 1 = mark), stop, silenzio (l'ultimo).
+    start0: usize,
+    bit0: [[usize; 2]; 5],
+    stop0: usize,
+    sil: usize,
+    lens: [usize; 6],
+    stop_len: usize,
+    /// Per lo stop: log della probabilita' di restare e di uscire dopo ogni passo.
+    stop_stay: Vec<f32>,
+    stop_exit: Vec<f32>,
+    mark: Vec<bool>,
+    score: Vec<f32>,
+    next: Vec<f32>,
+    /// Predecessori (anello di `hist` passi).
+    back: Vec<Vec<u16>>,
+    steps: u64,
+    acc: f32,
+    racc: f32,
+    acc_n: usize,
+    /// L'ultimo inizio di start gia' consegnato (in passi).
+    last_start: Option<u64>,
+    start_p: f32,
+    sil_in: f32,
+    sil_out: f32,
+    sil_pres: f32,
+    sil_k: f32,
+}
+
+impl Seq {
+    fn new(spb: f64) -> Self {
+        let q = ((spb / 8.0).round() as usize).max(1);
+        let l = spb / q as f64;
+        let edge = |k: usize| (k as f64 * l).round() as usize;
+        let mut lens = [0usize; 6];
+        for (k, x) in lens.iter_mut().enumerate() {
+            *x = (edge(k + 1) - edge(k)).max(1);
+        }
+        let start0 = 1;
+        let mut idx = start0 + lens[0];
+        let mut bit0 = [[0usize; 2]; 5];
+        for (k, b) in bit0.iter_mut().enumerate() {
+            b[0] = idx;
+            b[1] = idx + lens[k + 1];
+            idx += 2 * lens[k + 1];
+        }
+        let stop0 = idx;
+        let smin = ((SEQ_STOP_MIN * l).round() as usize).max(1);
+        let stop_len = (4.0 * l).round() as usize;
+        let (peak, width, flat) = (SEQ_STOP_PEAK, SEQ_STOP_WIDTH, SEQ_STOP_FLAT);
+        // durata dello stop: campana intorno a 1,5 bit, larga, piu' un fondo piatto (1, 1,5 e 2 bit e oltre restano possibili)
+        let mass: Vec<f64> = (0..stop_len)
+            .map(|d| {
+                let b = (d + 1) as f64 / l;
+                if d + 1 < smin { 0.0 } else { (-(b - peak).powi(2) / (2.0 * width * width)).exp() + flat }
+            })
+            .collect();
+        let tot: f64 = mass.iter().sum();
+        let mut surv: f64 = 1.0;
+        let (mut stop_stay, mut stop_exit) = (Vec::new(), Vec::new());
+        for (d, m) in mass.iter().enumerate() {
+            let p = m / tot;
+            let h = if d + 1 == stop_len { 1.0 } else { (p / surv.max(1e-12)).clamp(0.0, 1.0) };
+            surv *= 1.0 - h;
+            stop_exit.push(if h > 0.0 { (h as f32).ln() } else { f32::NEG_INFINITY });
+            stop_stay.push(if h < 1.0 { ((1.0 - h) as f32).ln() } else { f32::NEG_INFINITY });
+        }
+        let sil = stop0 + stop_len;
+        let n_states = sil + 1;
+        let mut mark = vec![false; n_states];
+        mark[0] = true;
+        for k in 0..5 {
+            for i in 0..lens[k + 1] {
+                mark[bit0[k][1] + i] = true;
+            }
+        }
+        for m in mark.iter_mut().take(sil).skip(stop0) {
+            *m = true;
+        }
+        let hist = SEQ_HIST;
+        Self {
+            q,
+            hist,
+            emit: SEQ_EMIT,
+            start0,
+            bit0,
+            stop0,
+            sil,
+            lens,
+            stop_len,
+            stop_stay,
+            stop_exit,
+            mark,
+            score: vec![0.0; n_states],
+            next: vec![0.0; n_states],
+            back: vec![vec![0; n_states]; hist],
+            steps: 0,
+            acc: 0.0,
+            racc: 0.0,
+            acc_n: 0,
+            last_start: None,
+            start_p: SEQ_START_P,
+            sil_in: SEQ_SIL_IN,
+            sil_out: SEQ_SIL_OUT,
+            sil_pres: PRES_MIN,
+            sil_k: SEQ_SIL_K,
+        }
+    }
+
+    /// Un valore morbido con la presenza istantanea della portante; restituisce gli inizi di start (in campioni decimati dall'inizio)
+    /// dei caratteri decisi.
+    #[allow(clippy::needless_range_loop)]
+    fn push(&mut self, llr: f32, inst: f32) -> Vec<f64> {
+        self.acc += llr;
+        self.racc += inst;
+        self.acc_n += 1;
+        if self.acc_n < self.q {
+            return Vec::new();
+        }
+        let e = 0.5 * LLR_SCALE * self.acc;
+        let r = self.racc / self.q as f32;
+        self.acc = 0.0;
+        self.racc = 0.0;
+        self.acc_n = 0;
+        let row = (self.steps % self.hist as u64) as usize;
+        let ninf = f32::NEG_INFINITY;
+        let mut next = std::mem::take(&mut self.next);
+        next.iter_mut().for_each(|x| *x = ninf);
+        let mut back = std::mem::take(&mut self.back[row]);
+        let s = &self.score;
+        let mut set = |to: usize, from: usize, v: f32| {
+            if v > next[to] {
+                next[to] = v;
+                back[to] = from as u16;
+            }
+        };
+        let sil = self.sil;
+        set(0, 0, s[0] + (1.0 - self.start_p - self.sil_in).ln());
+        set(self.start0, 0, s[0] + self.start_p.ln());
+        set(sil, 0, s[0] + self.sil_in.ln());
+        set(sil, sil, s[sil] + (1.0 - self.sil_out).ln());
+        set(0, sil, s[sil] + self.sil_out.ln());
+        for i in self.start0..self.start0 + self.lens[0] - 1 {
+            set(i + 1, i, s[i]);
+        }
+        for k in 0..5 {
+            for v in 0..2 {
+                let a = self.bit0[k][v];
+                for i in a..a + self.lens[k + 1] - 1 {
+                    set(i + 1, i, s[i]);
+                }
+            }
+        }
+        for d in 0..self.stop_len - 1 {
+            set(self.stop0 + d + 1, self.stop0 + d, s[self.stop0 + d] + self.stop_stay[d]);
+        }
+        // uscite dello stop: al riposo, subito un altro start o al silenzio
+        for d in 0..self.stop_len {
+            let v = s[self.stop0 + d] + self.stop_exit[d] + (1.0f32 / 3.0).ln();
+            set(0, self.stop0 + d, v);
+            set(self.start0, self.stop0 + d, v);
+            set(sil, self.stop0 + d, v);
+        }
+        // fine dello start e dei bit: al bit seguente, mark o space
+        let end_start = self.start0 + self.lens[0] - 1;
+        for v in 0..2 {
+            set(self.bit0[0][v], end_start, s[end_start]);
+        }
+        for k in 0..5 {
+            for v in 0..2 {
+                let end = self.bit0[k][v] + self.lens[k + 1] - 1;
+                if k < 4 {
+                    for w in 0..2 {
+                        set(self.bit0[k + 1][w], end, s[end]);
+                    }
+                } else {
+                    set(self.stop0, end, s[end]);
+                }
+            }
+        }
+        self.back[row] = back;
+        for (x, &m) in next.iter_mut().zip(&self.mark) {
+            *x += if m { e } else { -e };
+        }
+        // il silenzio: quanto il migliore dei due toni, piu' un premio se la portante manca (una penalita' se c'e')
+        next[sil] += e + e.abs() + self.sil_k * (self.sil_pres - r);
+        let top = next.iter().copied().fold(ninf, f32::max);
+        if top.is_finite() {
+            next.iter_mut().for_each(|x| *x -= top);
+        }
+        self.next = std::mem::replace(&mut self.score, next);
+        self.steps += 1;
+        if self.steps >= self.hist as u64 && self.steps.is_multiple_of(self.emit as u64) { self.trace() } else { Vec::new() }
+    }
+
+    /// Rilegge il percorso migliore: gli inizi di start nei passi piu' vecchi (fra `steps - hist` e `steps - hist + emit`).
+    fn trace(&mut self) -> Vec<f64> {
+        let mut st = (0..self.score.len()).max_by(|&a, &b| self.score[a].total_cmp(&self.score[b])).unwrap_or(0);
+        let lo = self.steps - self.hist as u64;
+        let hi = lo + self.emit as u64;
+        let mut starts = Vec::new();
+        // al passo t lo stato e' `st`; il predecessore sta in back[t]
+        let mut t = self.steps - 1;
+        loop {
+            let prev = usize::from(self.back[(t % self.hist as u64) as usize][st]);
+            if st == self.start0 && prev != self.start0 && t < hi && self.last_start.is_none_or(|l| t > l) {
+                starts.push(t);
+            }
+            if t == lo {
+                break;
+            }
+            st = prev;
+            t -= 1;
+        }
+        starts.sort_unstable();
+        if let Some(&l) = starts.last() {
+            self.last_start = Some(l);
+        }
+        starts.into_iter().map(|t| (t as usize * self.q) as f64).collect()
     }
 }
 
@@ -963,11 +1234,13 @@ impl Blanker {
 struct Fuser {
     spb: f64,
     pending: Vec<(f64, Frame)>,
+    /// Quanti bit si aspettano i caratteri delle altre catene prima di decidere.
+    wait_bits: f64,
 }
 
 impl Fuser {
     fn new(spb: f64) -> Self {
-        Self { spb, pending: Vec::new() }
+        Self { spb, pending: Vec::new(), wait_bits: FUSE_WAIT_SEQ_BITS }
     }
 
     /// Caratteri nuovi (con il tempo) e il tempo attuale; restituisce quelli decisi, in ordine.
@@ -976,7 +1249,7 @@ impl Fuser {
         self.pending.sort_by(|a, b| a.0.total_cmp(&b.0));
         let mut out = Vec::new();
         while let Some(&(t0, _)) = self.pending.first() {
-            if t0 > now - 11.0 * self.spb {
+            if t0 > now - self.wait_bits * self.spb {
                 break;
             }
             let n = self.pending.iter().take_while(|(t, _)| *t < t0 + 3.5 * self.spb).count();
@@ -1193,7 +1466,7 @@ impl RttyDemodulator {
             bits: vec![true; nbits],
             soft: vec![0.0; nbits],
             soft_len: ((spb * SOFT_BITS).round() as usize).clamp(1, nbits),
-            frames: Some(Frames::new(spb, ((spb * SOFT_BITS).round() as usize).clamp(1, nbits))),
+            frames: Some(Frames::new(spb, ((spb * SOFT_BITS).round() as usize).clamp(1, nbits), true)),
             var: [0.0; 4],
             bit_pos: 0,
             marks: nbits,
@@ -1296,9 +1569,23 @@ impl RttyDemodulator {
     /// Decodifica del carattere intero (`true`, di base) o macchina dei bit di fldigi (`false`, senza varianti).
     pub fn set_frame_decoder(&mut self, on: bool) {
         let w = self.soft_len;
-        self.frames = on.then(|| Frames::new(self.spb, w));
+        self.frames = on.then(|| Frames::new(self.spb, w, self.fuser.wait_bits > FUSE_WAIT_BITS));
         if !on {
             self.variants.clear();
+        }
+    }
+
+    /// Decodifica di sequenza (`true`, di base: inizi dei caratteri dal percorso migliore di start, bit, stop di durata variabile e
+    /// silenzio, circa 90 ms di ritardo in piu') o ricerca dello start in una finestra di un bit (`false`). Vale per la decodifica del
+    /// carattere intero e per le varianti.
+    pub fn set_sequence_decoder(&mut self, on: bool) {
+        self.fuser.wait_bits = if on { FUSE_WAIT_SEQ_BITS } else { FUSE_WAIT_BITS };
+        let w = self.soft_len;
+        if self.frames.is_some() {
+            self.frames = Some(Frames::new(self.spb, w, on));
+        }
+        for v in &mut self.variants {
+            v.set_sequence_decoder(on);
         }
     }
 
@@ -1611,6 +1898,7 @@ impl RttyDemodulator {
                 let mut v = RttyDemodulator::variant(self.params, kind);
                 v.offset_hz = self.offset_hz;
                 v.retune_all();
+                v.set_sequence_decoder(self.fuser.wait_bits > FUSE_WAIT_BITS);
                 self.variants.push(v);
             }
         }
@@ -1916,7 +2204,11 @@ impl RttyDemodulator {
             self.sum_n += 2.0 * nz;
             self.sum_count += 1;
             self.level_db = (20.0 * (m + sp).max(1e-6).log10()).max(-90.0);
-            self.pres = decayavg(self.pres, m.max(sp) / self.floor_ref.max(self.floor_now).max(1e-9), self.spb * 4.0);
+            let inst = m.max(sp) / self.floor_ref.max(self.floor_now).max(1e-9);
+            self.pres = decayavg(self.pres, inst, self.spb * 4.0);
+            if self.pres_ring.is_empty() && self.frames.as_ref().is_some_and(|f| f.seq.is_some()) {
+                self.pres_ring = vec![0.0; PRES_RING];
+            }
             if !self.pres_ring.is_empty() {
                 self.pres_ring[(self.dec_n % PRES_RING as u64) as usize] = self.pres;
             }
@@ -1955,9 +2247,14 @@ impl RttyDemodulator {
             }
             match &mut self.frames {
                 Some(f) => {
+                    f.inst = inst;
+                    let seqd = f.seq.is_some();
                     if let Some(fr) = f.push(l) {
                         self.lock_prob += 0.25 * (fr.prob() - self.lock_prob);
-                        let fr = Frame { pres: self.pres, ..fr };
+                        // con la sequenza il carattere esce tardi: la presenza si legge nell'istante in cui era finito
+                        let at = fr.t + 6.0 * f64::from(self.spb) + self.soft_len as f64 / 2.0 + 1.0;
+                        let pres = if seqd { self.pres_at(at) } else { self.pres };
+                        let fr = Frame { pres, ..fr };
                         found.push((fr.t - self.delay, fr));
                     }
                 }
@@ -2308,6 +2605,35 @@ mod tests {
                 (seed as f32 / u32::MAX as f32 - 0.5) * ampiezza
             })
             .collect()
+    }
+
+    /// La decodifica di sequenza (di base) legge stop di 1, 1,5 e 2 bit, e fra due trasmissioni separate da solo rumore non inventa
+    /// caratteri all'accensione della portante (il silenzio torna a mark, non direttamente a uno start).
+    #[test]
+    fn la_sequenza_legge_stop_diversi_e_non_inventa_all_accensione() {
+        let p = RttyParams::default();
+        for stop in [1.0, 1.5, 2.0] {
+            let mut a = modulate_stop(b"\r\nCQ TEST IU3ABC 599 001\r\n", p, 0.5, stop);
+            a.extend(vec![0.0; 12_000]);
+            let mut rx = RttyDemodulator::new(p);
+            let s: String = rx.process_chars(&a).iter().map(|c| c.ch).collect();
+            assert!(s.contains("CQ TEST IU3ABC 599 001"), "stop {stop}: {s:?}");
+        }
+        let mut a = Vec::new();
+        for k in 0..4u32 {
+            a.extend(rumore(36_000, 0.1, 5 + k));
+            let mut tx = modulate(b"\r\nTU IU3ABC 599\r\n", p, 0.5);
+            for (x, r) in tx.iter_mut().zip(rumore(36_000, 0.1, 50 + k)) {
+                *x += r;
+            }
+            a.extend(tx);
+        }
+        a.extend(rumore(24_000, 0.1, 99));
+        let mut rx = RttyDemodulator::new(p);
+        rx.set_squelch_prob(Some((SQUELCH_OPEN, SQUELCH_CLOSE)));
+        let s: String = rx.process_chars(&a).iter().map(|c| c.ch).collect();
+        let parole: Vec<&str> = s.split_whitespace().collect();
+        assert_eq!(parole, ["TU", "IU3ABC", "599"].repeat(4), "{s:?}");
     }
 
     #[test]

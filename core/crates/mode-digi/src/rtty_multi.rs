@@ -460,22 +460,27 @@ mod tests {
         }
     }
 
-    /// Una stazione fuori di 14 Hz dal centro del canale (fra due passi del banco e scivolata), debole: con la sintonia fine si leggono 10
-    /// nominativi su 12, senza 7.
+    /// Una stazione fuori di 14 Hz dal centro del canale (fra due passi del banco e scivolata), debole: con la sintonia fine si leggono
+    /// circa 9 nominativi su 12 (110-111 su 144 in dodici prove di rumore, con e senza la decodifica di sequenza), senza 85 su 144. Un solo
+    /// caso di rumore oscilla di uno o due nominativi fra un ricevitore e l'altro: si contano tutti e dodici.
     #[test]
     fn un_canale_fuori_centro_si_legge_con_la_sintonia_fine() {
         let p = RttyParams { centre_hz: 1014.0, shift_hz: 170.0, baud: 45.45, reverse: false };
-        let mut audio = modulate("CQ TEST IU3ABC IU3ABC TEST ".repeat(6).as_bytes(), p, 0.2);
-        let n = audio.len();
-        for (a, r) in audio.iter_mut().zip(rumore(n, 1.8, 11)) {
-            *a += r;
+        let mut tot = 0;
+        for seme in 11..23 {
+            let mut audio = modulate("CQ TEST IU3ABC IU3ABC TEST ".repeat(6).as_bytes(), p, 0.2);
+            let n = audio.len();
+            for (a, r) in audio.iter_mut().zip(rumore(n, 1.8, seme)) {
+                *a += r;
+            }
+            let mut rx = new_demod(1000.0, 170.0, 45.45, false);
+            let mut testo = String::new();
+            for blocco in audio.chunks(1200) {
+                testo.extend(rx.process_chars(blocco).iter().map(|c| c.ch));
+            }
+            tot += testo.matches("IU3ABC").count();
         }
-        let mut rx = new_demod(1000.0, 170.0, 45.45, false);
-        let mut testo = String::new();
-        for blocco in audio.chunks(1200) {
-            testo.extend(rx.process_chars(blocco).iter().map(|c| c.ch));
-        }
-        assert!(testo.matches("IU3ABC").count() >= 9, "{} {testo}", testo.matches("IU3ABC").count());
+        assert!(tot >= 100, "{tot}");
     }
 
     /// Una chiamata breve dopo il silenzio: il canale nasce a trasmissione gia' iniziata, ma rilegge l'audio passato e il nominativo c'e'

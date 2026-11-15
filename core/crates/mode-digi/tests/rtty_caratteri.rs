@@ -6,7 +6,7 @@
 //! `nice cargo test --release -p mode-digi -j 2 --test rtty_caratteri -- --ignored --nocapture --test-threads=1`
 //!
 //! Registrazione vera: `AURORA_RTTY_WAV` (mono, PCM 16 bit) con la trascrizione accanto (stesso nome, `.txt`) e `AURORA_RTTY_CENTRE`
-//! (Hz, di base 1500); senza, il caso si salta.
+//! (Hz, di base 1500); senza, il caso si salta. `AURORA_RTTY_SEME` cambia il seme, `AURORA_STAMPA` stampa testo atteso e letto.
 
 mod banco_rtty;
 
@@ -18,7 +18,11 @@ use std::path::Path;
 use std::time::Instant;
 
 const CENTRO: f64 = 1500.0;
-const SEME: u64 = 20261115;
+const SEME_BASE: u64 = 20261115;
+/// Il seme del testo e del rumore: `AURORA_RTTY_SEME` per ripetere il banco su altri casi.
+fn seme() -> u64 {
+    std::env::var("AURORA_RTTY_SEME").ok().and_then(|v| v.parse().ok()).unwrap_or(SEME_BASE)
+}
 /// Blocco d'audio passato ai ricevitori (10 ms): il ritardo si misura a questa grana.
 const BLOCCO: usize = 120;
 
@@ -107,6 +111,9 @@ fn genera(s: &Scenario, seme: u64) -> (Trama, Vec<f32>) {
             *a += b;
         }
     }
+    // un secondo di solo rumore in fondo: i ricevitori con piu' ritardo consegnano anche l'ultimo carattere, come farebbero sull'audio
+    // che continua
+    audio.extend(std::iter::repeat_n(0.0, RATE as usize));
     aggiungi_rumore(&mut audio, sigma_per_snr(s.snr_db, AMP), &mut r);
     (tr, audio)
 }
@@ -114,21 +121,24 @@ fn genera(s: &Scenario, seme: u64) -> (Trama, Vec<f32>) {
 #[test]
 #[ignore]
 fn banco_rtty_caratteri() {
-    println!("\nBanco RTTY a livello di carattere (seme {SEME}, S/N in 2,5 kHz, centro {CENTRO} Hz)");
+    println!("\nBanco RTTY a livello di carattere (seme {}, S/N in 2,5 kHz, centro {CENTRO} Hz)", seme());
     println!("{}", intestazione());
     for s in scenari() {
-        let (tr, audio) = genera(&s, SEME);
+        let (tr, audio) = genera(&s, seme());
         let (l1, c1) = passa_singolo(&audio, CENTRO);
         let mut m1 = misura(&tr.caratteri, &l1, &tr.silenzi, true);
         m1.cpu_ms_s = c1;
         println!("{}", riga(s.nome, "singolo", &m1));
+        if std::env::var_os("AURORA_STAMPA").is_some() {
+            println!("ATTESO {:?}\nLETTO  {:?}", tr.caratteri.iter().map(|c| c.0).collect::<String>(), l1.iter().map(|c| c.0).collect::<String>());
+        }
         let (l2, c2) = passa_multi(&audio, Some(CENTRO));
         let mut m2 = misura(&tr.caratteri, &l2, &tr.silenzi, true);
         m2.cpu_ms_s = c2;
         println!("{}", riga(s.nome, "multi", &m2));
     }
     // solo rumore, 60 s: tutto e' silenzio
-    let mut r = Rng::new(SEME);
+    let mut r = Rng::new(seme());
     let mut audio = vec![0f32; (60.0 * RATE) as usize];
     aggiungi_rumore(&mut audio, sigma_per_snr(0.0, AMP), &mut r);
     let silenzio = [(-1.0, 60.0)];
@@ -146,7 +156,7 @@ fn banco_rtty_caratteri() {
 #[test]
 #[ignore]
 fn banco_rtty_silenzi() {
-    println!("\nBanco RTTY: trasmissioni separate da 2-5 s di solo rumore (seme {SEME}, S/N in 2,5 kHz, centro {CENTRO} Hz)");
+    println!("\nBanco RTTY: trasmissioni separate da 2-5 s di solo rumore (seme {}, S/N in 2,5 kHz, centro {CENTRO} Hz)", seme());
     println!("{}", intestazione_silenzi());
     let varianti: [(&str, f64, Fading, bool); 6] = [
         ("pulito +3 dB", 3.0, Fading::Nessuno, false),
@@ -157,15 +167,19 @@ fn banco_rtty_silenzi() {
         ("crepitii -3 dB", -3.0, Fading::Nessuno, true),
     ];
     for (nome, snr, fading, impulsi) in varianti {
-        let mut r = Rng::new(SEME);
-        let tr = trama(&testo_contest_silenzi(SEME, 90.0, 2.0, 5.0));
+        let mut r = Rng::new(seme());
+        let tr = trama(&testo_contest_silenzi(seme(), 90.0, 2.0, 5.0));
         let mut audio = sintetizza(&tr, CENTRO, 0.0, AMP, fading, &mut r);
+        audio.extend(std::iter::repeat_n(0.0, RATE as usize));
         aggiungi_rumore(&mut audio, sigma_per_snr(snr, AMP), &mut r);
         if impulsi {
             aggiungi_impulsi(&mut audio, 2.0, 4.0 * AMP, &mut r);
         }
         let (l1, _) = passa_singolo(&audio, CENTRO);
         let cer1 = misura(&tr.caratteri, &l1, &[], false).cer();
+        if std::env::var_os("AURORA_STAMPA").is_some() {
+            println!("{nome}\nATTESO {:?}\nLETTO  {:?}", tr.caratteri.iter().map(|c| c.0).collect::<String>(), l1.iter().map(|c| c.0).collect::<String>());
+        }
         println!("{}", riga_silenzi(nome, "singolo", tr.passaggi.len(), cer1, &misura_silenzi(&tr, &l1)));
         let (l2, _) = passa_multi(&audio, Some(CENTRO));
         let cer2 = misura(&tr.caratteri, &l2, &[], false).cer();
