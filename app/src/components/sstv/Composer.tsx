@@ -492,7 +492,27 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
       </div>
 
       <div className="sstv-editor">
-        <aside className="sstv-panel sstv-panel--left">
+        {/* a sinistra, per primi, la foto di sfondo (o il livello scelto) e i livelli; l'anteprima accanto */}
+        <aside className="sstv-panel sstv-panel--photo">
+          {sel ? <LayerInspector layer={sel} patch={patchSel} /> : <BackgroundInspector background={comp.background} hasPhoto={bg !== null} patch={patchBg} onFolderPhoto={(b) => void takeFile(b)} onPick={() => fileInput.current?.click()} onRemove={() => setBg(null)} />}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void takeFile(f);
+              e.target.value = '';
+            }}
+          />
+          {sel ? (
+            <button type="button" className="glass sstv-btn sstv-wide" onClick={() => setSelected(null)}>
+              {t('sstv.bg.title')}
+            </button>
+          ) : null}
+        </aside>
+        <aside className="sstv-panel sstv-panel--layers">
           <h3>{t('sstv.layers')}</h3>
           <div className="sstv-add">
             <button type="button" className="glass sstv-btn" onClick={() => add(textLayer('{MYCALL}'))}>
@@ -598,7 +618,7 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
           <div
             ref={stage}
             className={`sstv-artboard${dropping ? ' sstv-artboard--drop' : ''}`}
-            style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(46vh / var(--ui-zoom, 1) * ${W} / ${H}))` }}
+            style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(38vh / var(--ui-zoom, 1) * ${W} / ${H}))` }}
             onDragOver={(e) => {
               if ([...e.dataTransfer.items].some((i) => i.kind === 'file')) {
                 e.preventDefault();
@@ -653,25 +673,6 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
           ) : null}
         </div>
 
-        <aside className="sstv-panel sstv-panel--right">
-          {sel ? <LayerInspector layer={sel} patch={patchSel} /> : <BackgroundInspector background={comp.background} hasPhoto={bg !== null} patch={patchBg} onFolderPhoto={(b) => void takeFile(b)} onPick={() => fileInput.current?.click()} onRemove={() => setBg(null)} />}
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void takeFile(f);
-              e.target.value = '';
-            }}
-          />
-          {sel ? (
-            <button type="button" className="glass sstv-btn sstv-wide" onClick={() => setSelected(null)}>
-              {t('sstv.bg.title')}
-            </button>
-          ) : null}
-        </aside>
       </div>
     </section>
   );
@@ -686,13 +687,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, show }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; show?: string }) {
+function Slider({ label, value, min, max, step, onChange, show, disabled }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; show?: string; disabled?: boolean }) {
   return (
     <label className="sstv-field sstv-slider">
-      <span>
-        {label} <b>{show ?? value}</b>
-      </span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <span>{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
+      <b>{show ?? value}</b>
     </label>
   );
 }
@@ -924,33 +924,30 @@ function BackgroundInspector({ background, hasPhoto, patch, onPick, onRemove, on
       </button>
       <TxFolderPhotos onPhoto={onFolderPhoto} />
       <p className="sstv-hint">{t('sstv.bg.drop')}</p>
-      {hasPhoto ? (
-        <>
-          <div className="sstv-seg" role="group" aria-label={t('sstv.bg.fit')}>
-            <button type="button" className={background.fit === 'cover' ? 'on' : ''} onClick={() => patch({ fit: 'cover' }, 'fit')}>
-              {t('sstv.bg.cover')}
-            </button>
-            <button type="button" className={background.fit === 'contain' ? 'on' : ''} onClick={() => patch({ fit: 'contain' }, 'fit')}>
-              {t('sstv.bg.contain')}
-            </button>
-          </div>
-          <Slider label={t('sstv.bg.zoom')} value={Math.round(background.zoom * 100)} min={100} max={600} step={5} show={`${Math.round(background.zoom * 100)} %`} onChange={(v) => patch({ zoom: v / 100 }, 'zoom')} />
-          <Slider label={t('sstv.bg.panX')} value={Math.round(background.panX * 100)} min={-100} max={100} step={1} onChange={(v) => patch({ panX: v / 100 }, 'panX')} />
-          <Slider label={t('sstv.bg.panY')} value={Math.round(background.panY * 100)} min={-100} max={100} step={1} onChange={(v) => patch({ panY: v / 100 }, 'panY')} />
-          <p className="sstv-hint">{t('sstv.bg.panHint')}</p>
-          <Slider label={t('sstv.bg.brightness')} value={a.brightness} min={-100} max={100} step={1} onChange={(v) => patch({ adjust: { ...a, brightness: v } }, 'brightness')} />
-          <Slider label={t('sstv.bg.contrast')} value={a.contrast} min={-100} max={100} step={1} onChange={(v) => patch({ adjust: { ...a, contrast: v } }, 'contrast')} />
-          <Slider label={t('sstv.bg.saturation')} value={a.saturation} min={-100} max={100} step={1} onChange={(v) => patch({ adjust: { ...a, saturation: v } }, 'saturation')} />
-          <div className="sstv-add">
-            <button type="button" className="glass sstv-btn" onClick={() => patch({ adjust: { ...NEUTRAL_ADJUST } }, 'reset')}>
-              {t('sstv.bg.reset')}
-            </button>
-            <button type="button" className="glass sstv-btn sstv-btn--danger" onClick={onRemove}>
-              {t('sstv.bg.remove')}
-            </button>
-          </div>
-        </>
-      ) : null}
+      {/* i comandi della foto sono sempre aperti (spenti finche' non c'e' una foto): tutto in vista, sempre allo stesso posto */}
+      <div className="sstv-seg" role="group" aria-label={t('sstv.bg.fit')}>
+        <button type="button" disabled={!hasPhoto} className={background.fit === 'cover' ? 'on' : ''} onClick={() => patch({ fit: 'cover' }, 'fit')}>
+          {t('sstv.bg.cover')}
+        </button>
+        <button type="button" disabled={!hasPhoto} className={background.fit === 'contain' ? 'on' : ''} onClick={() => patch({ fit: 'contain' }, 'fit')}>
+          {t('sstv.bg.contain')}
+        </button>
+      </div>
+      <Slider label={t('sstv.bg.zoom')} value={Math.round(background.zoom * 100)} min={100} max={600} step={5} show={`${Math.round(background.zoom * 100)} %`} disabled={!hasPhoto} onChange={(v) => patch({ zoom: v / 100 }, 'zoom')} />
+      <Slider label={t('sstv.bg.panX')} value={Math.round(background.panX * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panX: v / 100 }, 'panX')} />
+      <Slider label={t('sstv.bg.panY')} value={Math.round(background.panY * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panY: v / 100 }, 'panY')} />
+      <p className="sstv-hint">{t('sstv.bg.panHint')}</p>
+      <Slider label={t('sstv.bg.brightness')} value={a.brightness} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, brightness: v } }, 'brightness')} />
+      <Slider label={t('sstv.bg.contrast')} value={a.contrast} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, contrast: v } }, 'contrast')} />
+      <Slider label={t('sstv.bg.saturation')} value={a.saturation} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ adjust: { ...a, saturation: v } }, 'saturation')} />
+      <div className="sstv-add">
+        <button type="button" className="glass sstv-btn" disabled={!hasPhoto} onClick={() => patch({ adjust: { ...NEUTRAL_ADJUST } }, 'reset')}>
+          {t('sstv.bg.reset')}
+        </button>
+        <button type="button" className="glass sstv-btn sstv-btn--danger" disabled={!hasPhoto} onClick={onRemove}>
+          {t('sstv.bg.remove')}
+        </button>
+      </div>
       <ColorField label={t('sstv.bg.color')} value={background.color} onChange={(color) => patch({ color }, 'color')} />
     </div>
   );
