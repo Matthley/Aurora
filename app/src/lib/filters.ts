@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { putBandFilters } from '../api/client';
+import { REMOTE_HOST } from './phone';
 import type { DecodedMessage } from '../api/schemas';
 import { browserStorage } from './theme';
 
@@ -246,12 +247,12 @@ export const useFilters = create<FiltersState>((set, get) => ({
     const next = { ...get().filters, ...change };
     saveFilters(browserStorage(), next);
     set({ filters: next });
-    // anche le Automazioni seguono i filtri di Attivita' di banda
-    void putBandFilters(next);
+    // anche le Automazioni seguono i filtri di Attivita' di banda; un client remoto (telefono, portatile in rete) non riscrive quelli del PC
+    if (!REMOTE_HOST) void putBandFilters(next);
   },
   reset() {
     saveFilters(browserStorage(), defaultFilters());
     set({ filters: defaultFilters() });
-    void putBandFilters(defaultFilters());
+    if (!REMOTE_HOST) void putBandFilters(defaultFilters());
   },
 }));

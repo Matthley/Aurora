@@ -35,10 +35,15 @@ export const TABLET_QUERY = '(min-width: 768px) and (max-width: 1366px) and (ori
 const COARSE_QUERY = '(pointer: coarse)';
 
 /** Telefono, tablet o un altro PC sulla rete: la pagina non e' aperta dal PC dove gira Aurora (ne' dalla sua finestra). */
-export const REMOTE_HOST =
-  typeof window !== 'undefined' &&
-  !('__TAURI_INTERNALS__' in window) &&
-  !['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+export const REMOTE_HOST = typeof window !== 'undefined' && isRemoteHost(window);
+
+/**
+ * Il PC principale si riconosce da com'e' collegato, non dalla larghezza: la finestra del programma (Tauri) o un browser sul PC stesso
+ * (`127.0.0.1`, `localhost`). Tutto il resto (telefono, tablet, un portatile in rete) e' un client remoto.
+ */
+export function isRemoteHost(win: { location: { hostname: string } }): boolean {
+  return !('__TAURI_INTERNALS__' in win) && !['localhost', '127.0.0.1', '[::1]', '::1'].includes(win.location.hostname);
+}
 
 export type StationView = 'phone' | 'tablet' | 'desktop';
 

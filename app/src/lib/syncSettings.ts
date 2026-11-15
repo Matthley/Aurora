@@ -1,8 +1,8 @@
 /**
  * Le preferenze dell'interfaccia (chiavi `aurora-...` del browser) vengono copiate anche sul server di Aurora:
- * cosi' non si perdono cambiando indirizzo (127.0.0.1 o l'IP del PC), browser o dispositivo, ne' al riavvio.
- * Il telefono ha solo la sua disposizione (riquadri, pagina, indirizzi); tutto il resto (bande, macro, filtri, colori,
- * lingua, tema...) lo prende dalle impostazioni di Aurora sul PC, cosi' rispetta le stesse scelte.
+ * cosi' non si perdono cambiando browser ne' al riavvio. Le scrive solo chi le cambia davvero (dopo un clic o un tasto) e solo le voci
+ * cambiate. Il PC principale (finestra del programma o browser su 127.0.0.1) tiene le impostazioni `desktop`; un client remoto
+ * (telefono, tablet, portatile in rete) legge quelle del PC ma salva solo la sua disposizione, nelle `mobile`: non riscrive mai il PC.
  */
 
 /** Le preferenze dell'interfaccia: `aurora-...` e `aurora....` (le disposizioni delle finestre: colonne, larghezze, altezze). */
@@ -13,8 +13,9 @@ const LOAD_TIMEOUT_MS = 1500;
 
 export type DeviceKind = 'desktop' | 'mobile';
 
-export function deviceKind(width: number): DeviceKind {
-  return width < 768 ? 'mobile' : 'desktop';
+/** Il tipo si decide da come e' collegata la pagina, non dalla larghezza: il PC principale e' `desktop`, ogni client remoto `mobile`. */
+export function deviceKind(remote: boolean): DeviceKind {
+  return remote ? 'mobile' : 'desktop';
 }
 
 type Store = Pick<Storage, 'getItem' | 'setItem' | 'key' | 'length'>;
@@ -54,30 +55,9 @@ async function put(kind: DeviceKind, entries: Record<string, string>, doFetch: F
   });
 }
 
-async function push(kind: DeviceKind, storage: Store, doFetch: Fetch): Promise<void> {
-  try {
-    await put(kind, collect(storage), doFetch);
-  } catch {
-    // il server non risponde: le preferenze restano nel browser e si riprova al prossimo cambio
-  }
-}
-
-/** Una scelta condivisa cambiata dal telefono vale anche per Aurora: si fonde con quelle del PC senza toccarne la disposizione. */
-async function pushShared(storage: Store, doFetch: Fetch): Promise<void> {
-  try {
-    const desktop = await fetchKind('desktop', doFetch);
-    if (desktop === null) return;
-    const merged: Record<string, string> = Object.fromEntries(desktop);
-    for (const [key, value] of Object.entries(collect(storage))) if (!isPhoneOwn(key)) merged[key] = value;
-    await put('desktop', merged, doFetch);
-  } catch {
-    // il server non risponde: le preferenze restano nel browser e si riprova al prossimo cambio
-  }
-}
-
 /**
  * Da chiamare prima di disegnare l'interfaccia: se il server ha le preferenze le porta nel browser
- * (il server vince); se non ne ha ancora, ci manda quelle del browser. Non blocca oltre il tempo massimo.
+ * (il server vince); se non ne ha ancora, il PC principale ci manda quelle del browser (un client remoto no). Non blocca oltre il tempo massimo.
  */
 export async function hydrate(storage: Store, kind: DeviceKind, doFetch: Fetch = fetch): Promise<void> {
   try {
@@ -91,7 +71,7 @@ export async function hydrate(storage: Store, kind: DeviceKind, doFetch: Fetch =
       }
     }
     if (entries.length === 0) {
-      if (Object.keys(collect(storage)).length > 0) await push(kind, storage, doFetch);
+      if (kind === 'desktop' && Object.keys(collect(storage)).length > 0) await put(kind, collect(storage), doFetch);
       return;
     }
     for (const [key, value] of entries) storage.setItem(key, value);
@@ -100,33 +80,77 @@ export async function hydrate(storage: Store, kind: DeviceKind, doFetch: Fetch =
   }
 }
 
-/** Dopo ogni modifica di una preferenza la manda al server, senza martellarlo a ogni tasto. */
-export function keepSynced(kind: DeviceKind, doFetch: Fetch = fetch): void {
-  let storage: Storage;
-  try {
-    storage = window.localStorage;
-  } catch {
-    return;
+/** Le voci cambiate fuse con quelle che il server tiene gia' (il server sostituisce tutto il tipo a ogni PUT). */
+async function putChanges(kind: DeviceKind, changes: Map<string, string | null>, doFetch: Fetch): Promise<boolean> {
+  const current = await fetchKind(kind, doFetch);
+  if (current === null) return false;
+  const merged: Record<string, string> = Object.fromEntries(current);
+  for (const [key, value] of changes) {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
   }
+  await put(kind, merged, doFetch);
+  return true;
+}
+
+export type SyncOptions = { storage?: Storage; target?: EventTarget };
+
+/**
+ * Dopo ogni modifica di una preferenza manda al server solo le voci cambiate, senza martellarlo a ogni tasto. Si arma al primo gesto
+ * dell'utente (clic o tasto): quello che l'interfaccia scrive da sola all'apertura non parte. Un client remoto salva solo la sua
+ * disposizione. Restituisce la funzione che smette di seguire i cambi.
+ */
+export function keepSynced(kind: DeviceKind, doFetch: Fetch = fetch, options: SyncOptions = {}): () => void {
+  let storage: Storage;
+  let target: EventTarget;
+  try {
+    storage = options.storage ?? window.localStorage;
+    target = options.target ?? window;
+  } catch {
+    return () => undefined;
+  }
+  let armed = false;
+  const arm = () => {
+    armed = true;
+    target.removeEventListener('pointerdown', arm, true);
+    target.removeEventListener('keydown', arm, true);
+  };
+  target.addEventListener('pointerdown', arm, true);
+  target.addEventListener('keydown', arm, true);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let shared = false;
-  const schedule = (key: string) => {
-    if (!isAuroraKey(key)) return;
-    if (kind === 'mobile' && !isPhoneOwn(key)) shared = true;
+  const changes = new Map<string, string | null>();
+  const flush = () => {
+    const batch = new Map(changes);
+    changes.clear();
+    void putChanges(kind, batch, doFetch)
+      .then((ok) => {
+        // il server non risponde: le voci si rimandano al prossimo cambio (senza scavalcare quelle nel frattempo piu' nuove)
+        if (!ok) for (const [k, v] of batch) if (!changes.has(k)) changes.set(k, v);
+      })
+      .catch(() => {
+        for (const [k, v] of batch) if (!changes.has(k)) changes.set(k, v);
+      });
+  };
+  const schedule = (key: string, value: string | null) => {
+    if (!armed || !isAuroraKey(key)) return;
+    if (kind === 'mobile' && !isPhoneOwn(key)) return;
+    changes.set(key, value);
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      void push(kind, storage, doFetch);
-      if (shared) void pushShared(storage, doFetch);
-      shared = false;
-    }, SAVE_DELAY_MS);
+    timer = setTimeout(flush, SAVE_DELAY_MS);
   };
   const { setItem, removeItem } = Storage.prototype;
   Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
     setItem.call(this, key, value);
-    if (this === storage) schedule(key);
+    if (this === storage) schedule(key, String(value));
   };
   Storage.prototype.removeItem = function (this: Storage, key: string) {
     removeItem.call(this, key);
-    if (this === storage) schedule(key);
+    if (this === storage) schedule(key, null);
+  };
+  return () => {
+    clearTimeout(timer);
+    arm();
+    Storage.prototype.setItem = setItem;
+    Storage.prototype.removeItem = removeItem;
   };
 }

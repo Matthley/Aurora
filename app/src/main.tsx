@@ -24,8 +24,8 @@ import { readScale, startUiScale, useUiScale } from './lib/uiScale';
 import { applyAppearance, readAppearance, startAppearance } from './lib/appearance';
 import { applyTheme, browserStorage, readThemeChoice, resolveTheme } from './lib/theme';
 import { deviceKind, hydrate, keepSynced } from './lib/syncSettings';
+import { REMOTE_HOST } from './lib/phone';
 import { readFilters, useFilters } from './lib/filters';
-import { putBandFilters } from './api/client';
 
 // stile dei pulsanti e dei riquadri di tutta l'app (styles/bozze.css)
 document.documentElement.dataset.bozza = 'a';
@@ -55,7 +55,8 @@ const root = document.getElementById('root');
 
 // le preferenze si portano dal server prima di disegnare (i moduli le leggono all'avvio) e poi si tengono allineate
 async function start() {
-  const kind = deviceKind(window.innerWidth);
+  // il PC principale si riconosce da com'e' collegato (finestra del programma o 127.0.0.1), non dalla larghezza
+  const kind = deviceKind(REMOTE_HOST);
   try {
     await hydrate(window.localStorage, kind);
     // prova locale nel browser: prende la configurazione del PC ma non la riscrive (le prove non toccano l'Aurora installata)
@@ -77,11 +78,11 @@ async function start() {
   } catch {
     // senza archivio del browser resta la lingua predefinita
   }
-  // i filtri di Attivita' di banda portati dal server: l'elenco li usa subito e le Automazioni li ricevono (non rispondono a chi nascondono)
+  // i filtri di Attivita' di banda portati dal server: l'elenco li usa subito. Al core si mandano solo quando cambiano davvero
+  // (lib/filters.ts): all'apertura non si scrive niente, il core li ha gia' dalle impostazioni del PC
   try {
     const filters = readFilters(window.localStorage);
     useFilters.setState({ filters });
-    void putBandFilters(filters);
   } catch {
     // senza archivio del browser restano i filtri predefiniti
   }
