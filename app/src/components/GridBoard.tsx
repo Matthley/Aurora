@@ -54,6 +54,53 @@ export function freeCell(cells: Record<string, Cell>): Cell {
   return { x: 0, y: bottom, w: 6, h: 12 };
 }
 
+/** Un gruppo di blocchi che si scambia come uno solo (per esempio RX sopra il Log): gli id e il riquadro che li contiene tutti. */
+export interface SwapUnit {
+  ids: string[];
+  cell: Cell;
+}
+
+/** Il blocco `id` con quelli legati a lui (`linked`), come un'unica unita' da scambiare. */
+export function swapUnit(cells: Record<string, Cell>, id: string, linked: Record<string, string> = {}): SwapUnit | null {
+  const ids = [id, linked[id]].filter((k): k is string => k !== undefined && cells[k] !== undefined);
+  if (!cells[id]) return null;
+  const parts = ids.map((k) => cells[k]!);
+  const x = Math.min(...parts.map((c) => c.x));
+  const y = Math.min(...parts.map((c) => c.y));
+  const w = Math.max(...parts.map((c) => c.x + c.w)) - x;
+  const h = Math.max(...parts.map((c) => c.y + c.h)) - y;
+  return { ids, cell: { x, y, w, h } };
+}
+
+/** Le unita' della stessa fascia di `id` (stessa altezza e stessa riga), da sinistra a destra: quelle con cui puo' scambiarsi. */
+export function swapBand(cells: Record<string, Cell>, id: string, linked: Record<string, string> = {}): SwapUnit[] {
+  const own = swapUnit(cells, id, linked);
+  if (!own) return [];
+  const seen = new Set<string>();
+  const units: SwapUnit[] = [];
+  for (const k of Object.keys(cells)) {
+    if (seen.has(k)) continue;
+    const u = swapUnit(cells, k, linked);
+    if (!u) continue;
+    u.ids.forEach((m) => seen.add(m));
+    units.push(u);
+  }
+  return units.filter((u) => Math.abs(u.cell.y - own.cell.y) < 0.01 && Math.abs(u.cell.h - own.cell.h) < 0.01).sort((a, b) => a.cell.x - b.cell.x);
+}
+
+/** Scambia di posto due unita' vicine: le misure restano, ogni blocco di un'unita' si sposta insieme agli altri. */
+export function swapCells(cells: Record<string, Cell>, a: SwapUnit, b: SwapUnit): Record<string, Cell> {
+  const minX = Math.min(a.cell.x, b.cell.x);
+  const maxEnd = Math.max(a.cell.x + a.cell.w, b.cell.x + b.cell.w);
+  const [ax, bx] = a.cell.x < b.cell.x ? [maxEnd - a.cell.w, minX] : [minX, maxEnd - b.cell.w];
+  const next = { ...cells };
+  for (const [u, to] of [[a, ax], [b, bx]] as const) {
+    const dx = to - u.cell.x;
+    for (const k of u.ids) next[k] = { ...cells[k]!, x: cells[k]!.x + dx };
+  }
+  return next;
+}
+
 interface Props {
   cells: Record<string, Cell>;
   onChange(cells: Record<string, Cell>): void;
@@ -65,13 +112,15 @@ interface Props {
   free?: boolean;
   /** Con la pagina bloccata: la barretta si trascina solo a destra e a sinistra e scambia di posto il blocco con il vicino della stessa altezza. */
   swap?: boolean;
+  /** Blocchi legati che nello scambio si muovono insieme (in tutte e due le direzioni, per esempio `{ rx: 'log', log: 'rx' }`). */
+  linked?: Record<string, string>;
 }
 
 /**
  * Dashboard a blocchi (secondo schermo): ogni blocco si trascina dalla sua barretta e si ridimensiona dall'angolo in basso a destra;
  * i blocchi si agganciano alla griglia e gli altri si spostano per fargli posto.
  */
-export function GridBoard({ cells, onChange, render, locked = false, free = false, swap = false }: Props) {
+export function GridBoard({ cells, onChange, render, locked = false, free = false, swap = false, linked }: Props) {
   const box = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(1000);
   const [height, setHeight] = useState(700);
@@ -79,7 +128,7 @@ export function GridBoard({ cells, onChange, render, locked = false, free = fals
   /** Le linee guida mostrate mentre si trascina: dove il bordo si e' agganciato a un'altra finestra o al bordo della pagina. */
   const [guides, setGuides] = useState<Array<{ axis: 'x' | 'y'; at: number }>>([]);
   /** Lo scambio a destra e a sinistra: il blocco che si sta trascinando segue il mouse (in px). */
-  const [swapDrag, setSwapDrag] = useState<{ id: string; dx: number } | null>(null);
+  const [swapDrag, setSwapDrag] = useState<{ ids: string[]; dx: number } | null>(null);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -192,37 +241,28 @@ export function GridBoard({ cells, onChange, render, locked = false, free = fals
   const trackSwap = (id: string) => (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const from = cells[id];
+    const own = swapUnit(cells, id, linked);
     const rect = box.current?.getBoundingClientRect();
-    if (!from || !rect) return;
+    if (!own || !rect) return;
     const startX = e.clientX;
-    const band = Object.entries(cells)
-      .filter(([, c]) => Math.abs(c.y - from.y) < 0.01 && Math.abs(c.h - from.h) < 0.01)
-      .sort(([, a], [, b]) => a.x - b.x);
-    const index = band.findIndex(([k]) => k === id);
-    const swapped = (otherId: string): Record<string, Cell> => {
-      const a = cells[id]!;
-      const b = cells[otherId]!;
-      const minX = Math.min(a.x, b.x);
-      const maxEnd = Math.max(a.x + a.w, b.x + b.w);
-      const aLeft = a.x < b.x;
-      return aLeft ? { ...cells, [otherId]: { ...b, x: minX }, [id]: { ...a, x: maxEnd - a.w } } : { ...cells, [id]: { ...a, x: minX }, [otherId]: { ...b, x: maxEnd - b.w } };
-    };
-    let target: string | null = null;
-    const pick = (ev: PointerEvent) => {
+    const band = swapBand(cells, id, linked);
+    const index = band.findIndex((u) => u.ids.includes(id));
+    const swapped = (other: SwapUnit): Record<string, Cell> => swapCells(cells, own, other);
+    let target: SwapUnit | null = null;
+    const pick = (ev: PointerEvent): SwapUnit | null => {
       const gx = (ev.clientX - rect.left - GAP) / (colW + GAP);
       const right = band[index + 1];
       const left = band[index - 1];
-      if (right && gx > right[1].x + right[1].w * 0.3) return right[0];
-      if (left && gx < left[1].x + left[1].w * 0.7) return left[0];
+      if (right && gx > right.cell.x + right.cell.w * 0.3) return right;
+      if (left && gx < left.cell.x + left.cell.w * 0.7) return left;
       return null;
     };
     const move = (ev: PointerEvent) => {
       target = pick(ev);
       const preview = target ? swapped(target) : null;
       setLive(preview);
-      const shiftX = preview ? (preview[id]!.x - from.x) * (colW + GAP) : 0;
-      setSwapDrag({ id, dx: ev.clientX - startX - shiftX });
+      const shiftX = preview ? (preview[id]!.x - cells[id]!.x) * (colW + GAP) : 0;
+      setSwapDrag({ ids: own.ids, dx: ev.clientX - startX - shiftX });
     };
     const stop = () => {
       window.removeEventListener('pointermove', move);
@@ -307,7 +347,7 @@ export function GridBoard({ cells, onChange, render, locked = false, free = fals
 
   // il contenuto di ogni blocco si ridisegna solo quando cambia qualcosa di vero (dati, misure salvate): non a ogni fotogramma del trascinamento
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const nodes = useMemo(() => Object.fromEntries(Object.keys(cells).map((id) => [id, render(id, { onPointerDown: locked ? (swap ? trackSwap(id) : () => undefined) : track(id, 'move') })])), [cells, render, locked, free, swap, colW, ROW, onChange]);
+  const nodes = useMemo(() => Object.fromEntries(Object.keys(cells).map((id) => [id, render(id, { onPointerDown: locked ? (swap ? trackSwap(id) : () => undefined) : track(id, 'move') })])), [cells, render, locked, free, swap, linked, colW, ROW, onChange]);
   const bottom = Object.values(shown).reduce((m, c) => Math.max(m, c.y + c.h), 0);
   return (
     <div ref={box} className={`grid-board${live ? ' grid-board--moving' : ''}`} style={{ height: Math.floor(bottom * (ROW + GAP) + GAP) }}>
@@ -323,7 +363,7 @@ export function GridBoard({ cells, onChange, render, locked = false, free = fals
         <div
           key={id}
           className="grid-block"
-          style={{ left: GAP + c.x * (colW + GAP), top: GAP + c.y * (ROW + GAP), width: c.w * (colW + GAP) - GAP, height: c.h * (ROW + GAP) - GAP, ...(swapDrag?.id === id ? { transform: `translateX(${swapDrag.dx}px)`, zIndex: 40, transition: 'none' } : null) }}
+          style={{ left: GAP + c.x * (colW + GAP), top: GAP + c.y * (ROW + GAP), width: c.w * (colW + GAP) - GAP, height: c.h * (ROW + GAP) - GAP, ...(swapDrag?.ids.includes(id) ? { transform: `translateX(${swapDrag.dx}px)`, zIndex: 40, transition: 'none' } : null) }}
         >
           {nodes[id] ?? render(id, { onPointerDown: locked ? () => undefined : track(id, 'move') })}
           {locked ? null : <div className="grid-resize" onPointerDown={track(id, 'size')} aria-hidden="true" />}

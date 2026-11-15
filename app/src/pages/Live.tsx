@@ -652,13 +652,14 @@ export function Live({ soloPanel }: { soloPanel?: PanelId } = {}) {
             locked={!EDIT_LAYOUT && !awayKey}
             swap
             free
+            linked={RX_WITH_LOG}
             onChange={(raw) => {
               const next = withoutRx(raw);
               return awayKey && !EDIT_LAYOUT ? saveAwayCells(next) : useBoard.getState().set({ ...boardCells, ...next });
             }}
             render={(id, grip) => id === 'rx' ? (
               <section className="dock-panel dock-panel--rx grid-panel" data-panel="rx">
-                <header className="dock-grip dock-grip--fixed">
+                <header className={`dock-grip${EDIT_LAYOUT ? '' : ' dock-grip--swap'}`} onPointerDown={grip.onPointerDown}>
                   <span className="dock-grip-dots" aria-hidden="true" />
                   <h2>{t('rxw.title')}</h2>
                   <span className="log-rx-freq" title={t('rxw.tip')}>{rxHz !== null ? `${rxHz} Hz ±${rxWindowHz(status?.mode)}` : ''}</span>
@@ -685,6 +686,9 @@ export function Live({ soloPanel }: { soloPanel?: PanelId } = {}) {
     </div>
   );
 }
+
+/** RX sta sopra il Log e ne divide il posto: nello scambio a destra e a sinistra si muovono insieme, da tutte e due le barrette. */
+const RX_WITH_LOG: Record<string, string> = { rx: 'log', log: 'rx' };
 
 /** Le disposizioni della Stazione con schede staccate, una per ogni insieme (chiave: gli id staccati in ordine, separati da virgola). */
 const AWAY_KEY = 'aurora-board-staccate';
