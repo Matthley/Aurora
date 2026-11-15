@@ -333,6 +333,8 @@ pub struct TxDriver<P: TxPort + ?Sized> {
     hound_auto_for: Option<String>,
     /// I nominativi sentiti trasmettere come Fox di WSJT-X (`features::fox_sender`).
     foxes: Vec<String>,
+    /// I nominativi che una riga ha dimostrato non essere Fox (`features::not_fox_calls`): non tornano Fox a una riga DXpedition successiva.
+    not_foxes: VecDeque<String>,
     /// Il modo Fox di WSJT-X (interruttore «fox»): coda dei Hound e trasmissione a piu' posti.
     fox: crate::fox::Fox,
     fox_logged: u64,
@@ -388,7 +390,7 @@ impl<P: TxPort + ?Sized> TxDriver<P> {
         let auto_tx = controls.switch_on("auto_tx");
         let rrr_user = opts.use_rrr;
         let rx_published = controls.rx_df.load(Ordering::Relaxed);
-        let mut driver = TxDriver { tx_qsy_allowed: controls.sequence().is_none_or(|s| s.tx_qsy_allowed), seq, opts, port, controls, recent: VecDeque::new(), queue: VecDeque::new(), queue_gate: None, my_call: call.to_string(), rrr_user, logged: Vec::new(), cur_band: String::new(), free_text: None, prepared: None, hashes: CallHashes::default(), mode, last_planned: None, auto_tx, cq_by_user: false, notes: Vec::new(), rx_published, free_tx: None, heard: VecDeque::new(), free_for: None, free_moved_at: 0, clear_dx_due: None, hound_r_count: 0, hound_calling_hz: None, last_dial_hz: 0, on_air_tx: None, swap_on_air: false, wait_call_until: None, exchanges: VecDeque::new(), hound_manual: None, hound_auto_for: None, foxes: Vec::new(), fox: crate::fox::Fox::new(call, grid), fox_logged: 0, fox_last_tx: Vec::new(), fox_log: VecDeque::new(), fox_guard: None, contest_limits: None, contest_warned: None };
+        let mut driver = TxDriver { tx_qsy_allowed: controls.sequence().is_none_or(|s| s.tx_qsy_allowed), seq, opts, port, controls, recent: VecDeque::new(), queue: VecDeque::new(), queue_gate: None, my_call: call.to_string(), rrr_user, logged: Vec::new(), cur_band: String::new(), free_text: None, prepared: None, hashes: CallHashes::default(), mode, last_planned: None, auto_tx, cq_by_user: false, notes: Vec::new(), rx_published, free_tx: None, heard: VecDeque::new(), free_for: None, free_moved_at: 0, clear_dx_due: None, hound_r_count: 0, hound_calling_hz: None, last_dial_hz: 0, on_air_tx: None, swap_on_air: false, wait_call_until: None, exchanges: VecDeque::new(), hound_manual: None, hound_auto_for: None, foxes: Vec::new(), not_foxes: VecDeque::new(), fox: crate::fox::Fox::new(call, grid), fox_logged: 0, fox_last_tx: Vec::new(), fox_log: VecDeque::new(), fox_guard: None, contest_limits: None, contest_warned: None };
         driver.seq.set_rx_freq(rx_published);
         if let Some(setup) = driver.controls.contest() {
             driver.seq.set_contest(Some(contest_seq(&setup)));
@@ -1441,14 +1443,19 @@ impl<P: TxPort + ?Sized> TxDriver<P> {
             }
         }
         // chi manda R+rapporto o RRR fa la parte di chi chiama: non e' una Fox (come l'etichetta FOX della pagina)
-        for (text, _, _) in decoded {
-            let w: Vec<&str> = text.split_whitespace().collect();
-            let hound_like = w.len() == 3 && w[0] != "CQ" && (w[2] == "RRR" || (w[2].len() == 4 && w[2].starts_with('R') && w[2][1..].parse::<i32>().is_ok()));
-            if hound_like {
-                let call = w[1].trim_matches(|c| c == '<' || c == '>');
-                self.foxes.retain(|f| !f.eq_ignore_ascii_case(call));
+        // e chi trasmette sopra i 1000 Hz o e' chiamato da sotto i 1000 Hz (MSHV multi-stream in modo normale, issue #68)
+        for (text, _, hz) in decoded {
+            for call in crate::features::not_fox_calls(text, *hz) {
+                if !self.not_foxes.iter().any(|x| x.eq_ignore_ascii_case(&call)) {
+                    self.not_foxes.push_back(call);
+                    if self.not_foxes.len() > 200 {
+                        self.not_foxes.pop_front();
+                    }
+                }
             }
         }
+        let not_foxes = &self.not_foxes;
+        self.foxes.retain(|f| !not_foxes.iter().any(|x| x.eq_ignore_ascii_case(f)));
         let dx = self.seq.dx().map(str::to_string);
         if self.hound_manual.as_deref().is_some_and(|m| Some(m) != dx.as_deref()) {
             self.hound_manual = None;

@@ -271,6 +271,32 @@ pub fn fox_sender(text: &str) -> Option<String> {
     (!fox.is_empty() && fox != "...").then(|| fox.to_string())
 }
 
+/// I nominativi che una riga ricevuta a `hz` Hz dimostra non essere una Fox (issue #68: MSHV in modo normale con piu' flussi manda anche lui
+/// righe DXpedition `A RR73; B <DX> -nn`, quindi il formato da solo non basta):
+/// - chi manda R+rapporto o RRR fa la parte di chi chiama;
+/// - chi trasmette sopra i 1000 Hz: una Fox di WSJT-X trasmette sotto, i Hound sopra;
+/// - chi e' chiamato da una stazione sotto i 1000 Hz: in Fox/Hound i Hound chiamano solo fra 1000 e 3000 Hz.
+pub fn not_fox_calls(text: &str, hz: u32) -> Vec<String> {
+    let clean = |c: &str| c.trim_matches(|x| x == '<' || x == '>').to_string();
+    let w: Vec<&str> = text.split_whitespace().collect();
+    let mut out = Vec::new();
+    if w.len() == 3 && w[0] != "CQ" && (w[2] == "RRR" || (w[2].len() == 4 && w[2].starts_with('R') && w[2][1..].parse::<i32>().is_ok())) {
+        out.push(clean(w[1]));
+    }
+    if hz >= HOUND_MIN_TX_HZ {
+        let sender = fox_sender(text).or_else(|| match w.as_slice() {
+            ["CQ", a, b, ..] if a.len() <= 4 && !a.chars().any(|c| c.is_ascii_digit()) => Some(clean(b)),
+            ["CQ", a, ..] => Some(clean(a)),
+            [_, b, ..] => Some(clean(b)),
+            _ => None,
+        });
+        out.extend(sender);
+    } else if (2..=3).contains(&w.len()) && w[0] != "CQ" && !text.contains(';') {
+        out.push(clean(w[0]));
+    }
+    out
+}
+
 /// L'intervallo di chiamata dei Hound (`[1000, 2999)` Hz come WSJT-X).
 pub const HOUND_MIN_TX_HZ: u32 = 1000;
 pub const HOUND_MAX_TX_HZ: u32 = 2999;
@@ -339,6 +365,12 @@ mod tests {
         assert_eq!(fox_sender("IU3WJQ V26JJ R+03"), None);
         assert_eq!(fox_sender("R2PA V26JJ RR73"), None);
         assert_eq!(fox_sender("CQ V26JJ FK97"), None);
+        // issue #68: MSHV multi-stream in modo normale (3X4U) non e' una Fox, una Fox di WSJT-X si'
+        let mshv = [("SP2MWZ 3X4U -12", 517), ("G3SBP 3X4U +06", 577), ("K1ABC RR73; W9XYZ <3X4U> -08", 637), ("3X4U OH5BM KP41", 640)];
+        assert!(mshv.iter().any(|(t, hz)| not_fox_calls(t, *hz).iter().any(|c| c == "3X4U")));
+        assert!(not_fox_calls("SP2MWZ 3X4U -12", 1517).iter().any(|c| c == "3X4U"));
+        let fox = [("K1ABC RR73; W9XYZ <KH1/KH7Z> -08", 300), ("IU3ABC KH1/KH7Z -12", 360), ("KH1/KH7Z W9XYZ R-05", 1450), ("KH1/KH7Z OH5BM KP41", 2100)];
+        assert!(!fox.iter().any(|(t, hz)| not_fox_calls(t, *hz).iter().any(|c| c == "KH1/KH7Z")));
     }
 
     /// Hound: sotto 1000 Hz si sale nell'intervallo dei Hound, sopra si resta dove si e'.

@@ -15,7 +15,12 @@ export function foxSender(text: string): string | null {
 /** Una Fox vera trasmette sotto i 1000 Hz (gli Hound sopra): un messaggio doppio piu' in alto e' una risposta multipla di una stazione normale. */
 export const FOX_MAX_HZ = 1000;
 
-/** I nominativi che nei messaggi ricevuti trasmettono come Fox (messaggio DXpedition sotto i 1000 Hz, se la frequenza e' nota). */
+/**
+ * I nominativi che nei messaggi ricevuti trasmettono come Fox (messaggio DXpedition sotto i 1000 Hz, se la frequenza e' nota).
+ * Il messaggio DXpedition da solo non basta: MSHV in modo normale con piu' flussi (multi-stream) manda anche lui righe `A RR73; B <DX> -nn`
+ * (issue #68, 3X4U). Una Fox di WSJT-X trasmette solo sotto i 1000 Hz e i suoi Hound chiamano solo fra 1000 e 3000 Hz
+ * (`QRandomGenerator::bounded (1000, 2999)` di WSJT-X): chi trasmette sopra i 1000 Hz, o e' chiamato da una stazione sotto i 1000 Hz, non e' una Fox.
+ */
 export function foxCalls(items: Array<string | { text: string; freq_hz?: number }>): Set<string> {
   const out = new Set<string>();
   // chi manda R+rapporto o RRR fa la parte di chi chiama (Hound o stazione normale): una Fox non li manda mai
@@ -25,7 +30,16 @@ export function foxCalls(items: Array<string | { text: string; freq_hz?: number 
     const w = text.trim().toUpperCase().split(/\s+/);
     if (w.length === 3 && w[0] !== 'CQ' && /^(R[+-]\d{2}|RRR)$/.test(w[2]!)) notFox.add(w[1]!.replace(/[<>]/g, ''));
     const hz = typeof item === 'string' ? undefined : item.freq_hz;
-    if (hz !== undefined && hz >= FOX_MAX_HZ) continue;
+    if (hz !== undefined && hz >= FOX_MAX_HZ) {
+      // una Fox non trasmette mai qui: chi manda una riga sopra i 1000 Hz e' una stazione normale (o un Hound)
+      const s = lineSender(text);
+      if (s) notFox.add(s.toUpperCase());
+      continue;
+    }
+    if (hz !== undefined && w.length >= 2 && w.length <= 3 && w[0] !== 'CQ' && !text.includes(';')) {
+      // una stazione la chiama o le risponde da sotto i 1000 Hz: in Fox/Hound i Hound non trasmettono li'
+      notFox.add(w[0]!.replace(/[<>]/g, ''));
+    }
     const f = foxSender(text);
     if (f) out.add(f);
   }
