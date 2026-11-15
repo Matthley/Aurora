@@ -29,3 +29,15 @@ td.ctest-col-active { color: var(--accent, #4a9eff); }
 .ctest-table tbody tr:nth-child(even) { background: rgb(255 255 255 / 0.045); }
 html[data-theme='light'] .ctest-table tbody tr:nth-child(even) { background: rgb(0 0 0 / 0.045); }
 .ctest-table tbody tr.is-picked { background: color-mix(in srgb, var(--accent, #22c55e) 32%, transparent); }
+
+/* finestra dei QTC del WAE */
+.qtc-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.qtc-tabs { display: flex; gap: 0.35rem; }
+.qtc-tabs .active { outline: 2px solid var(--accent, #4a9eff); }
+.digi-dialog .qtc-top label, .digi-dialog .qtc-serie-in label { flex-direction: row; align-items: center; gap: 0.4rem; display: inline-flex; }
+.qtc-info { margin: 0 0 0.4rem; color: var(--text-muted); }
+.qtc-block { margin: 0 0 0.4rem; color: var(--danger, #ef4444); font-weight: 600; }
+.qtc-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+.qtc-dialog .ctest-table td { user-select: text; }
+.qtc-dialog .ctest-table input:not([type='checkbox']) { font-family: var(--mono, monospace); text-transform: uppercase; }
+.qtc-dialog tr.qtc-bad input { border-color: var(--danger, #ef4444); }

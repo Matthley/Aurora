@@ -17,6 +17,7 @@ import { getActiveTextContest, type TextContest } from '../api/contestTesto';
 import { contestWindow, grabExchange, startSerial, withContestMacros } from '../lib/textContest';
 import { ContestEditDialog, ContestListDialog, useSelectTextContest } from '../components/digi/ContestListDialog';
 import { ContestStatsDialog, TEXT_CONTEST_SCORE_KEY, useExportTextCabrillo, useTextContestScore } from '../components/digi/ContestStatsDialog';
+import { QtcDialog, type QtcDir } from '../components/digi/QtcDialog';
 import { RxWordMenu, wordAtPoint, type WordAt, type WordTarget } from '../components/digi/RxWordMenu';
 import { isCallsign, useCallLookup } from '../components/digi/callLookup';
 import { DigiWaterfall } from '../components/digi/DigiWaterfall';
@@ -217,6 +218,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   fixedNrsRef.current = textContest && !textContest.contest.auto_inc ? textContest.contest.nrs.trim() : '';
   const [contestList, setContestList] = useState(false);
   const [contestStats, setContestStats] = useState(false);
+  /** La finestra dei QTC del WAE (mandare o ricevere), con il contest attivo che li prevede. */
+  const [qtcOpen, setQtcOpen] = useState<QtcDir | null>(null);
   const textScore = useTextContestScore(!!textContest).data;
   const exportCabrillo = useExportTextCabrillo();
   const [contestEdit, setContestEdit] = useState<TextContest | null>(null);
@@ -999,6 +1002,10 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       switch (a.type) {
         case 'clearRx': clearDigiText(); break;
         case 'saveQso': saveQso(); break;
+        case 'qtc':
+          if (textContest && textContest.contest.qtc > 0) setQtcOpen(a.dir);
+          else toast(t('qtc.notWae'), 'info');
+          break;
         case 'clearQso': setQso(EMPTY_QSO); setStartAt(null); resetRst(); break;
         case 'fixStartTime': setStartAt(new Date()); break;
         case 'mode': {
@@ -1334,6 +1341,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
               ...(textScore ? [{ label: t('ctest.infoScore', { qso: textScore.qso, points: textScore.punti, mult: textScore.molt, score: textScore.punteggio }), disabled: true }] : []),
               'sep' as const,
               { label: t('ctest.stats'), onSelect: () => setContestStats(true) },
+              ...(c.qtc > 0 ? [{ label: t('qtc.menu'), onSelect: () => setQtcOpen('send') }] : []),
               { label: t('ctest.cabrillo'), onSelect: () => void exportCabrillo() },
             ]
           : []),
@@ -1818,6 +1826,19 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       {rttyOpen ? <RttySettingsDialog settings={s} onApply={save} onClose={() => setRttyOpen(false)} /> : null}
       {contestList ? <ContestListDialog onClose={() => setContestList(false)} /> : null}
       {contestStats && textContest ? <ContestStatsDialog name={textContest.contest.name} onClose={() => setContestStats(false)} /> : null}
+      {qtcOpen && textContest ? (
+        <QtcDialog
+          dir={qtcOpen}
+          call={live.current.qso.call}
+          mycall={live.current.status?.de_call ?? ''}
+          band={context().band}
+          mode={MODE_NAMES[s.mode]}
+          dialHz={live.current.status?.dial_hz ?? 0}
+          rxText={getDigiText}
+          onRun={execute}
+          onClose={() => setQtcOpen(null)}
+        />
+      ) : null}
       {contestEdit ? <ContestEditDialog contest={contestEdit} onClose={() => setContestEdit(null)} onSaved={() => setContestEdit(null)} /> : null}
       {extras.map((x, i) => (
         <ExtraRxWindow key={x.id} id={x.id} freqHz={x.freq_hz} modeName={MODE_NAMES[s.mode]} index={i} afc={x.afc === true} onAfc={(on) => setExtras(extras.map((e) => (e.id === x.id ? { ...e, afc: on } : e)))} onClose={() => closeExtra(x.id)} onWord={takeCall} />

@@ -34,6 +34,7 @@ export function useExportTextCabrillo() {
 
 /** La riga del punteggio: punti × moltiplicatori = punteggio (o i soli punti se il contest non ha moltiplicatori). */
 export function scoreLine(t: ReturnType<typeof useT>, s: TextContestScore): string {
+  if (s.qtc > 0) return t('ctest.scoreQtc', { points: s.punti, qtc: s.qtc, mult: s.tipi.length ? s.molt : 1, score: s.punteggio });
   return s.tipi.length ? t('ctest.scoreLine', { points: s.punti, mult: s.molt, score: s.punteggio }) : t('ctest.scoreNoMult', { score: s.punteggio });
 }
 

@@ -65,6 +65,8 @@ export interface TextContest {
   dupe_no_band: boolean;
   dupe_no_mode: boolean;
   log_bar_mode: number;
+  /** QTC del WAE: 0 nessuno, 1 dalle stazioni non europee alle europee (CW, SSB), 2 in entrambe le direzioni fra continenti diversi (RTTY). */
+  qtc: number;
 }
 
 export interface TextContestRef {
@@ -134,13 +136,62 @@ export interface TextContestScore {
   punti: number;
   molt: number;
   punteggio: number;
+  /** QTC mandati e ricevuti (contest WAE), contati con i punti. */
+  qtc: number;
   tipi: string[];
   bande: TextContestBand[];
 }
 
 export const getTextContestScore = () => call<TextContestScore>('/punteggio');
 export const getTextContestCabrillo = () => call<{ testo: string; nome: string; qso: number }>('/cabrillo');
-export const selectTextContest = (id: string | null) => call<{ ok: boolean; attivo: string | null }>('/seleziona', json('POST', { id }));
+/** Un QTC mandato o ricevuto (vedi `core/crates/contest/src/qtc.rs`). */
+export interface Qtc {
+  inviato: boolean;
+  corrispondente: string;
+  serie: number;
+  quanti: number;
+  time_ms: number;
+  band: string;
+  mode: string;
+  freq_hz: number;
+  ora: string;
+  call: string;
+  nr: string;
+  qso_ms: number;
+}
+
+/** Perche' i QTC non si possono scambiare con una stazione. */
+export type QtcBlock = 'stesso_continente' | 'direzione_sbagliata' | 'esauriti';
+
+export interface QtcProposal {
+  ora: string;
+  call: string;
+  nr: string;
+  qso_ms: number;
+}
+
+/** Lo stato dei QTC con una stazione. */
+export interface QtcStation {
+  call: string;
+  continente: string;
+  mio_continente: string;
+  scambiati: number;
+  residuo: number;
+  serie: number;
+  invio: QtcBlock | null;
+  ricezione: QtcBlock | null;
+  proposte: QtcProposal[];
+}
+
+export interface QtcState {
+  regola: 'classica' | 'rtty' | null;
+  qtc: Qtc[];
+  stazione: QtcStation | null;
+}
+
+export const getQtc = (station: string) => call<QtcState>(`/qtc?call=${encodeURIComponent(station)}`);
+export const saveQtc = (qtc: Qtc[]) => call<{ ok: boolean; totale: number }>('/qtc', json('POST', { qtc }));
+export const selectTextContest =(id: string | null) => call<{ ok: boolean; attivo: string | null }>('/seleziona', json('POST', { id }));
 
 /** Un contest nuovo con i valori di base (digitali validi, incremento automatico, macro unite). */
 export function newTextContest(): TextContest {
@@ -149,6 +200,6 @@ export function newTextContest(): TextContest {
     points_my_dxcc: 0, points_my_cont: 0, points_dx: 0, multipliers: 0, multipliers_option: 0, band_mult: false,
     bands: ['160', '80', '40', '20', '15', '10'].map((band) => ({ band, on: false, weight: 0 })),
     macros: '', merge_macros: true, grab_number: true, grab_number_type: -1, grab_time: false, grab_state: false, domain_file: '', grab_domain_to: 0,
-    suggest_cq_zone: false, suggest_itu_zone: false, suggest_domain: false, suggest_dxcc_pfx: false, dupe_no_band: false, dupe_no_mode: false, log_bar_mode: 0,
+    suggest_cq_zone: false, suggest_itu_zone: false, suggest_domain: false, suggest_dxcc_pfx: false, dupe_no_band: false, dupe_no_mode: false, log_bar_mode: 0, qtc: 0,
   };
 }

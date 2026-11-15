@@ -280,6 +280,14 @@ export function ContestEditDialog({ contest, onClose, onSaved }: { contest: Text
             {multSelect('multipliers', t('ctest.f.multipliers'))}
             {multSelect('multipliers_option', t('ctest.f.multOption'))}
             {check('band_mult', t('ctest.f.bandMult'), t('ctest.tip.bandMult'))}
+            <label title={t('ctest.tip.qtc')}>
+              <span>{t('ctest.f.qtc')}</span>
+              <select value={c.qtc} onChange={(e) => set({ qtc: num(e.target.value) })}>
+                <option value={0}>{t('ctest.qtc0')}</option>
+                <option value={1}>{t('ctest.qtc1')}</option>
+                <option value={2}>{t('ctest.qtc2')}</option>
+              </select>
+            </label>
             <div className="ctest-bands">
               {c.bands.map((b, i) => (
                 <div key={b.band} className="ctest-band" title={t('ctest.tip.bandMult')}>
