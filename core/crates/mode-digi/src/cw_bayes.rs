@@ -77,8 +77,10 @@ const CHARGAP: usize = 3;
 const WORDGAP: usize = 4;
 
 /// Gli elementi (in unità) e le larghezze (logaritmo naturale) di partenza: Morse esatto, con l'incertezza del rumore.
+/// Larghezze tarate sul banco `banco_cw` (0,8 volte le precedenti: CER medio 12,4 -> 11,8%, nessuna riga peggiora; 0,7 volte peggiora il
+/// tasto a mano e fa comparire caratteri falsi sul rumore).
 const FIST_MEAN: [f64; 5] = [1.0, 3.0, 1.0, 3.0, 7.0];
-const FIST_SIGMA: [f64; 5] = [0.28, 0.22, 0.32, 0.26, 0.3];
+const FIST_SIGMA: [f64; 5] = [0.22, 0.18, 0.26, 0.21, 0.24];
 /// Limiti delle medie del pugno (in unità) mentre si adattano.
 const FIST_LIMITS: [(f64, f64); 5] = [(1.0, 1.0), (2.5, 4.2), (0.6, 1.5), (2.2, 5.0), (4.5, 10.0)];
 
@@ -1318,6 +1320,19 @@ impl CwBayes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_fist_widths_still_split_dots_from_dashes() {
+        let b = CwBayes::new(500.0, &[1.0], 1, 20.0);
+        let s = 10;
+        let u = b.units[s];
+        let at = |units: f64| (units * u).round() as u32;
+        // un punto lungo (tasto a mano) resta un punto, una linea corta resta una linea
+        assert!(b.ln_pdf(DOT, at(1.6), s) > b.ln_pdf(DASH, at(1.6), s));
+        assert!(b.ln_pdf(DASH, at(2.0), s) > b.ln_pdf(DOT, at(2.0), s));
+        // una pausa di 2,5 unità e' piu' da lettera finita che da pausa interna
+        assert!(b.ln_pdf(CHARGAP, at(2.5), s) > b.ln_pdf(INTRA, at(2.5), s));
+    }
 
     #[test]
     fn the_gap_boundary_leans_towards_the_rarer_class() {
