@@ -6,6 +6,7 @@ import { addLogQso, rotatorGoto, ApiError, digiAbort, digiCat, digiTextFile, get
 import { ControlBar } from '../components/digi/ControlBar';
 import { FreqPicker } from '../components/FreqPicker';
 import { bandPlanRows } from '../lib/bandplan';
+import { useBandFilter, visibleBands } from '../lib/bandFilter';
 import { RotorCard, useRotorCardVisible } from '../components/rotor/RotorCard';
 import { usePublishRotorDx } from '../lib/rotorDx';
 import { DigiLog, type Qso } from '../components/digi/DigiLog';
@@ -168,6 +169,8 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const t = useT();
   const client = useQueryClient();
   const status = useStatusPick(['dial_hz', 'de_call', 'de_grid']);
+  // il selettore delle frequenze mostra solo le bande accese nelle Impostazioni (piu' quella in uso), come nella barra dell'FT8
+  const chosenBands = useBandFilter((x) => x.bands);
   const rxBox = useRef<HTMLPreElement>(null);
   const txBox = useRef<HTMLTextAreaElement>(null);
   const [tx, setTx] = useState('');
@@ -1522,6 +1525,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
       {/* la radio si porta sulla frequenza scelta */}
       <div className="digi-bandbar">
         <FreqPicker
+          bands={visibleBands(chosenBands, status && status.dial_hz > 0 ? bandOf(status.dial_hz) : null)}
           dialHz={status?.dial_hz ?? 0}
           mode={s.mode.toUpperCase()}
           rows={bandPlanRows(s.mode === 'rtty' ? 'RTTY' : s.mode === 'cw' ? 'CW' : s.mode === 'psk63' ? 'PSK63' : 'PSK31')}

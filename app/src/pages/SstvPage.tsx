@@ -6,6 +6,8 @@ import { FreqPicker } from '../components/FreqPicker';
 import { gotoTextMode } from '../lib/digiGoto';
 import { useListenWhileOpen } from '../lib/listenWhileOpen';
 import { bandPlanRows } from '../lib/bandplan';
+import { useBandFilter, visibleBands } from '../lib/bandFilter';
+import { bandOf } from '../lib/format';
 import { useStation } from '../state/station';
 import { DetachButton } from '../components/DetachButton';
 import { DetachedNote } from '../components/DetachedNote';
@@ -97,6 +99,8 @@ function SstvBody({ solo }: { solo: boolean }) {
   const rx = data?.rx;
   const sending = data?.tx.state === 'sending';
   const dialHz = useStation((x) => x.status?.dial_hz ?? 0);
+  // solo le bande accese nelle Impostazioni (piu' quella in uso), come nella barra dell'FT8
+  const chosenBands = useBandFilter((x) => x.bands);
   const badge = sending ? 'sending' : rx?.receiving ? 'receiving' : rx?.listening ? 'listening' : 'off';
 
   return (
@@ -121,7 +125,7 @@ function SstvBody({ solo }: { solo: boolean }) {
           </span>
         ) : null}
         {/* banda e frequenze SSTV dal piano di banda IARU */}
-        <FreqPicker dialHz={dialHz} mode="SSTV" rows={bandPlanRows('SSTV')} locked={sending} onPick={(hz) => void postFrequency(hz).catch(() => undefined)} />
+        <FreqPicker bands={visibleBands(chosenBands, dialHz > 0 ? bandOf(dialHz) : null)} dialHz={dialHz} mode="SSTV" rows={bandPlanRows('SSTV')} locked={sending} onPick={(hz) => void postFrequency(hz).catch(() => undefined)} />
         <div className="sstv-views" role="tablist">
           <button type="button" role="tab" aria-selected={view === 'rx'} className={view === 'rx' ? 'on' : ''} onClick={() => setView('rx')}>
             {t('sstv.view.rx')}
