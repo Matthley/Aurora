@@ -74,7 +74,7 @@ Version 0.11.264: eigene Multimode-Engine (FT8, FT4, JT65 A/B/C, JT9, JT4 A–G,
 - **Decoder an WSJT-X 3.3 angeglichen**: FT8 (Vorrang der Rx-Frequenz, OSD 4 für QSO-Antworten, A-priori für /P und zusammengesetzte Rufzeichen), FT4 (Kandidatensuche von WSJT-X), Q65 (Mittelung mit der QSO-Liste, Driftkorrektur) JT65/JT9 (WSJT-X-Schwellen, Rx-Fenster), MSK144, FST4/FST4W und WSPR.
 - **Installer in sieben Sprachen** (Italienisch, Englisch, Deutsch, Französisch, Spanisch, Portugiesisch, Niederländisch); auch die Oberfläche gibt es in sieben Sprachen: Niederländisch ist eine erste Fassung, die noch geprüft wird.
 - **Anzeige und Cluster**: Funkanzeige im Stil Yaesu FT-2000 und Icom IC-7610; NG3K-DXpeditionen im DX-Cluster in einer Farbe deiner Wahl hervorgehoben; Live-Vorschau des Wasserfalls in den Einstellungen; Absturzdiagnose immer aktiv.
-- **Contest (Beta)**: eigene Seite mit 24 FT8/FT4- und VHF-Contests (Regeln und jährliche Daten), Contest-Ablauf wie WSJT-X, Dupes, Punkte, Multiplikatoren und Prognose live, Kategorie und Operatoren, Log mit Cabrillo, EDI und ADIF.
+- **Contest (Beta)**: eigene Seite mit 23 FT8/FT4- und VHF-Contests (Regeln und jährliche Daten) plus einem «Personalizzato», das du selbst einrichtest, Contest-Ablauf wie WSJT-X, Dupes, Punkte, Multiplikatoren und Prognose live, Kategorie und Operatoren, Log mit Cabrillo, EDI und ADIF.
 - **UltraFOX**: eigene Rust-Implementierung mit dem Polarcode AQP-127 (Implementierung von Tiziano Cassone IU3WJQ), kompatibel mit SuperFox von WSJT-X (Senden und Empfang). Experimentell.
 
 Was fehlt: `docs/mancante.md`. Ergebnisse der Tests mit JTDX: `docs/fase0-rapporto.md` (Dokumentation auf Italienisch).

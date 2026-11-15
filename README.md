@@ -74,7 +74,7 @@ Version 0.11.264: own multimode engine (FT8, FT4, JT65 A/B/C, JT9, JT4 A–G, Q6
 - **Decoders aligned with WSJT-X 3.3**: FT8 (Rx-frequency priority, OSD 4 for QSO replies, a priori for /P and compound callsigns), FT4 (WSJT-X candidate search), Q65 (averaging with the QSO list, drift correction) JT65/JT9 (WSJT-X thresholds, Rx window), MSK144, FST4/FST4W and WSPR.
 - **Installer in seven languages** (Italian, English, German, French, Spanish, Portuguese, Dutch); the interface is in seven languages too: Dutch is a first version, under review.
 - **Display and cluster**: Yaesu FT-2000 and Icom IC-7610 style radio displays; NG3K DXpeditions highlighted in the DX Cluster in a colour of your choice; live waterfall preview in the settings; always-on crash diagnostics.
-- **Contest (beta)**: dedicated page with 24 FT8/FT4 and VHF contests (rules and yearly dates), contest sequencing as in WSJT-X, live dupes, points, multipliers and projected score, category and operators, log with Cabrillo, EDI and ADIF.
+- **Contest (beta)**: dedicated page with 23 FT8/FT4 and VHF contests (rules and yearly dates) plus a «Personalizzato» one that you set up yourself, contest sequencing as in WSJT-X, live dupes, points, multipliers and projected score, category and operators, log with Cabrillo, EDI and ADIF.
 - **UltraFOX**: Aurora's own Rust implementation with the AQP-127 polar code (implementation by Tiziano Cassone IU3WJQ), compatible with WSJT-X SuperFox (transmit and receive). Experimental.
 
 What is missing: `docs/mancante.md`. Results of the tests with JTDX: `docs/fase0-rapporto.md` (documentation in Italian).

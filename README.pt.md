@@ -74,7 +74,7 @@ Versão 0.11.264: motor próprio multimodo (FT8, FT4, JT65 A/B/C, JT9, JT4 A–G
 - **Descodificadores alinhados com o WSJT-X 3.3**: FT8 (prioridade à frequência Rx, OSD 4 para as respostas do QSO, a priori para /P e indicativos compostos), FT4 (pesquisa de candidatos do WSJT-X), Q65 (média com a lista do QSO, correção da deriva) JT65/JT9 (limiares do WSJT-X, janela Rx), MSK144, FST4/FST4W e WSPR.
 - **Instalador em sete idiomas** (italiano, inglês, alemão, francês, espanhol, português, holandês); a interface também está em sete idiomas: o holandês é uma primeira versão, em revisão.
 - **Visor e cluster**: visores de rádio estilo Yaesu FT-2000 e Icom IC-7610; DXpedições NG3K realçadas no DX Cluster com a cor que escolheres; pré-visualização ao vivo da cascata nas definições; diagnóstico de falhas sempre ativo.
-- **Contest (beta)**: página dedicada com 24 concursos FT8/FT4 e VHF (regulamentos e datas de cada ano), sequência de concurso como o WSJT-X, duplicados, pontos, multiplicadores e pontuação prevista em direto, categoria e operadores, log com Cabrillo, EDI e ADIF.
+- **Contest (beta)**: página dedicada com 23 concursos FT8/FT4 e VHF (regulamentos e datas de cada ano) mais um «Personalizzato» que configuras tu, sequência de concurso como o WSJT-X, duplicados, pontos, multiplicadores e pontuação prevista em direto, categoria e operadores, log com Cabrillo, EDI e ADIF.
 - **UltraFOX**: implementação própria em Rust com o código polar AQP-127 (implementação de Tiziano Cassone IU3WJQ), compatível com o SuperFox do WSJT-X (transmissão e receção). Experimental.
 
 O que falta: `docs/mancante.md`. Resultados dos testes com o JTDX: `docs/fase0-rapporto.md` (documentação em italiano).
