@@ -3,9 +3,12 @@ import type { FrequencyEntry } from '../api/client';
 /**
  * Frequenze di chiamata dei modi testuali e dell'SSTV dai piani di banda IARU (dal 6 m in su quelli del Band Plan ARI, https://www.ari.it/bandplan.html) (frequenza della manopola in USB, cioe' dove si sente
  * il segnale con la portante audio a circa 1000 Hz). Sono indicative: ogni regione ha le sue sezioni e i QSO si spostano dove c'e' posto.
- * Riscontro 2026-11: HF col piano IARU Regione 1 (edizione in vigore dal 1/6/2016, ripresa dall'ARI: digimodi 3570-3600, 7040-7047,
- * 14070-14099, 21070-21110; immagini 3735 e 7165), Regione 2 col piano ARRL (RTTY/dati 7025-7125, SSTV 3845 e 7171), Regione 3 col piano
- * IARU R3 (PSK 7070, SSTV 7033); VHF e oltre col piano IARU R1 VHF/UHF 2020. Nessuna frequenza della tabella cade fuori dai tratti.
+ * Riscontro 2026-11 riga per riga col piano IARU Regione 1 HF in vigore dal 16/10/2020 (PDF dell'ARI,
+ * https://www.ari.it/images/stories/hf/hf_r1_bandplan2020.pdf; le frequenze del piano sono quelle trasmesse): digimodi 1838-1843,
+ * 3570-3600, 7040-7047, 10130-10150, 14070-14089, 18095-18105, 21070-21090, 24915-24925, 28070-28120; CW 1810-1838, 3500-3570
+ * (3510-3560 contest, 3555 QRS, 3560 QRP), 5351,5-5354, 7000-7040 (7030 QRP), 10100-10130 (10116 QRP), 14000-14070 (14055 QRS, 14060 QRP),
+ * 18068-18095 (18086 QRP), 21000-21070 (21055 QRS, 21060 QRP), 24890-24915 (24906 QRP), 28000-28070 (28055 QRS, 28060 QRP); immagini
+ * 3735, 7165, 14230, 21340, 28680. Regione 2 col piano ARRL, Regione 3 col piano IARU R3; dal 6 m in su il piano ARI.
  * Regione: `ALL` valida ovunque, `R1`, `R2` o `R3` solo li' (come nella tabella dei modi dell'FT8).
  */
 export type TextMode = 'PSK31' | 'PSK63' | 'RTTY' | 'SSTV' | 'CW';
@@ -23,7 +26,10 @@ const PSK: readonly Row[] = [
   ['17m', 18_100_000, 'ALL', true],
   ['15m', 21_070_000, 'ALL', true],
   ['12m', 24_920_000, 'ALL', true],
-  ['10m', 28_120_000, 'ALL', true],
+  // in Regione 1 i digimodi finiscono a 28120 (sopra ci sono le stazioni automatiche): il segnale resta sotto
+  ['10m', 28_110_000, 'R1', true],
+  ['10m', 28_120_000, 'R2', true],
+  ['10m', 28_120_000, 'R3', true],
   ['6m', 50_305_000, 'ALL', true],
   ['70cm', 432_088_000, 'ALL', true],
   ['23cm', 1_296_138_000, 'ALL', true],
