@@ -563,6 +563,15 @@ impl ElencoContest {
         if segno.exists() || !da.is_dir() {
             return 0;
         }
+        // una cartella delle risorse senza contest (installatore che non li aveva, percorso sbagliato): niente segno, cosi' la prima versione
+        // che li porta davvero li copia ancora
+        let ha_contest = std::fs::read_dir(da)
+            .map(|rd| rd.flatten().any(|e| e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case(ESTENSIONE))))
+            .unwrap_or(false);
+        if !ha_contest {
+            tracing::warn!("contest: nessun file .{ESTENSIONE} in {}: predefiniti non copiati", da.display());
+            return 0;
+        }
         let mut n = 0;
         for sotto in ["", "macros", "dom"] {
             let (src, dst) = (da.join(sotto), self.dir.join(sotto));
@@ -825,6 +834,30 @@ m_dtEnd=20150519161836
         assert!(e.leggi("A").is_none());
         let _ = std::fs::remove_dir_all(&d);
         let _ = std::fs::remove_dir_all(&src);
+    }
+
+    /// Una cartella delle risorse vuota (o senza `.contest`) non mette il segno: quando arriva quella giusta i contest si copiano.
+    #[test]
+    fn risorse_senza_contest_non_bloccano_la_copia_successiva() {
+        let vuota = cartella("src-vuota");
+        std::fs::create_dir_all(vuota.join("macros")).unwrap();
+        let d = cartella("dst-vuota");
+        let e = ElencoContest::new(&d);
+        assert_eq!(e.copia_predefiniti(&vuota), 0);
+        assert!(!d.join(FILE_PREDEFINITI).exists(), "nessun segno");
+        let src = cartella("src-piena");
+        std::fs::create_dir_all(src.join("dom")).unwrap();
+        std::fs::write(src.join("B.contest"), "[Contest]
+m_sName=B
+").unwrap();
+        std::fs::write(src.join("dom/b.dom"), "X = X
+").unwrap();
+        assert_eq!(e.copia_predefiniti(&src), 2);
+        assert!(e.leggi("B").is_some());
+        assert!(d.join("dom/b.dom").is_file());
+        for c in [&d, &vuota, &src] {
+            let _ = std::fs::remove_dir_all(c);
+        }
     }
 
     /// I contest distribuiti con Aurora: tutti si leggono, nessun dato personale, nessun percorso assoluto, macro e domini presenti.
