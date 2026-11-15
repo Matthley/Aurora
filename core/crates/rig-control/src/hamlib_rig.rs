@@ -609,8 +609,13 @@ impl Inner {
                 self.note_freq_moved();
             }
         }
-        // lo split della radio, ogni tante letture e solo in ricezione: chi lo accende fuori da Aurora (radio, programma sulla condivisione)
-        let split = if freq.is_some() && self.split_checks.fetch_add(1, Ordering::SeqCst) % SPLIT_CHECK_EVERY == 0 {
+        // lo split della radio, ogni tante letture e solo in ricezione: chi lo accende fuori da Aurora (radio, programma sulla condivisione).
+        // Solo con «Leggi anche gli altri dati della radio»: su alcune radio `get_split_vfo` di Hamlib commuta davvero il VFO per leggerlo
+        // e la radio saltava fra VFO A e VFO B a ogni lettura (#67, dalla 0.11.258 in cui la lettura era sempre accesa)
+        let split = if self.config.read_extras
+            && freq.is_some()
+            && self.split_checks.fetch_add(1, Ordering::SeqCst) % SPLIT_CHECK_EVERY == 0
+        {
             client.split().ok().map(|(on, _)| on)
         } else {
             None
@@ -1892,10 +1897,42 @@ mod tests {
         fake.commands().into_iter().filter(|c| c.starts_with("F ") || c.starts_with("I ") || c.starts_with("S ")).collect()
     }
 
+    /// I comandi di rigctld che leggono o cambiano il VFO o lo split, e che su alcune radio commutano davvero il VFO.
+    fn vfo_touching(c: &str) -> bool {
+        let head = c.split_whitespace().next().unwrap_or("");
+        matches!(head, "V" | "v" | "s" | "S" | "i" | "I" | "x" | "X" | r"\get_vfo_info" | r"\set_vfo" | r"\get_split_vfo")
+            || c.contains("VFOB")
+    }
+
+    #[test]
+    fn polling_without_extras_never_touches_the_vfo_or_the_split() {
+        // #67: con «Leggi anche gli altri dati» spento la lettura periodica chiede solo frequenza, modo e PTT
+        let fake = FakeRigctld::start(14_074_000);
+        let rig = start_with(&fake, RigConfig::default(), Timing { poll: Duration::from_millis(1), ..fast() });
+        wait_until("letture", || fake.commands().iter().filter(|c| c.as_str() == "f").count() >= 30);
+        let bad: Vec<String> = fake.commands().into_iter().filter(|c| vfo_touching(c)).collect();
+        assert!(bad.is_empty(), "comandi del VFO nella lettura periodica: {bad:?}");
+        assert_eq!(fake.vfo(), "VFOA");
+        assert_eq!(rig.status().split, None);
+    }
+
+    #[test]
+    fn polling_with_extras_never_switches_the_vfo() {
+        // con i dati in piu' si leggono VFO B e split, ma senza mai cambiare il VFO della radio
+        let fake = FakeRigctld::start(14_074_000);
+        let config = RigConfig { read_extras: true, ..RigConfig::default() };
+        let _rig = start_with(&fake, config, Timing { poll: Duration::from_millis(1), ..fast() });
+        wait_until("letture", || fake.commands().iter().filter(|c| c.as_str() == "f").count() >= 30);
+        let bad: Vec<String> =
+            fake.commands().into_iter().filter(|c| c.starts_with("V ") || c.starts_with(r"\set_vfo") || c.starts_with("S ")).collect();
+        assert!(bad.is_empty(), "cambi di VFO o split nella lettura periodica: {bad:?}");
+        assert_eq!(fake.vfo(), "VFOA");
+    }
+
     #[test]
     fn a_split_switched_on_outside_aurora_is_detected_and_flagged() {
         let fake = FakeRigctld::start(28_074_000);
-        let rig = start(&fake, RigConfig::default());
+        let rig = start(&fake, RigConfig { read_extras: true, ..RigConfig::default() });
         wait_until("split letto spento", || rig.status().split == Some(false));
         assert_eq!(rig.status().split_external_ms, 0);
         // la radio (o un programma sulla porta condivisa) accende lo split: Aurora non ha mandato niente
@@ -1919,7 +1956,7 @@ mod tests {
         // il comando aspettava le domande della lettura (frequenza, modo, PTT, split: fino a 4 x 40 ms qui, secondi su una radio vera)
         let fake = FakeRigctld::start(28_074_000);
         fake.set_delay_ms(40);
-        let rig = start_with(&fake, RigConfig::default(), Timing { poll: Duration::from_millis(1), ..fast() });
+        let rig = start_with(&fake, RigConfig { read_extras: true, ..RigConfig::default() }, Timing { poll: Duration::from_millis(1), ..fast() });
         for round in 0..12 {
             fake.set_split(true);
             wait_until("split letto acceso", || rig.status().split == Some(true));
@@ -1944,7 +1981,7 @@ mod tests {
     #[test]
     fn a_split_switched_on_by_aurora_is_not_flagged() {
         let fake = FakeRigctld::start(14_074_000);
-        let rig = start(&fake, RigConfig::default());
+        let rig = start(&fake, RigConfig { read_extras: true, ..RigConfig::default() });
         wait_until("split letto spento", || rig.status().split == Some(false));
         rig.set_dx_split(14_025_000, 14_030_000).expect("split DX");
         // diverse letture dello split dopo il comando di Aurora
