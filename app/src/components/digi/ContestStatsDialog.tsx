@@ -155,6 +155,7 @@ export function ContestStatsDialog({ name, onClose }: { name: string; onClose():
             </div>
             <p className="ctest-score">{scoreLine(t, s)}</p>
             <p className="ctest-rate">{t('ctest.rate', { r10: s.rate10, r60: s.rate60, avg: s.media_ora })}</p>
+            {s.errore_script && <p className="ctest-rate" role="alert">{t('ctest.scriptError', { msg: s.errore_script })}</p>}
             {s.esclusi > 0 && <p className="ctest-rate">{t('ctest.excluded', { n: s.esclusi })}</p>}
             {s.recenti.length > 0 && (
               <p className="ctest-rate">

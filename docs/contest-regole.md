@@ -53,8 +53,8 @@ Fonte: <https://raem.srr.ru/?p=47> (SRR), confrontato con l'elenco di <https://w
 - Punti: 50 per QSO; 1 punto per grado di differenza di latitudine e 1 per grado di longitudine; +100 con una stazione polare
   (latitudine 66 o piu'); +300 con la stazione commemorativa RAEM. Nessun moltiplicatore; chi sta dentro i circoli polari moltiplica il
   totale per 1,1.
-- `[Score]`: `points=any=50`, `bonus=call:RAEM=300`, `special=raem` (coordinate, stazione polare e fattore 1,1 scritti a mano in
-  `regole_punti.rs`).
+- `[Score]`: `points=any=50`, `bonus=call:RAEM=300`; `[Script]`: `punti(qso)` con le coordinate e la stazione polare,
+  `punteggio(totali)` con il fattore 1,1 (esempio in `docs/contest-file.md`).
 
 ### SARTG WW RTTY Contest
 Fonte: <https://www.sartg.com/contest/wwrules.htm> (SARTG).

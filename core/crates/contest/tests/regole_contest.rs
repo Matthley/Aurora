@@ -155,6 +155,54 @@ fn raem() {
     let t = punteggio("RAEM contest", &polare, None);
     // 50+12+25 = 87; 50+0+21+100+300 = 471; 50+12+71 = 133; totale 691 x 1,1 = 760,1 -> 760
     assert_eq!((t.punti, t.punteggio), (691, 760));
+    assert_eq!(t.errore_script, None);
+}
+
+#[test]
+fn script_sbagliato_torna_alla_sezione_score() {
+    let log = [
+        q("UA3ABC", "20m", "CW", 0, "001 45N12E", "015 55N37E"),
+        q("RAEM", "20m", "CW", 1, "002 45N12E", "100 67N33E"),
+    ];
+    let mut c = contest("RAEM contest");
+    // la sezione [Script] si rilegge uguale dal testo salvato
+    assert!(c.script.contains("fn punti(qso)"));
+    assert_eq!(ContestTesto::da_testo("RAEM contest", &c.in_testo()).script, c.script);
+    // errore durante il calcolo: vale [Score], 50 punti per QSO e 300 per RAEM
+    c.script = "fn punti(qso) { qso.nessuno.campo }".into();
+    let t = valuta(&c, &log, Some(&mio()), &paese, None).1;
+    assert_eq!((t.punti, t.punteggio), (400, 400));
+    assert!(t.errore_script.as_deref().is_some_and(|e| e.contains("punti()")), "{:?}", t.errore_script);
+    // ciclo infinito: fermato dal limite delle operazioni, stesso risultato
+    c.script = "fn punti(qso) { loop { } }".into();
+    let t = valuta(&c, &log, Some(&mio()), &paese, None).1;
+    assert_eq!(t.punteggio, 400);
+    assert!(t.errore_script.is_some());
+    // uno script che non compila non si salva
+    c.script = "fn punti(qso) { 1 + }".into();
+    assert!(c.controlla().is_err());
+}
+
+#[test]
+fn script_con_moltiplicatori_e_ammessi() {
+    let log = [
+        r("DL1ABC", "20m", 0, "001"),
+        r("DL2ABC", "20m", 1, "001"),
+        r("W1AW", "40m", 2, "001"),
+        r("JA1ABC", "20m", 3, "001"),
+    ];
+    let mut c = contest("CQ WW RTTY DX");
+    c.script = r#"
+        fn ammesso(qso) { if qso.cont == "AS" { [false, "asia"] } else { true } }
+        fn punti(qso) { 2 }
+        fn moltiplicatori(qso) { ["cont:" + qso.cont] }
+    "#
+    .into();
+    let (v, t) = valuta(&c, &log, Some(&mio()), &paese, None);
+    // 3 ammessi x 2 punti; moltiplicatori EU e NA = 2; 6 x 2 = 12
+    assert_eq!((t.esclusi, t.punti, t.molt, t.punteggio), (1, 6, 2, 12));
+    assert_eq!(v[3].escluso.as_deref(), Some("asia"));
+    assert_eq!(v[0].nuovi, vec!["cont:EU".to_string()]);
 }
 
 #[test]

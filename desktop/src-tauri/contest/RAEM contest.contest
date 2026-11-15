@@ -47,4 +47,27 @@ m_iLogBarDispMode=1
 [Score]
 points=any=50
 bonus=call:RAEM=300
-special=raem
+
+[Script]
+// RAEM: un punto per grado di differenza di latitudine e di longitudine fra le coordinate mandate e ricevute (57N85E),
+// piu' i 50 punti del QSO, 100 per una stazione polare e 300 per la stazione RAEM.
+// Se lo script si ferma con un errore vale la sezione [Score] (50 punti, 300 per RAEM).
+fn punti(qso) {
+    let p = 50;
+    if qso.callsign.split("/").contains("RAEM") { p += 300; }
+    let mie = coords(qso.exch_sent);
+    let sue = coords(qso.exch_rcvd);
+    if mie != () && sue != () {
+        let dlon = abs(mie[1] - sue[1]);
+        if dlon > 180 { dlon = 360 - dlon; }
+        p += abs(mie[0] - sue[0]) + dlon;
+        if abs(sue[0]) >= 66 { p += 100; }
+    }
+    p
+}
+
+// Il totale vale x1,1 per chi sta dentro i circoli polari (dalle coordinate mandate).
+fn punteggio(t) {
+    let c = coords(t.exch_sent);
+    if c != () && abs(c[0]) >= 66 { (t.punti * 11 + 5) / 10 } else { t.punti }
+}

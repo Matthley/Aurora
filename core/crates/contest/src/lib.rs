@@ -9,6 +9,7 @@
 //! - [`elenco`]: i contest dei modi testuali (file `.contest`, macro e domini), uno attivo alla volta;
 //! - [`punti_testo`]: punteggio, statistica per banda e Cabrillo del contest attivo dei modi testuali;
 //! - [`regole_punti`]: le regole del punteggio dei contest dei modi testuali (sezione `[Score]`), a pezzi riusabili;
+//! - [`script`]: gli script Rhai dei casi speciali (sezione `[Script]`), con limiti e senza accesso a file, rete o processi;
 //! - [`qtc`]: i QTC del WAE (chi li scambia, cosa mandare, righe del Cabrillo);
 //! - [`servizio`]: contest attivo, impostazioni per contest, log del contest e ascolto del bus.
 //!
@@ -24,6 +25,7 @@ pub mod punti_testo;
 pub mod qtc;
 pub mod regole;
 pub mod regole_punti;
+pub mod script;
 pub mod servizio;
 
 pub use regole::Regole;

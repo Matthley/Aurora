@@ -75,6 +75,8 @@ pub struct ContestTesto {
     /// Le regole del punteggio, righe `chiave=valore` della sezione `[Score]` (`regole_punti`, `docs/contest-file.md`); vuoto = le
     /// vecchie chiavi dei punti e dei moltiplicatori.
     pub score: String,
+    /// Lo script dei casi speciali, testo Rhai della sezione `[Script]` (l'ultima del file, `crate::script`); vuoto = nessuno.
+    pub script: String,
 }
 
 impl Default for ContestTesto {
@@ -116,6 +118,7 @@ impl Default for ContestTesto {
             log_bar_mode: 0,
             qtc: 0,
             score: String::new(),
+            script: String::new(),
         }
     }
 }
@@ -138,6 +141,18 @@ fn coppie(testo: &str, sezione: &str) -> Vec<(String, String)> {
         }
     }
     out
+}
+
+/// Il testo della sezione `[Script]`: tutto quello che la segue (e' l'ultima sezione del file, il codice puo' avere righe fra `[ ]`).
+fn sezione_script(testo: &str) -> String {
+    let mut righe = testo.lines();
+    if !righe.by_ref().any(|r| r.trim().eq_ignore_ascii_case("[script]")) {
+        return String::new();
+    }
+    let v: Vec<&str> = righe.map(str::trim_end).collect();
+    let t = v.join("\n");
+    let t = t.trim_matches('\n');
+    if t.trim().is_empty() { String::new() } else { format!("{t}\n") }
 }
 
 fn bool_di(v: &str) -> bool {
@@ -246,6 +261,7 @@ impl ContestTesto {
         }
         c.score = coppie(testo, "Score").into_iter().map(|(k, v)| format!("{k}={v}
 ")).collect();
+        c.script = sezione_script(testo);
         c
     }
 
@@ -299,6 +315,11 @@ impl ContestTesto {
             r.push("[Score]".into());
             r.extend(regole);
         }
+        if !self.script.trim().is_empty() {
+            r.push(String::new());
+            r.push("[Script]".into());
+            r.extend(self.script.trim_end().lines().map(|l| l.trim_end().to_string()));
+        }
         let mut t = r.join("\r\n");
         t.push_str("\r\n");
         t
@@ -319,6 +340,9 @@ impl ContestTesto {
         }
         if !self.score.trim().is_empty() {
             crate::regole_punti::RegoleScore::da_testo(&self.score).map_err(|e| format!("regole del punteggio: {e}"))?;
+        }
+        if !self.script.trim().is_empty() {
+            crate::script::ScriptContest::compila(&self.script)?;
         }
         for f in [&self.macros, &self.domain_file] {
             if !percorso_relativo_ok(f) {

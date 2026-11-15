@@ -919,7 +919,7 @@ fn forget_in_own_file(path: &Path, gone: Option<&[logbook::LogEntry]>) {
     }
     match gone {
         None => {
-            let stamp = logbook::adif::utc_date(unix_secs()) + &format!("-{:06}", unix_secs() % 86_400 / 3600 * 10_000 + unix_secs() % 3600 / 60 * 100 + unix_secs() % 60);
+            let stamp = logbook::adif::utc_date(unix_secs()) + format!("-{:06}", unix_secs() % 86_400 / 3600 * 10_000 + unix_secs() % 3600 / 60 * 100 + unix_secs() % 60).as_str();
             let aside = path.with_file_name(format!("aurora_log-{stamp}.adi"));
             match std::fs::rename(path, &aside) {
                 Ok(()) => tracing::info!("log svuotato: {} messo da parte come {}", path.display(), aside.display()),

@@ -9,7 +9,7 @@
 //! - `mult_band`: peso dei moltiplicatori per banda (`80:4,40:3`);
 //! - `bonus`: punti in piu' per condizione (`call:RAEM=300`);
 //! - `cqN`: tabella dei punti zona CQ -> zona CQ (riga della propria zona N, 40 valori), usata da `points=...=cqtab`;
-//! - `special`: le regole scritte a mano (`raem`).
+//! I casi che i pezzi non coprono (RAEM) stanno nella sezione `[Script]` (`crate::script`).
 //!
 //! Le condizioni sono pezzi uniti da `&`: `any`, `same_dxcc`, `same_cont`, `other_cont`, `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU`,
 //! `my_dxcc:..`, `my_cont:..`, `call:RAEM`, `band:80,40`, `mode:RTTY`.
@@ -116,7 +116,6 @@ pub struct RegoleScore {
     pub bonus: Vec<(Cond, i64)>,
     /// `tabella_cq[mia-1][sua-1]`.
     pub tabella_cq: Vec<Vec<i64>>,
-    pub speciale: String,
 }
 
 /// Una banda senza la `m` (`20m` -> `20`).
@@ -226,7 +225,6 @@ impl RegoleScore {
                         r.bonus.push((leggi_cond(c)?, n.trim().parse().map_err(|_| format!("bonus non valido: {n}"))?));
                     }
                 }
-                "special" => r.speciale = v.to_ascii_lowercase(),
                 _ => {
                     if let Some(n) = k.strip_prefix("cq").and_then(|n| n.parse::<usize>().ok()).filter(|n| (1..=40).contains(n)) {
                         righe_cq.insert(n, v.split(',').map(|x| x.trim().parse().unwrap_or(0)).collect());
@@ -328,7 +326,7 @@ pub fn ammesso(r: &RegoleScore, x: &Ctx) -> Result<(), &'static str> {
     Ok(())
 }
 
-/// I punti di un QSO ammesso: la prima regola vera per il fattore della banda, piu' i bonus e le regole scritte a mano.
+/// I punti di un QSO ammesso: la prima regola vera per il fattore della banda, piu' i bonus.
 pub fn punti(r: &RegoleScore, x: &Ctx) -> i64 {
     let base = r
         .punti
@@ -343,11 +341,10 @@ pub fn punti(r: &RegoleScore, x: &Ctx) -> i64 {
         });
     let fattore = r.fattore_banda.get(&banda_corta(&x.q.band)).copied().unwrap_or(1);
     let bonus: i64 = r.bonus.iter().filter(|(c, _)| c.vera(x)).map(|(_, n)| n).sum();
-    let speciale = if r.speciale == "raem" { punti_raem(x.q) } else { 0 };
-    base * fattore + bonus + speciale
+    base * fattore + bonus
 }
 
-/// Le coordinate di uno scambio RAEM (`001 57N85E`, `57N 85O`): latitudine e longitudine in gradi interi con il segno.
+/// Le coordinate di uno scambio RAEM (funzione `coords` degli script) (`001 57N85E`, `57N 85O`): latitudine e longitudine in gradi interi con il segno.
 pub fn coordinate_raem(scambio: &str) -> Option<(i64, i64)> {
     // le parole di sole cifre (numero, rapporto) non sono coordinate
     let s: String = scambio.to_ascii_uppercase().split_whitespace().filter(|p| !p.bytes().all(|b| b.is_ascii_digit())).collect::<Vec<_>>().join("");
@@ -376,22 +373,6 @@ pub fn coordinate_raem(scambio: &str) -> Option<(i64, i64)> {
         i = inizio + 1;
     }
     None
-}
-
-/// RAEM (scritto a mano): un punto per grado di differenza di latitudine e di longitudine fra le coordinate mandate e ricevute,
-/// piu' 100 se la stazione lavorata e' polare (latitudine 66 o piu'). I 50 punti del QSO e i 300 della stazione RAEM sono nelle regole.
-pub fn punti_raem(q: &QsoTesto) -> i64 {
-    let (Some(mie), Some(sue)) = (coordinate_raem(&q.exch_sent), coordinate_raem(&q.exch_rcvd)) else { return 0 };
-    let mut dlon = (mie.1 - sue.1).abs();
-    if dlon > 180 {
-        dlon = 360 - dlon;
-    }
-    (mie.0 - sue.0).abs() + dlon + if sue.0.abs() >= 66 { 100 } else { 0 }
-}
-
-/// Il fattore finale in millesimi: RAEM x1,1 per chi sta dentro i circoli polari (dalle coordinate mandate), altrimenti 1.
-pub fn fattore_finale(r: &RegoleScore, qsos: &[QsoTesto]) -> i64 {
-    if r.speciale == "raem" && qsos.iter().find_map(|q| coordinate_raem(&q.exch_sent)).is_some_and(|(lat, _)| lat.abs() >= 66) { 1100 } else { 1000 }
 }
 
 /// L'area numerica di un nominativo: la cifra dopo la barra (`K5DJ/1`), altrimenti l'ultima cifra del prefisso WPX.

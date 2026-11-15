@@ -128,6 +128,8 @@ pub enum TipoMolt {
     Cont,
     /// Area numerica (solo dalle regole `[Score]`).
     Area,
+    /// Le chiavi date dalla funzione `moltiplicatori(qso)` della sezione `[Script]`.
+    Script,
 }
 
 impl TipoMolt {
@@ -210,6 +212,13 @@ pub struct Punteggio {
     pub media_ora: f64,
     /// Gli ultimi QSO che hanno portato moltiplicatori nuovi (il piu' recente per primo, al massimo 10).
     pub recenti: Vec<NuovoMolt>,
+    /// L'errore dello script della sezione `[Script]`: il punteggio e' stato calcolato solo con la sezione `[Score]`.
+    pub errore_script: Option<String>,
+    /// Lo script del contest (per ricalcolare il punteggio finale con i QTC) e lo scambio mandato nel primo QSO.
+    #[serde(skip)]
+    pub script: String,
+    #[serde(skip)]
+    pub primo_mandato: String,
 }
 
 /// Un QSO che ha portato moltiplicatori nuovi.
@@ -223,7 +232,7 @@ pub struct NuovoMolt {
 
 impl Default for Punteggio {
     fn default() -> Self {
-        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0, recenti: Vec::new() }
+        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0, recenti: Vec::new(), errore_script: None, script: String::new(), primo_mandato: String::new() }
     }
 }
 
@@ -248,8 +257,36 @@ pub struct Mancanti {
 /// Valuta i QSO del contest (gia' filtrati da [`qso_del_contest`], dal piu' vecchio) con le regole del file
 /// ([`crate::regole_punti`]): ammessi, doppi, punti, moltiplicatori, punteggio, statistica per banda e griglia dei moltiplicatori.
 /// `mio` = paese della stazione, `paese` = la ricerca nel database DXCC.
+/// Con la sezione `[Script]` le sue funzioni sostituiscono le parti di `[Score]`; un errore dello script (anche il limite delle
+/// operazioni) fa ricalcolare tutto con la sola `[Score]` e resta in [`Punteggio::errore_script`].
 pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paese: &dyn Fn(&str) -> Option<InfoPaese>, dominio: Option<&Dominio>) -> (Vec<Valutato>, Punteggio) {
-    use crate::regole_punti::{Ctx, RegoleScore, ammesso, fattore_finale, peso, punti, valore_molt, valori_possibili};
+    if c.script.trim().is_empty() {
+        return valuta_con(c, qsos, mio, paese, dominio, None).unwrap_or_default();
+    }
+    let errore = match crate::script::ScriptContest::compila(&c.script) {
+        Ok(sc) => match valuta_con(c, qsos, mio, paese, dominio, Some(&sc)) {
+            Ok((v, mut tot)) => {
+                tot.script = c.script.clone();
+                calcola(&mut tot);
+                if tot.errore_script.is_none() {
+                    return (v, tot);
+                }
+                tot.errore_script.unwrap_or_default()
+            }
+            Err(e) => e,
+        },
+        Err(e) => e,
+    };
+    tracing::warn!("script del contest {}: {errore}", c.id);
+    let (v, mut tot) = valuta_con(c, qsos, mio, paese, dominio, None).unwrap_or_default();
+    tot.errore_script = Some(errore);
+    (v, tot)
+}
+
+fn valuta_con(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paese: &dyn Fn(&str) -> Option<InfoPaese>, dominio: Option<&Dominio>, sc: Option<&crate::script::ScriptContest>) -> Result<(Vec<Valutato>, Punteggio), String> {
+    use crate::regole_punti::{Ctx, RegoleScore, ammesso, peso, punti, valore_molt, valori_possibili};
+    use crate::script::QsoScript;
+    let molt_script = sc.is_some_and(|s| s.ha("moltiplicatori"));
     let r = match RegoleScore::del_contest(c) {
         Ok(r) => r,
         Err(e) => {
@@ -257,8 +294,9 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
             RegoleScore::dalle_chiavi(c)
         }
     };
-    let mut tipi: Vec<TipoMolt> = r.molt.iter().map(|d| d.tipo.tipo()).collect();
+    let mut tipi: Vec<TipoMolt> = if molt_script { vec![TipoMolt::Script] } else { r.molt.iter().map(|d| d.tipo.tipo()).collect() };
     tipi.dedup();
+    let mut griglia_script: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
     let mut visti: HashSet<(String, String, String)> = HashSet::new();
     let mut molt: HashSet<String> = HashSet::new();
     let mut griglia: BTreeMap<(usize, String), BTreeSet<String>> = BTreeMap::new();
@@ -271,9 +309,14 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
         let banda = q.band.to_ascii_lowercase();
         let info = paese(&call);
         let x = Ctx { q, call: &call, info: info.as_ref(), mio };
-        if let Err(m) = ammesso(&r, &x) {
+        let xs = QsoScript { q, call: &call, info: info.as_ref(), mio, wpx: geo::prefisso_wpx(&call) };
+        let esito = match sc.map(|s| s.ammesso(&xs)).transpose()?.flatten() {
+            Some(e) => e,
+            None => ammesso(&r, &x).map_err(str::to_string),
+        };
+        if let Err(m) = esito {
             tot.esclusi += 1;
-            out.push(Valutato { qso: q.clone(), doppio: false, punti: 0, nuovi: Vec::new(), escluso: Some(m.to_string()) });
+            out.push(Valutato { qso: q.clone(), doppio: false, punti: 0, nuovi: Vec::new(), escluso: Some(m) });
             continue;
         }
         let riga = bande.entry(banda.clone()).or_insert_with(|| RigaBanda { band: banda.clone(), ..RigaBanda::default() });
@@ -284,9 +327,29 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
             out.push(Valutato { qso: q.clone(), doppio: true, punti: 0, nuovi: Vec::new(), escluso: None });
             continue;
         }
-        let p = punti(&r, &x);
+        let p = match sc.map(|s| s.punti(&xs)).transpose()?.flatten() {
+            Some(p) => p,
+            None => punti(&r, &x),
+        };
         let mut nuovi = Vec::new();
-        for (i, d) in r.molt.iter().enumerate() {
+        if let Some(chiavi) = sc.filter(|_| molt_script).map(|s| s.moltiplicatori(&xs)).transpose()?.flatten() {
+            for k in chiavi {
+                if molt.insert(format!("s:{k}")) {
+                    riga.molt += 1;
+                    somma += 1;
+                    // `DXCC:I@20` -> tipo `dxcc`, valore `I`, banda `20m`
+                    let (corpo, banda_k) = k.split_once('@').map_or((k.as_str(), None), |(a, b)| (a, Some(b)));
+                    let (tipo, valore) = corpo.split_once(':').unwrap_or(("SCRIPT", corpo));
+                    let tipo = tipo.to_ascii_lowercase();
+                    nuovi.push(format!("{tipo}:{valore}"));
+                    let cella = griglia_script.entry((tipo, valore.to_string())).or_default();
+                    if let Some(b) = banda_k {
+                        cella.insert(format!("{}m", b.trim_end_matches(['m', 'M']).to_ascii_lowercase()));
+                    }
+                }
+            }
+        }
+        for (i, d) in r.molt.iter().enumerate().filter(|_| !molt_script) {
             let Some(v) = valore_molt(d, &x, dominio) else { continue };
             let mut k = format!("{i}:{v}");
             if d.per_banda {
@@ -323,10 +386,17 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
     }
     let ha_somma = r.molt.iter().any(|d| !d.prodotto);
     let ha_prodotto = r.molt.iter().any(|d| d.prodotto);
-    tot.molt = if r.molt.is_empty() { 0 } else { (if ha_somma { somma } else { 1 }) * if ha_prodotto { prodotto } else { 1 } };
-    tot.fattore_mille = fattore_finale(&r, qsos);
+    tot.molt = if molt_script {
+        somma
+    } else if r.molt.is_empty() {
+        0
+    } else {
+        (if ha_somma { somma } else { 1 }) * if ha_prodotto { prodotto } else { 1 }
+    };
+    tot.primo_mandato = qsos.iter().map(|q| q.exch_sent.clone()).find(|e| !e.trim().is_empty()).unwrap_or_default();
     tot.griglia = griglia.into_iter().map(|((i, valore), b)| CellaMolt { tipo: r.molt[i].tipo.nome().to_string(), valore, bande: ordina_bande(b.into_iter().collect()) }).collect();
-    for d in &r.molt {
+    tot.griglia.extend(griglia_script.into_iter().map(|((tipo, valore), b)| CellaMolt { tipo, valore, bande: ordina_bande(b.into_iter().collect()) }));
+    for d in r.molt.iter().filter(|_| !molt_script) {
         let tutti = valori_possibili(&d.tipo, dominio);
         if tutti.is_empty() || tot.mancanti.iter().any(|m| m.tipo == d.tipo.nome()) {
             continue;
@@ -338,7 +408,7 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
     calcola(&mut tot);
     tot.bande = bande.into_values().collect();
     tot.bande.sort_by_key(|r| ordine_banda(&r.band));
-    (out, tot)
+    Ok((out, tot))
 }
 
 fn ordina_bande(mut v: Vec<String>) -> Vec<String> {
@@ -347,10 +417,20 @@ fn ordina_bande(mut v: Vec<String>) -> Vec<String> {
 }
 
 /// Punteggio = (punti + QTC) x moltiplicatori x fattore finale (senza moltiplicatori: i punti).
+/// Con la funzione `punteggio(totali)` dello script e' lei a dare il totale (un errore la toglie e resta in `errore_script`).
 fn calcola(tot: &mut Punteggio) {
     let base = tot.punti + i64::from(tot.qtc);
     let lordo = if tot.tipi.is_empty() { base } else { base * tot.molt };
     tot.punteggio = (lordo * tot.fattore_mille + 500) / 1000;
+    if tot.script.trim().is_empty() || tot.errore_script.is_some() {
+        return;
+    }
+    let t = crate::script::Totali { qso: tot.qso, doppi: tot.doppi, esclusi: tot.esclusi, punti: tot.punti, qtc: tot.qtc, molt: tot.molt, exch_sent: &tot.primo_mandato };
+    match crate::script::ScriptContest::compila(&tot.script).and_then(|s| s.punteggio(&t)) {
+        Ok(Some(p)) => tot.punteggio = p,
+        Ok(None) => {}
+        Err(e) => tot.errore_script = Some(e),
+    }
 }
 
 /// Aggiunge i QTC (mandati e ricevuti) al punteggio: (punti + QTC) x moltiplicatori, come nel WAE.

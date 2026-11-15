@@ -1143,6 +1143,7 @@ export const NL_UI: Record<string, string> = {
   "ctest.c.qso": "QSO's",
   "ctest.c.total": "Totaal",
   "ctest.rate": "Tempo: {r10}/u in de laatste 10 min · {r60} QSO's in het laatste uur · gemiddeld {avg}/u",
+  "ctest.scriptError": "Fout in het contestscript, score berekend met alleen de sectie [Score]: {msg}",
   "ctest.excluded": "Niet toegestane QSO's (band of land buiten de contest): {n}",
   "ctest.grid": "Multipliers per band",
   "ctest.once": "Eén keer",

@@ -35,6 +35,8 @@ export interface TextContest {
   notes: string;
   /** Le regole del punteggio, righe della sezione `[Score]` (vuoto = le vecchie chiavi). */
   score?: string;
+  /** Lo script dei casi speciali, testo Rhai della sezione `[Script]` (vuoto = nessuno). */
+  script?: string;
   /** `aaaammgghhmmss` UTC, vuoto = nessun limite. */
   start: string;
   end: string;
@@ -154,6 +156,8 @@ export interface TextContestScore {
   rate10: number;
   rate60: number;
   media_ora: number;
+  /** L'errore dello script della sezione `[Script]` (il punteggio e' quello della sola `[Score]`), null se non c'e'. */
+  errore_script?: string | null;
 }
 
 /** Il valore di un nominativo nel contest attivo mentre lo si scrive. */

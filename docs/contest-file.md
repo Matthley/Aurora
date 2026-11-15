@@ -90,7 +90,6 @@ Dopo `[Contest]` un file puo' avere la sezione `[Score]` con le regole vere del 
 | `mult_band` | peso dei moltiplicatori per banda (solo quelli con `band`) | `80:4,40:3,20:2,15:2,10:2` |
 | `bonus` | punti in piu' `condizione=punti` (si sommano tutti quelli veri) | `call:RAEM=300; dxcc:EA=5` |
 | `cq1` ... `cq40` | tabella dei punti zona CQ -> zona CQ: riga della propria zona, 40 valori separati da virgola | `cq15=10,10,...` |
-| `special` | regole scritte a mano | `raem` |
 
 Condizioni (pezzi uniti da `&`, tutti veri): `any`, `same_dxcc` (stesso paese della stazione), `same_cont` (stesso continente),
 `other_cont` (altro continente o sconosciuto), `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU,AS`, `my_dxcc:...`, `my_cont:...`, `call:RAEM`
@@ -103,10 +102,9 @@ ricevuto (la parola trovata nell'elenco `.dom` del contest, oppure l'ultima paro
 Opzioni: `band` per banda (con il peso di `mult_band`), `mode` per modo, `once` una volta sola (il predefinito), `product` moltiplica
 a parte, `if:<condizione>` solo per i QSO che la rispettano, `except:<paesi>` non per questi paesi.
 
-Punteggio = (punti + QTC) x (somma dei moltiplicatori pesati senza `product`) x (somma di quelli `product`) x fattore finale. Un QSO
-non ammesso (`bands`, `valid`) vale zero punti e nessun moltiplicatore e non fa doppio. Regole scritte a mano: `special=raem` aggiunge
-un punto per grado di differenza di latitudine e longitudine fra le coordinate mandate e ricevute (`57N85E`), 100 per una stazione
-polare (latitudine 66 o piu') e moltiplica il totale per 1,1 se la stazione sta dentro i circoli polari.
+Punteggio = (punti + QTC) x (somma dei moltiplicatori pesati senza `product`) x (somma di quelli `product`). Un QSO
+non ammesso (`bands`, `valid`) vale zero punti e nessun moltiplicatore e non fa doppio. I casi che questi pezzi non coprono
+(RAEM) stanno nella sezione `[Script]`.
 
 Esempio (CQ WW RTTY):
 
@@ -124,6 +122,67 @@ dice di un nominativo se e' ammesso (motivo `band` o `valid`), se e' doppio, qua
 
 I file distribuiti con la sezione `[Score]` sono quelli di `docs/contest-regole.md`; gli altri hanno ancora le vecchie chiavi a 0
 (un punto per QSO, nessun moltiplicatore).
+
+## I casi speciali: sezione `[Script]`
+
+Quello che `[Score]` non sa dire si scrive in un piccolo script [Rhai](https://rhai.rs) nella sezione `[Script]`, che deve essere
+l'ultima del file (tutto quello che la segue e' codice). Codice in `core/crates/contest/src/script.rs`. Funzioni facoltative, ognuna
+con un parametro; quelle che mancano lasciano la parte di `[Score]`:
+
+| Funzione | Restituisce | Sostituisce |
+|---|---|---|
+| `punti(qso)` | intero | i punti del QSO (regole `points`, `points_band`, `bonus`) |
+| `moltiplicatori(qso)` | elenco di chiavi, `["dxcc:" + qso.dxcc + "@" + qso.band]` (la parte dopo `@` e' la banda della griglia) | i moltiplicatori di `mult`: ogni chiave nuova conta 1 |
+| `ammesso(qso)` | `true`, `false` o `[false, "motivo"]` | `bands` e `valid` |
+| `punteggio(totali)` | intero | il punteggio finale |
+
+Campi di `qso`: `callsign`, `band` (`20`), `mode`, `time` (ms UTC), `hour` (`hhmm`), `rst_sent`, `rst_rcvd`, `exch_sent`, `exch_rcvd`,
+`dxcc`, `cont`, `cq`, `itu`, `wpx` (paese, continente e zone dal database DXCC, prefisso WPX) e della propria stazione `my_dxcc`,
+`my_cont`, `my_cq`, `my_itu`. Campi di `totali`: `qso`, `doppi`, `esclusi`, `punti`, `qtc`, `molt`, `exch_sent` (lo scambio mandato nel
+primo QSO). Funzione in piu': `coords(scambio)` -> `[latitudine, longitudine]` in gradi con il segno (`57N85E`), `()` se mancano.
+
+Sicurezza: lo script non puo' leggere o scrivere file, usare la rete o avviare programmi (niente `import`, niente `eval`; `print` non
+scrive niente). Ogni chiamata ha un limite di operazioni (200 000), di profondita' delle chiamate e delle espressioni e di memoria
+(stringhe, elenchi): un ciclo infinito o una ricorsione senza fine si fermano. Il salvataggio e l'importazione rifiutano uno script che
+non compila; un errore durante il calcolo fa ricalcolare tutto con la sola `[Score]` e la finestra delle statistiche mostra il messaggio
+(`errore_script` di `GET /api/v1/contest-testo/punteggio`).
+
+Esempi:
+
+```
+[Script]
+// solo i QSO fra le 12 e le 14 UTC
+fn ammesso(qso) { if qso.hour >= "1200" && qso.hour < "1400" { true } else { [false, "ora"] } }
+```
+
+```
+[Script]
+// 1 punto in Europa, 3 fuori, il doppio in CW; moltiplicatori: paese per banda
+fn punti(qso) { let p = if qso.cont == "EU" { 1 } else { 3 }; if qso.mode == "CW" { p * 2 } else { p } }
+fn moltiplicatori(qso) { ["dxcc:" + qso.dxcc + "@" + qso.band] }
+```
+
+```
+[Script]
+// RAEM (file distribuito): gradi di differenza fra le coordinate, stazione polare, x1,1 dentro i circoli polari
+fn punti(qso) {
+    let p = 50;
+    if qso.callsign.split("/").contains("RAEM") { p += 300; }
+    let mie = coords(qso.exch_sent);
+    let sue = coords(qso.exch_rcvd);
+    if mie != () && sue != () {
+        let dlon = abs(mie[1] - sue[1]);
+        if dlon > 180 { dlon = 360 - dlon; }
+        p += abs(mie[0] - sue[0]) + dlon;
+        if abs(sue[0]) >= 66 { p += 100; }
+    }
+    p
+}
+fn punteggio(t) {
+    let c = coords(t.exch_sent);
+    if c != () && abs(c[0]) >= 66 { (t.punti * 11 + 5) / 10 } else { t.punti }
+}
+```
 
 ## File di macro `.mc`
 
