@@ -180,11 +180,22 @@ pub fn publish_status(events: broadcast::Sender<Event>, live: LiveConfig) {
     }
         tokio::spawn(async move {
             // lo stato (frequenza, S-meter, trasmissione) si pubblica quattro volte al secondo: a un secondo lo S-meter sembrava fermo
-            let mut tick = tokio::time::interval(std::time::Duration::from_millis(250));
+            // la frequenza della radio si guarda ogni 50 ms: quando cambia lo stato parte subito, senza aspettare il quarto di secondo
+            let mut tick = tokio::time::interval(std::time::Duration::from_millis(50));
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             let mut last_fox = aurora_core::FoxSnapshot::default();
             let mut fox_ticks: u32 = 0;
+            let mut last_dial = u64::MAX;
+            let mut since_publish: u32 = u32::MAX;
             loop {
                 tick.tick().await;
+                let dial_now = live.dial_hz.load(Ordering::Relaxed);
+                since_publish = since_publish.saturating_add(1);
+                if dial_now == last_dial && since_publish < 5 {
+                    continue;
+                }
+                last_dial = dial_now;
+                since_publish = 0;
                 let view = tx::view_of(&live.controls);
                 let selected_text = view.texts.get(usize::from(view.selected).saturating_sub(1)).filter(|t| !t.is_empty() && view.selected > 0).cloned();
                 // in trasmissione il messaggio e' quello davvero in onda: la sequenza puo' trasmettere senza un messaggio selezionato,

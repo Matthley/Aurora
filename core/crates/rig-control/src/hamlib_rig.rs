@@ -100,8 +100,8 @@ pub struct Timing {
 }
 
 /// Lettura veloce della frequenza mentre la sintonia si muove, e a riposo (seriali veloci, rete, USB).
-pub const FREQ_FAST: Duration = Duration::from_millis(160);
-pub const FREQ_IDLE: Duration = Duration::from_millis(300);
+pub const FREQ_FAST: Duration = Duration::from_millis(100);
+pub const FREQ_IDLE: Duration = Duration::from_millis(200);
 /// Le stesse sulle seriali lente (9600 baud o meno): meno domande, per lasciare spazio al PTT.
 pub const FREQ_FAST_SLOW_PORT: Duration = Duration::from_millis(300);
 pub const FREQ_IDLE_SLOW_PORT: Duration = Duration::from_millis(700);
@@ -1581,8 +1581,8 @@ mod tests {
         fake.clear_commands();
         std::thread::sleep(Duration::from_secs(2));
         let n = freq_reads(&fake);
-        // a riposo: una ogni 400 ms (5 in 2 s) piu' la lettura completa
-        assert!((2..=7).contains(&n), "letture della frequenza a riposo in 2 s: {n}");
+        // a riposo: una ogni 200 ms (10 in 2 s) piu' la lettura completa
+        assert!((2..=13).contains(&n), "letture della frequenza a riposo in 2 s: {n}");
     }
 
     #[test]
