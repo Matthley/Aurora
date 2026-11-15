@@ -18,6 +18,8 @@ struct FakeRig {
     modes: Mutex<Vec<String>>,
     rx: Mutex<Vec<u32>>,
     fail: bool,
+    /// come il motore proprio: al cambio di modo pubblica lo stato col modo nuovo
+    engine: Mutex<Option<tokio::sync::broadcast::Sender<Event>>>,
 }
 
 impl Rig for FakeRig {
@@ -48,12 +50,15 @@ impl Rig for FakeRig {
             return Err(RigError("JTDX non risponde".into()));
         }
         self.modes.lock().unwrap().push(mode.to_string());
+        if let Some(bus) = self.engine.lock().unwrap().as_ref() {
+            let _ = bus.send(Event::Status(StationStatus { dial_hz: 14_080_000, mode: mode.into(), ..StationStatus::default() }));
+        }
         Ok(())
     }
 }
 
 fn state_with_rig(fail: bool) -> (AppState, Arc<FakeRig>) {
-    let rig = Arc::new(FakeRig { calls: Mutex::new(vec![]), modes: Mutex::new(vec![]), rx: Mutex::new(vec![]), fail });
+    let rig = Arc::new(FakeRig { calls: Mutex::new(vec![]), modes: Mutex::new(vec![]), rx: Mutex::new(vec![]), fail, engine: Mutex::new(None) });
     let auth = Arc::new(DeviceStore::open_in_memory(Arc::new(SystemClock)).unwrap());
     let book = Arc::new(Logbook::open_in_memory().unwrap());
     let s = AppState::new(Bus::new(64), auth, book, TxPolicy::default_safe(), false).with_rig(rig.clone());
@@ -201,6 +206,44 @@ async fn rx_failures_and_missing_rig_are_reported() {
     let (s, _) = state_with_rig(true);
     status_is(&rx(&s, r#"{"hz":1000}"#).await, StatusCode::BAD_GATEWAY);
     status_is(&rx(&state(), r#"{"hz":1000}"#).await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+#[tokio::test]
+async fn a_band_with_another_mode_switches_the_engine_to_that_mode() {
+    let (s, rig) = state_with_rig(false);
+    *rig.engine.lock().unwrap() = Some(s.bus.events());
+    publish_status(&s, 14_080_000, "FT4").await;
+    let resp = band(&s, r#"{"band":"20m","mode":"FT8"}"#).await;
+    status_is(&resp, StatusCode::OK);
+    let body = body_json(resp).await;
+    assert_eq!(body["mode"], "FT8");
+    assert_eq!(body["dial_hz"], 14_074_000);
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert_eq!(s.current_mode(), "FT8");
+    assert_eq!(*rig.modes.lock().unwrap(), vec!["FT8".to_string()]);
+    assert_eq!(rig.calls.lock().unwrap().last(), Some(&14_074_000));
+}
+
+#[tokio::test]
+async fn a_band_without_mode_keeps_the_engine_mode() {
+    let (s, rig) = state_with_rig(false);
+    publish_status(&s, 14_080_000, "FT4").await;
+    let resp = band(&s, r#"{"band":"20m"}"#).await;
+    status_is(&resp, StatusCode::OK);
+    assert_eq!(body_json(resp).await["mode"], "FT4");
+    assert!(rig.modes.lock().unwrap().is_empty());
+    assert_eq!(s.current_mode(), "FT4");
+    assert_eq!(*rig.calls.lock().unwrap(), vec![14_080_000]);
+}
+
+#[tokio::test]
+async fn a_band_with_the_same_mode_does_not_switch_mode() {
+    let (s, rig) = state_with_rig(false);
+    publish_status(&s, 7_074_000, "FT8").await;
+    let resp = band(&s, r#"{"band":"20m","mode":"ft8"}"#).await;
+    status_is(&resp, StatusCode::OK);
+    assert!(rig.modes.lock().unwrap().is_empty());
+    assert_eq!(*rig.calls.lock().unwrap(), vec![14_074_000]);
 }
 
 async fn publish_status(s: &AppState, dial_hz: u64, mode: &str) {

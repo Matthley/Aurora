@@ -942,12 +942,13 @@ async fn call_cq(State(state): State<AppState>, _: Authed, headers: HeaderMap, b
 #[derive(Deserialize)]
 struct BandBody {
     band: String,
-    /// Modo di cui si vuole la frequenza (predefinito: quello in uso).
+    /// Modo da usare (predefinito: quello in uso). Se e' diverso da quello del motore il motore passa a questo modo, come con `/commands/mode`.
     mode: Option<String>,
 }
 
-/// Porta la radio sulla frequenza FT8 della banda (OmniRig, condiviso con JTDX). Mai durante la trasmissione.
-#[utoipa::path(post, path = "/api/v1/commands/band", responses((status = 200, description = "Radio spostata"), (status = 400, description = "Banda sconosciuta (bad_band)"), (status = 409, description = "In trasmissione (transmitting)"), (status = 502, description = "Errore della radio (rig_error)"), (status = 503, description = "Comando radio non disponibile (rig_unavailable)")))]
+/// Porta la radio sulla frequenza della banda per il modo chiesto (o quello in uso) e, se il modo e' diverso, cambia anche il modo del motore
+/// con gli stessi controlli di `/commands/mode`. Risponde `{ok, dial_hz, mode}`. Mai durante la trasmissione.
+#[utoipa::path(post, path = "/api/v1/commands/band", responses((status = 200, description = "Radio spostata (e modo cambiato se chiesto)"), (status = 400, description = "Banda sconosciuta (bad_band) o modo sconosciuto (bad_mode)"),(status = 409, description = "In trasmissione (transmitting)"), (status = 502, description = "Errore della radio (rig_error)"), (status = 503, description = "Comando radio non disponibile (rig_unavailable)")))]
 async fn change_band(State(state): State<AppState>, _: Authed, Json(body): Json<BandBody>) -> Result<Json<Value>, ApiError> {
     let rig = if state.manual_dial.is_some() { state.dial_rig() } else { state.active_rig() };
     if rig.is_none() && state.manual_dial.is_none() {
@@ -965,18 +966,24 @@ async fn change_band(State(state): State<AppState>, _: Authed, Json(body): Json<
     if state.current_status().is_some_and(|s| s.transmitting) {
         return Err(ApiError::new(StatusCode::CONFLICT, "transmitting"));
     }
+    // il modo chiesto, se diverso da quello del motore, si applica prima di spostare la radio: altrimenti la radio andava sulla frequenza
+    // del nuovo modo e il motore restava nel modo di prima
+    if body.mode.as_deref().is_some_and(|m| rig_control::modes::table_mode(m) != state.current_mode()) {
+        apply_mode_change(&state, &mode).await?;
+    }
+    let shown = rig_control::modes::table_mode(&mode);
     halt_for_band_change(&state, hz);
     // senza CAT si cambia solo la frequenza di Aurora: la radio la sposta l'operatore
     let Some(rig) = rig else {
         if let Some(set) = &state.manual_dial {
             set(hz);
         }
-        return Ok(Json(json!({ "ok": true, "dial_hz": hz, "manual": true })));
+        return Ok(Json(json!({ "ok": true, "dial_hz": hz, "mode": shown, "manual": true })));
     };
     // il comando blocca (porta seriale o COM): fuori dal thread asincrono
     let done = tokio::task::spawn_blocking(move || rig.set_frequency(hz)).await;
     match done {
-        Ok(Ok(())) => Ok(Json(json!({ "ok": true, "dial_hz": hz }))),
+        Ok(Ok(())) => Ok(Json(json!({ "ok": true, "dial_hz": hz, "mode": shown }))),
         Ok(Err(e)) => {
             // con una radio che risponde vale solo la sua frequenza: scrivere quella «a mano» la contraddiceva (la frequenza del motore
             // e' la stessa) e la radio rimbalzava fra due bande. Una radio spenta o scollegata passa gia' da `dial_rig` (frequenza a mano).
@@ -1400,18 +1407,25 @@ struct ModeBody {
 /// Cambia tra FT8 e FT4 (con JTDX preme il suo pulsante). Con il motore proprio funziona anche senza radio collegata. Mai durante la trasmissione.
 #[utoipa::path(post, path = "/api/v1/commands/mode", responses((status = 200, description = "Modo cambiato"), (status = 400, description = "Modo sconosciuto (bad_mode) o conferma mancante (confirm_required)"), (status = 409, description = "In trasmissione (transmitting) o QSO in corso (qso_in_progress)"), (status = 409, description = "In trasmissione (transmitting)"), (status = 502, description = "JTDX non ha risposto (rig_error)"), (status = 503, description = "Comando non disponibile (rig_unavailable)")))]
 async fn change_mode(State(state): State<AppState>, _: Authed, Json(body): Json<ModeBody>) -> Result<Json<Value>, ApiError> {
+    let dial = apply_mode_change(&state, &body.mode).await?;
+    let shown = body.mode.trim().to_uppercase();
+    Ok(Json(json!({ "ok": true, "mode": shown, "dial_hz": dial })))
+}
+
+/// Il cambio di modo di `/commands/mode` con i suoi controlli (motore o radio presenti, modo conosciuto, niente trasmissione in corso);
+/// lo usa anche `/commands/band` quando chiede un modo diverso da quello in uso. Restituisce la frequenza di dial scelta (se cambiata).
+async fn apply_mode_change(state: &AppState, mode: &str) -> Result<Option<u64>, ApiError> {
     if state.active_rig().is_none() {
         return Err(ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "rig_unavailable"));
     }
-    if rig_control::modes::button_id(&body.mode).is_none() {
+    if rig_control::modes::button_id(mode).is_none() {
         return Err(ApiError::new(StatusCode::BAD_REQUEST, "bad_mode"));
     }
     if state.current_status().is_some_and(|s| s.transmitting) {
         return Err(ApiError::new(StatusCode::CONFLICT, "transmitting"));
     }
-    let shown = body.mode.trim().to_uppercase();
-    match switch_mode(&state, &body.mode).await {
-        Ok(dial) => Ok(Json(json!({ "ok": true, "mode": shown, "dial_hz": dial }))),
+    match switch_mode(state, mode).await {
+        Ok(dial) => Ok(dial),
         Err(e) if e == "rig_task" => Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "rig_task")),
         Err(e) => {
             tracing::warn!("cambio modo fallito: {e}");
