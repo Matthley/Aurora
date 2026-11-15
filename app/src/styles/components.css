@@ -1292,14 +1292,15 @@ mark.guide-hit--on { background: #f97316; color: #ffffff; box-shadow: 0 0 0 2px 
    scuro, senza cifre ne' S-meter */
 body.rd-radio-off .rd-header, body.rd-radio-off .rd-face-row, body.rd-radio-off .rd-square-slot, body.rd-radio-off .rd-square-preview { filter: grayscale(1) brightness(0.7); }
 
-/* Radio spenta: la scritta grande al centro di ogni display, che si adatta alla misura del display (container query: piu' grande sui
-   display larghi, piu' piccola su quelli stretti o quasi quadrati); il pannello resta grigio dietro */
-.rd-header, .rd-square-slot, .rd-square-preview { position: relative; container-type: inline-size; }
+/* Radio spenta: la scritta grande al centro di ogni display; il pannello resta grigio dietro. Niente `container-type` sul display (issue
+   #55 e #60): il contenimento della larghezza lo faceva largo zero (il display in testata prende la larghezza dal contenuto) e il display
+   spariva con qualunque stile, S-meter e dati in piu' compresi. La misura della scritta segue la finestra, i quasi quadrati la hanno piu' piccola */
+.rd-header, .rd-square-slot, .rd-square-preview { position: relative; }
 body.rd-radio-off .rd-header::after, body.rd-radio-off .rd-square-slot::after, body.rd-radio-off .rd-square-preview::after {
   content: var(--rd-off-text, '⏻  RADIO OFF');
   position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; pointer-events: none;
   font-weight: 800; letter-spacing: 0.12em; white-space: nowrap; color: #f1f5f9;
-  font-size: clamp(14px, 5.2cqi, 40px);
+  font-size: clamp(14px, 1.5vw, 30px);
   text-shadow: 0 0 6px rgb(0 0 0 / 0.95), 0 0 14px rgb(0 0 0 / 0.8);
   background: rgb(0 0 0 / 0.35);
   border-radius: inherit;
@@ -1313,7 +1314,7 @@ body.rd-radio-off .md-noradio { display: none; }
 @font-face { font-family: 'Orbitron'; src: url('../assets/fonts/sstv/Orbitron.ttf') format('truetype'); font-weight: 400 900; font-display: swap; }
 body.rd-radio-off .rd-header::after, body.rd-radio-off .rd-square-slot::after, body.rd-radio-off .rd-square-preview::after {
   font-family: 'Orbitron', 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 0.18em;
-  color: #f1f5f9; font-size: clamp(14px, 4.6cqi, 38px);
+  color: #f1f5f9; font-size: clamp(14px, 1.4vw, 28px);
   text-shadow: 0 0 6px rgb(255 255 255 / 0.55), 0 0 16px rgb(186 230 253 / 0.35), 0 0 2px #000;
   background: rgb(0 0 0 / 0.45);
 }
@@ -1322,6 +1323,7 @@ body.rd-radio-off .rd-header, body.rd-radio-off .rd-square-slot, body.rd-radio-o
 body.rd-radio-off .rd-header > *, body.rd-radio-off .rd-square-slot > *, body.rd-radio-off .rd-square-preview > * { filter: grayscale(1) brightness(0.55); }
 body.rd-radio-off .rd-face-row { filter: none; }
 body.rd-radio-off .rd-face-row > :not(.rd-header) { filter: grayscale(1) brightness(0.55); }
+body.rd-radio-off .rd-square-slot::after, body.rd-radio-off .rd-square-preview::after { font-size: clamp(12px, 1vw, 18px); }
 /* issue #55: la scritta resta testo vero (prima un'immagine a 14 segmenti: se non si generava, il display era solo un riquadro nero) */
 
 /* Barra in fondo: volume dei messaggi, icone dell'audio e del tema e ora UTC tutti in fondo a destra (la firma e' andata nel titolo della
