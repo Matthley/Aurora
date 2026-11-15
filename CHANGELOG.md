@@ -2,7 +2,17 @@
 
 ## Non rilasciato
 
-- L'avviso «Icom con PTT dal CAT: la velocita' deve essere 115200» compare solo per i modelli che la vogliono (IC-7300, IC-7610, IC-705, IC-9700), non piu' per le Icom vecchie come l'IC-706 che arrivano a 19200 (#63).
+## 0.11.262 - 2026-11-15
+
+- QTC del WAE DX Contest nei modi testuali: F12 manda e F11 riceve le serie, con le regole del DARC (fra continenti diversi in RTTY, dai non europei agli europei in CW/SSB, al massimo 10 per stazione), punteggio con i QTC e righe QTC nel Cabrillo; comandi macro `<QTCSEND>` e `<QTCREAD>`.
+- Ricevitore RTTY: lo squelch conta un carattere solo se c'e' davvero la portante (caratteri falsi nei silenzi e coi crepitii a zero sul banco); Aurora BIGScan RTTY sceglie la velocita' dal ritmo dei cambi fra i toni (il QTC di una stazione a 45,45 baud non esce piu' storto) e scambia mark e space con la radio in LSB.
+- Ricevitore CW: tono giudicato su pezzi piu' lunghi e pause adattate insieme al pugno: nominativi letti giusti da 716 a 759 su 938 sul banco (tasto a mano da 39 a 61), nessun carattere falso sul solo rumore.
+- Cascata come in WSJT-X (finestra lunga sulla FFT e potenza vera del canale): tracce FT8 continue invece che a puntini.
+- Display della radio di nuovo visibile con S-meter e dati in piu' (#55, #60: restava largo zero); tasto SPLIT sotto PWR che spegne lo split subito; niente lente con lo split acceso; pulsante CAT accanto ad Auto per collegare e scollegare la radio.
+- Frequenza della radio piu' reattiva (letture Hamlib ogni 100/200 ms, stato inviato al cambio) e in testata mai una frequenza vecchia: quella a mano vale solo senza CAT.
+- Modi testuali: nel selettore delle frequenze solo le bande accese, piu' piccolo e chiaro; frequenze riscontrate col piano IARU Regione 1 del 2020; misure delle finestre ricordate per modo; cascata allargabile con una maniglia; macro premuta durante la trasmissione che riparte subito; SSTV nella tendina dei modi.
+- SSTV: durata accanto a ogni modo in colonne allineate, foto di sfondo e livelli a sinistra con anteprima piu' piccola, foto rimpicciolibile fino al 10% con Ctrl + rotellina e tasto Adatta, conferme nella finestra di Aurora.
+- La finestra RX della pagina FT8 si sposta di nuovo insieme al Log; invio a Club Log piu' robusto con messaggi d'errore chiari; avviso dei 115200 solo per le Icom che li vogliono (#63).
 
 ## 0.11.261 - 2026-11-15
 
