@@ -47,9 +47,10 @@ const OWN_HZ: f32 = 10.0;
 /// 75 baud, si legge anche se la banda e' impostata a 170 Hz e 45,45 baud.
 const SHIFTS: [f32; 3] = [170.0, 425.0, 850.0];
 const BAUDS: [f32; 3] = [45.45, 50.0, 75.0];
-/// La velocita' di un canale nuovo: quella che sull'audio gia' passato legge piu' caratteri sicuri; un'altra vince su quella impostata
-/// solo con almeno tanti caratteri sicuri in piu'.
-const BAUD_MARGIN: usize = 3;
+/// La velocita' di un canale nuovo (`pick_baud`): un'altra vince su quella impostata solo se i cambi fra mark e space cadono sul suo passo
+/// almeno cosi' bene, e meglio di tanto. Sul segnale giusto il punteggio e' circa 0,99, sulle velocita' sbagliate fra -0,3 e 0,15.
+const LATTICE_MIN: f64 = 0.6;
+const LATTICE_MARGIN: f64 = 0.3;
 
 /// Un segnale seguito.
 struct Lane {
@@ -297,19 +298,67 @@ impl RttyMulti {
     }
 }
 
-/// La velocita' di un segnale nuovo a `centre_hz`: fra `BAUDS` quella che sull'audio `past` legge piu' caratteri sicuri; `default` (la
-/// velocita' impostata) se nessun'altra ne legge almeno `BAUD_MARGIN` in piu'.
+/// La velocita' di un segnale nuovo a `centre_hz`: fra `BAUDS` quella su cui i cambi fra mark e space dell'audio `past` cadono a passo
+/// di mezzo bit (`lattice`); `default` (la velocita' impostata) se nessun'altra lo fa nettamente meglio. Prima vinceva quella che leggeva
+/// piu' caratteri sicuri: sul secondo scarso di segnale di un canale appena nato il ricevitore giusto, ancora con lo squelch chiuso, ne
+/// leggeva 0-2 e quello a 75 baud ne inventava 3-5 (ne legge di piu' perche' sono piu' corti), e un QTC a 45,45 baud usciva spazzatura.
 fn pick_baud(past: &[f32], centre_hz: f32, shift_hz: f32, default: f32) -> f32 {
-    let sure = |baud: f32| new_demod(centre_hz, shift_hz, baud).process_chars(past).iter().filter(|c| c.prob >= ACTIVE_PROB).count();
-    let base = sure(default);
-    let mut best = (default, base);
+    let base = lattice(past, centre_hz, shift_hz, default);
+    let mut best = (default, base + LATTICE_MARGIN);
     for &b in BAUDS.iter().filter(|b| (**b - default).abs() > 0.1) {
-        let n = sure(b);
-        if n >= base + BAUD_MARGIN && n > best.1 {
-            best = (b, n);
+        let score = lattice(past, centre_hz, shift_hz, b);
+        if score >= LATTICE_MIN && score > best.1 {
+            best = (b, score);
         }
     }
     best.0
+}
+
+/// Quanto i cambi fra mark e space dell'audio `past` cadono su multipli di mezzo bit a `baud` (da -1 a 1; mezzo bit perche' lo stop
+/// dura 1,5 bit). Non dipende da quale tono e' il mark.
+fn lattice(past: &[f32], centre_hz: f32, shift_hz: f32, baud: f32) -> f64 {
+    let len = ((RATE / shift_hz).round() as usize).max(4);
+    let tones = [f64::from(centre_hz - shift_hz / 2.0), f64::from(centre_hz + shift_hz / 2.0)];
+    let mut prod: Vec<[(f64, f64); 2]> = Vec::with_capacity(past.len());
+    let mut sum = [(0.0_f64, 0.0_f64); 2];
+    let mut d = Vec::with_capacity(past.len());
+    for (n, &x) in past.iter().enumerate() {
+        let mut p = [(0.0, 0.0); 2];
+        for (k, f) in tones.iter().enumerate() {
+            let w = 2.0 * PI * f * n as f64 / f64::from(RATE);
+            p[k] = (f64::from(x) * w.cos(), -f64::from(x) * w.sin());
+            sum[k].0 += p[k].0;
+            sum[k].1 += p[k].1;
+            if n >= len {
+                sum[k].0 -= prod[n - len][k].0;
+                sum[k].1 -= prod[n - len][k].1;
+            }
+        }
+        prod.push(p);
+        d.push((sum[1].0 * sum[1].0 + sum[1].1 * sum[1].1) - (sum[0].0 * sum[0].0 + sum[0].1 * sum[0].1));
+    }
+    if d.is_empty() {
+        return 0.0;
+    }
+    let h = 0.2 * d.iter().map(|v| v.abs()).sum::<f64>() / d.len() as f64;
+    let bit = f64::from(RATE / baud);
+    let (lo, hi) = (f64::from(RATE / BAUDS[2]) / 2.0, 8.0 * f64::from(RATE / BAUDS[0]));
+    let (mut state, mut last, mut acc, mut cnt) = (0_i8, None::<usize>, 0.0, 0_usize);
+    for (n, &v) in d.iter().enumerate() {
+        let now = if v > h { 1 } else if v < -h { -1 } else { state };
+        if now != state && state != 0 {
+            if let Some(l) = last {
+                let gap = (n - l) as f64;
+                if (lo..=hi).contains(&gap) {
+                    acc += (4.0 * PI * gap / bit).cos();
+                    cnt += 1;
+                }
+            }
+            last = Some(n);
+        }
+        state = now;
+    }
+    if cnt == 0 { 0.0 } else { acc / cnt as f64 }
 }
 
 /// Il ricevitore di un canale: squelch statistico e sintonia fine entro `FINE_TUNING_HZ`.
@@ -535,6 +584,42 @@ mod tests {
         assert_eq!(multi.lanes.len(), 1, "canali: {:?}", multi.channels());
         assert_eq!(multi.lanes[0].baud, 75.0);
         assert!(letto.contains("IU3ABC"), "{letto}");
+    }
+
+    const QTC: &str = "QTC 22/10 QRV? / 1655-DK1WI-311 / 1656-S50A-123 / 1657-DK8EY-111 / 1658-DG2BWG-259 / 1700-DL5NO-2 ";
+
+    /// Un QTC da contest a 45,45 baud (cifre, trattini, cambi FIGS/LTRS), solo o con una stazione accanto: il canale nasce a 45,45 baud
+    /// e si legge. Prima nasceva a 75 baud e la cascata mostrava «VVMTVMMLVOTVV...».
+    #[test]
+    fn un_qtc_a_45_baud_non_nasce_a_75() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 170.0, baud: 45.45, reverse: false };
+        for vicina in [false, true] {
+            let mut audio = vec![0.0_f32; 6_000];
+            audio.extend(modulate(QTC.repeat(3).as_bytes(), p, 0.3));
+            if vicina {
+                let q = RttyParams { centre_hz: 1250.0, ..p };
+                let v = modulate("CQ TEST IU3ABC IU3ABC TEST ".repeat(8).as_bytes(), q, 0.3);
+                for (a, x) in audio.iter_mut().zip(v) {
+                    *a += x;
+                }
+            }
+            let n = audio.len();
+            for (a, r) in audio.iter_mut().zip(rumore(n, 0.3, 23)) {
+                *a += r;
+            }
+            let mut multi = RttyMulti::new(170.0, 45.45);
+            let mut letto = String::new();
+            for blocco in audio.chunks(1200) {
+                for l in multi.process(blocco) {
+                    if (l.centre_hz - 1500.0).abs() < 50.0 {
+                        letto.extend(l.chars.iter().map(|c| c.ch));
+                    }
+                }
+            }
+            let canale = multi.lanes.iter().find(|l| (l.centre_hz - 1500.0).abs() < 50.0);
+            assert!(canale.is_some_and(|l| l.baud == 45.45), "vicina {vicina}: {:?}", multi.lanes.iter().map(|l| (l.centre_hz, l.baud)).collect::<Vec<_>>());
+            assert!(letto.contains("1657-DK8EY-111"), "vicina {vicina}: {letto}");
+        }
     }
 }
 
