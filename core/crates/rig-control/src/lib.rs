@@ -26,6 +26,7 @@ pub mod schedule;
 pub mod table;
 pub mod tci;
 pub mod watchdog;
+pub mod winkeyer;
 
 pub use omnirig::WindowsRig;
 
