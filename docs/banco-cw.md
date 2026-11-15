@@ -387,3 +387,30 @@ Esito: la catena veloce supera l'attuale sui caratteri giusti (+41 sul canale, +
 -6 dB, tasto a mano, crepitii in BigScan). Non e' quindi ne' predefinita ne' offerta come opzione: **resta spenta**, l'interfaccia non cambia.
 Mancano: meno inserzioni (sul tasto a mano e sui crepitii perde ancora molto), e il calcolo di BigScan, che con otto copie per canale
 cresce con il numero dei canali.
+
+## Ottavo giro: squelch del carattere, cancello, classi larghe nella griglia
+
+Commit della catena con: squelch del carattere sulla forza del tono piu' debole (`char_min`, `char_min_first`), apertura svelta del
+cancello (`gate_fast`), potenza ignorata a cancello chiuso, classi larghe nelle copie della griglia (`grid_r=4`, di base), copie attive
+limitate dopo l'aggancio (`active_speeds`). Di base sono accese solo le classi larghe e la potenza ignorata a cancello chiuso.
+
+8 semi, canale / BigScan:
+
+| totali | attuale | catena 7° giro | catena 8° giro |
+|---|---|---|---|
+| giusti (canale / BigScan) | 16728 / 16622 | 16769 / 16648 | **16844** / **16631** |
+| sbagliati / mancanti / inseriti (canale) | 893 / 661 / 290 | 1303 / 210 / 680 | 1297 / 141 / 695 |
+| CER medio (canale / BigScan) | **10,43 / 10,87** | 12,44 / 13,10 | 12,09 / 13,00 |
+| nominativi esatti / falsi (canale) | **759 / 143** | 753 / 211 | 754 / 203 |
+| latenza mediana (canale) | 1,25 s | 0,56 s | **0,56 s** |
+
+Varianti sul canale (3 semi, CER medio, inseriti, falsi; base 12,91 / 254 / 79): `char_min=0.2` 12,76 / 192 / 75 (55 giusti in meno),
+`char_min=0.35` 13,61 / 144 / 73, `char_min=0.5` 16,69 / 99 / 84, `char_min=0.35,char_min_first=0.7` 14,41 / 129 / 73,
+`gate_fast=0.6` 16,67 / 449 / 75, `active_speeds=3` 13,28 / 243 / 85 (calcolo -14%), `grid_r=8` 14,88 / 263 / 94.
+
+Esito: lo squelch sulla forza del tono toglie lettere inserite ma ne fa mancare altrettante; i nominativi falsi calano di poco perche' il
+divario vero sono le lettere **sbagliate** (1297 contro 893), non le inserite. Nessuna variante si avvicina al 10,4 dell'attuale: la catena
+**resta spenta**, nessuna opzione nell'interfaccia. Prossimi passi possibili: confidenza del percorso dentro la sequenza (margine fra
+i due stati migliori a ogni carattere, non fra le copie di velocita'), copia libera per il tasto a mano, ibrido di uscita (testo
+provvisorio dalla catena corretto dal ricevitore attuale: correttezza finale uguale all'attuale per costruzione, latenza percepita da
+misurare sul banco con un confronto del testo provvisorio).
