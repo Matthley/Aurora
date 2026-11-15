@@ -92,6 +92,21 @@ const FIST_LIMITS: [(f64, f64); 5] = [(1.0, 1.0), (2.5, 4.2), (0.6, 1.5), (2.2, 
 /// Probabilità di una pausa lunga (oltre la pausa fra le parole: fine della trasmissione, attesa) e durata massima che si considera.
 const P_LONG: f64 = 0.3;
 
+/// Adattamento correlato delle medie del pugno, come un filtro di Kalman sui logaritmi di linea e pause: una misura sposta anche le
+/// classi correlate. Solo le pause fra i caratteri e fra le parole si adattano cosi' (si allungano insieme: tasto a mano, spaziatura
+/// larga); linea e pausa breve restano alla media esponenziale lenta. Banco `banco_cw`, 8 semi: caratteri giusti 16719 -> 16728,
+/// nominativi esatti 737 -> 759 (tasto a mano 39 -> 61 su 78); adattare cosi' anche linea e pausa breve perde caratteri.
+const FIST_KALMAN: [bool; 4] = [false, false, true, true];
+/// Incertezza a priori (logaritmo) delle medie e correlazioni fra linea, pausa breve, fra i caratteri e fra le parole.
+const FIST_PRIOR_SD: f64 = 0.1;
+const FIST_CORR: [[f64; 4]; 4] = [[1.0, 0.2, 0.2, 0.2], [0.2, 1.0, 0.4, 0.3], [0.2, 0.4, 1.0, 0.6], [0.2, 0.3, 0.6, 1.0]];
+/// Quanto della covarianza a priori si riaggiunge a ogni misura (le medie possono continuare a muoversi).
+const FIST_DRIFT: f64 = 0.01;
+
+fn fist_prior_cov() -> [[f64; 4]; 4] {
+    std::array::from_fn(|i| std::array::from_fn(|j| FIST_CORR[i][j] * FIST_PRIOR_SD * FIST_PRIOR_SD))
+}
+
 /// Il quantile 20% della potenza mediata su 10 ms, diviso per la potenza media, sul solo rumore (misurato: vedi le prove).
 const NOISE_Q20: f64 = 0.45;
 /// Rapporto segnale/rumore massimo per campione che si crede (7 dB, cioe' circa -3 dB in 3 kHz con la banda di 150 Hz): sopra non serve
@@ -494,6 +509,8 @@ pub struct CwBayes {
     /// Il pugno: medie (unità) e larghezze (logaritmo) delle cinque classi.
     fist_mean: [f64; 5],
     fist_sigma: [f64; 5],
+    /// Covarianza delle medie del pugno (logaritmi di linea e delle tre pause) per l'adattamento correlato.
+    fist_cov: [[f64; 4]; 4],
     /// Varianza della somma di `n` campioni di rumore, in unità della varianza di un campione.
     var_sum: Vec<f64>,
     var_slope: f64,
@@ -577,6 +594,7 @@ impl CwBayes {
             units,
             fist_mean: FIST_MEAN,
             fist_sigma: FIST_SIGMA,
+            fist_cov: fist_prior_cov(),
             var_sum,
             var_slope,
             ring: vec![Cum::default(); size],
@@ -1287,11 +1305,35 @@ impl CwBayes {
             return;
         }
         let (lo, hi) = FIST_LIMITS[cls];
-        let before = (self.fist_mean[cls], self.fist_sigma[cls]);
-        self.fist_mean[cls] = (self.fist_mean[cls] * (0.03 * r).exp()).clamp(lo, hi);
+        let before = (self.fist_mean, self.fist_sigma[cls]);
+        if FIST_KALMAN[cls - 1] {
+            let prior = fist_prior_cov();
+            let p = &mut self.fist_cov;
+            for (row, prow) in p.iter_mut().zip(prior.iter()) {
+                for (x, q) in row.iter_mut().zip(prow.iter()) {
+                    *x += FIST_DRIFT * q;
+                }
+            }
+            let c = cls - 1;
+            let sg = self.fist_sigma[cls];
+            let s = p[c][c] + sg * sg;
+            let k: [f64; 4] = std::array::from_fn(|i| p[i][c] / s);
+            let row = p[c];
+            for i in 0..4 {
+                for j in 0..4 {
+                    p[i][j] -= k[i] * row[j];
+                }
+                if FIST_KALMAN[i] {
+                    let (lo, hi) = FIST_LIMITS[i + 1];
+                    self.fist_mean[i + 1] = (self.fist_mean[i + 1] * (k[i] * r).exp()).clamp(lo, hi);
+                }
+            }
+        } else {
+            self.fist_mean[cls] = (self.fist_mean[cls] * (0.03 * r).exp()).clamp(lo, hi);
+        }
         let v = self.fist_sigma[cls] * self.fist_sigma[cls];
         self.fist_sigma[cls] = (v + 0.02 * (r * r - v)).sqrt().clamp(FIST_SIGMA[cls] * 0.8, FIST_SIGMA[cls] * 1.3);
-        if (self.fist_mean[cls], self.fist_sigma[cls]) != before {
+        if (self.fist_mean, self.fist_sigma[cls]) != before {
             self.fist_changed();
         }
     }
@@ -1360,6 +1402,19 @@ mod tests {
         assert!(b.ln_pdf(DASH, at(2.0), s) > b.ln_pdf(DOT, at(2.0), s));
         // una pausa di 2,5 unità e' piu' da lettera finita che da pausa interna
         assert!(b.ln_pdf(CHARGAP, at(2.5), s) > b.ln_pdf(INTRA, at(2.5), s));
+    }
+
+    #[test]
+    fn longer_letter_gaps_stretch_the_word_gap_too() {
+        let mut b = CwBayes::new(500.0, &[1.0], 1, 20.0);
+        let (char0, word0, dash0) = (b.fist_mean[CHARGAP], b.fist_mean[WORDGAP], b.fist_mean[DASH]);
+        for _ in 0..60 {
+            b.adapt_fist(CHARGAP, 3.9);
+        }
+        assert!(b.fist_mean[CHARGAP] > char0 * 1.1, "{}", b.fist_mean[CHARGAP]);
+        assert!(b.fist_mean[WORDGAP] > word0 * 1.03, "{}", b.fist_mean[WORDGAP]);
+        assert!(b.fist_mean[WORDGAP] < word0 * 1.3);
+        assert_eq!(b.fist_mean[DASH], dash0);
     }
 
     #[test]
