@@ -62,6 +62,8 @@ pub struct ChainParams {
     /// Cancello di presenza sulla media lunga del residuo: apertura e tenuta.
     pub gate_on: f32,
     pub gate_off: f32,
+    /// Apertura svelta del cancello sull'inviluppo superiore corto (0 = spenta).
+    pub gate_fast: f32,
     /// Lunghezze di media lunga, massimo, media corta e minimo dell'inviluppo (passi).
     pub len_long: usize,
     pub len_max: usize,
@@ -125,9 +127,16 @@ pub struct ChainParams {
     pub flush_steps: usize,
     /// Elementi oltre i quali un carattere fa rifare l'avvio.
     pub restart_len: usize,
+    /// Squelch del carattere: forza minima del tono piu' debole (1 = tono tipico), e per il primo carattere dopo un silenzio.
+    pub char_min: f64,
+    pub char_min_first: f64,
     /// Ipotesi di velocita' in parallelo (1 = solo il modello adattato), penalita' (logaritmo) del cambio di velocita', distanza
     /// (logaritmo dell'unita') e decisioni di fila oltre cui il modello si riaggancia all'ipotesi migliore.
     pub speeds: usize,
+    /// Fattore delle varianze delle classi nelle copie della griglia.
+    pub grid_r: f64,
+    /// Copie della griglia calcolate dopo l'aggancio, oltre a quella del modello (0 = tutte).
+    pub active_speeds: usize,
     pub speed_drop: f64,
     pub relock_ln: f64,
     pub relock_runs: u32,
@@ -147,6 +156,7 @@ impl Default for ChainParams {
             window_fc: 25.0,
             gate_on: 0.5,
             gate_off: 0.4,
+            gate_fast: 0.0,
             len_long: 71,
             len_max: 17,
             len_short: 9,
@@ -182,8 +192,12 @@ impl Default for ChainParams {
             seg_lookahead: 0,
             lex_weight: 1.0,
             flush_steps: 40,
-            restart_len: 7,
+            restart_len: 100,
+            char_min: 0.0,
+            char_min_first: 0.0,
             speeds: 8,
+            grid_r: 4.0,
+            active_speeds: 0,
             speed_drop: 40.0,
             relock_ln: 0.4,
             relock_runs: 2,
@@ -205,6 +219,7 @@ impl ChainParams {
             "window_fc" => self.window_fc = v,
             "gate_on" => self.gate_on = f,
             "gate_off" => self.gate_off = f,
+            "gate_fast" => self.gate_fast = f,
             "len_long" => self.len_long = u.max(1),
             "len_max" => self.len_max = u.max(1),
             "len_short" => self.len_short = u.max(1),
@@ -245,7 +260,11 @@ impl ChainParams {
             "lex_weight" => self.lex_weight = v,
             "flush_steps" => self.flush_steps = u.max(1),
             "restart_len" => self.restart_len = u.max(1),
+            "char_min" => self.char_min = v,
+            "char_min_first" => self.char_min_first = v,
             "speeds" => self.speeds = u.clamp(1, 32),
+            "grid_r" => self.grid_r = v.max(0.1),
+            "active_speeds" => self.active_speeds = u,
             "speed_drop" => self.speed_drop = v.max(0.0),
             "relock_ln" => self.relock_ln = v.max(0.0),
             "relock_runs" => self.relock_runs = (u as u32).max(1),
@@ -566,6 +585,10 @@ impl Tracker {
         self.long_v = self.long.push(m);
         self.gate = if self.gate { self.long_v > pr.gate_off } else { self.long_v > pr.gate_on };
         let env = self.short.push(self.max.push(m));
+        // apertura svelta: un tono netto apre subito il cancello (la media lunga arriva tardi e il primo segno andava perso)
+        if pr.gate_fast > 0.0 && env > pr.gate_fast {
+            self.gate = true;
+        }
         // inviluppo superiore dell'ampiezza (per l'ibrido): segue l'evanescenza in qualche decimo di secondo
         self.a_env = self.a_short.push(self.a_max.push(s.a));
         self.m_hist = [self.m_hist[1], self.m_hist[2], m];
@@ -1714,6 +1737,8 @@ pub struct ChannelChain {
     seqs: Vec<Sequence>,
     seq_units: Vec<Option<f64>>,
     totals: Vec<f64>,
+    /// Copie che si calcolano (le altre aspettano e ripartono dalla migliore quando tornano vicine).
+    active: Vec<bool>,
     best: usize,
     best_run: u32,
     since_decide: usize,
@@ -1732,6 +1757,12 @@ pub struct ChannelChain {
     word_buf: Vec<u8>,
     recent: VecDeque<(bool, usize)>,
     since_check: usize,
+    /// Squelch del carattere: potenza del tono in corso, forza dell'ultimo tono, del tono piu' debole del carattere, primo carattere
+    /// dopo un silenzio.
+    run_pw: f64,
+    last_rel: f64,
+    char_conf: f64,
+    after_silence: bool,
     /// Ibrido coerente: ampiezza al quadrato del tono e rumore per passo (riferiti al rumore della banda), velocita' di rotazione della
     /// fase (prodotto dei passi consecutivi mediato), fase accumulata, passo precedente, varianze delle somme.
     coh_amp2: f64,
@@ -1756,6 +1787,7 @@ impl ChannelChain {
             seqs: speed_units(pr).iter().map(|u| Sequence::new(&u.map_or_else(|| model.clone(), |u| model.at_unit(u)))).collect(),
             seq_units: speed_units(pr),
             totals: vec![0.0; speed_units(pr).len()],
+            active: vec![true; speed_units(pr).len()],
             best: 0,
             best_run: 0,
             tracker: Tracker::new(pr),
@@ -1774,6 +1806,10 @@ impl ChannelChain {
             word_buf: Vec::new(),
             recent: VecDeque::with_capacity(STARTUP_ELEMENTS + 1),
             since_check: 0,
+            run_pw: 0.0,
+            last_rel: 1.0,
+            char_conf: f64::INFINITY,
+            after_silence: true,
             coh_amp2: 0.0,
             coh_noise: 1.0,
             coh_rot: (0.0, 0.0),
@@ -1812,8 +1848,10 @@ impl ChannelChain {
         match iq {
             Some(y) if self.pr.emit_mode == 2 => self.step_coherent(y, kp),
             _ => {
-                for (sq, t) in self.seqs.iter_mut().zip(self.totals.iter_mut()) {
-                    *t += sq.step(kp.p, self.pr.emit_weight);
+                for ((sq, t), on) in self.seqs.iter_mut().zip(self.totals.iter_mut()).zip(&self.active) {
+                    if *on {
+                        *t += sq.step(kp.p, self.pr.emit_weight);
+                    }
                 }
             }
         }
@@ -1828,8 +1866,9 @@ impl ChannelChain {
             }
             self.totals.iter_mut().for_each(|t| *t = 0.0);
             self.since_decide = 0;
+            let pws: Vec<f64> = self.coh_pw.iter().take(labels.len()).copied().collect();
             self.learn_levels(&labels, labels.len());
-            self.commit(&labels, out);
+            self.commit(&labels, &pws, out);
             self.finish(out);
         } else if self.since_decide >= DECIDE && self.seqs[self.best].back.len() >= HISTORY {
             self.since_decide = 0;
@@ -1841,8 +1880,9 @@ impl ChannelChain {
             }
             let marks = labels[..n].windows(2).filter(|w| w[1] && !w[0]).count();
             self.relock(marks);
+            let pws: Vec<f64> = self.coh_pw.iter().take(n).copied().collect();
             self.learn_levels(&labels, n);
-            self.commit(&labels[..n], out);
+            self.commit(&labels[..n], &pws, out);
         }
         self.note_words(start, out);
         kp
@@ -1883,10 +1923,14 @@ impl ChannelChain {
         let nu = (amp2 / self.pr.coh_snr_cap).max(1.0);
         let scale = (1.0 / noise.sqrt()) as f32;
         for h in 0..self.seqs.len() {
+            if !self.active[h] {
+                continue;
+            }
             let unit = self.seq_units[h].unwrap_or(self.model.mu[0]);
             let piece = ((self.pr.coh_piece_units * unit.exp()).round() as usize).max(1);
             let pp = f64::from(kp.p).clamp(1e-4, 1.0 - 1e-4);
-            let hop_llr = (pp / (1.0 - pp)).ln();
+            // a cancello chiuso la potenza non dice niente (la media lunga apre tardi: il primo segno andava perso)
+            let hop_llr = if kp.gate { (pp / (1.0 - pp)).ln() } else { 0.0 };
             let judge = CohJudge { amp2, nu, piece, max_pieces: self.pr.coh_max_pieces, closed_penalty: -self.pr.coh_closed, hop_llr, mix: self.pr.coh_mix, var_sum: &self.coh_var };
             self.totals[h] += self.seqs[h].step_coherent(z * scale, kp.gate, &judge);
         }
@@ -1918,7 +1962,7 @@ impl ChannelChain {
 
     /// La migliore ipotesi di velocita' e punteggi riportati vicino a zero.
     fn pick_best(&mut self) {
-        let (b, top) = self.totals.iter().enumerate().fold((0, f64::NEG_INFINITY), |a, (i, &t)| if t > a.1 { (i, t) } else { a });
+        let (b, top) = self.totals.iter().zip(&self.active).enumerate().filter(|(_, (_, on))| **on).fold((0, f64::NEG_INFINITY), |a, (i, (&t, _))| if t > a.1 { (i, t) } else { a });
         for t in &mut self.totals {
             *t -= top;
         }
@@ -1931,8 +1975,25 @@ impl ChannelChain {
     fn relock(&mut self, marks: usize) {
         let b = self.best;
         let drop = self.pr.speed_drop;
+        // dopo l'aggancio si calcolano solo la copia del modello e le piu' vicine all'unita' della migliore
+        let k = self.pr.active_speeds;
+        let was: Vec<bool> = self.active.clone();
+        if k > 0 && self.coh_learned >= 20 || k > 0 && self.pr.emit_mode != 2 && self.elements > 40 {
+            let ub = self.seq_units[b].unwrap_or(self.model.mu[0]);
+            let mut order: Vec<(f64, usize)> = self.seq_units.iter().enumerate().filter_map(|(i, u)| u.map(|u| ((u - ub).abs(), i))).collect();
+            order.sort_by(|x, y| x.0.total_cmp(&y.0));
+            self.active.iter_mut().for_each(|a| *a = false);
+            self.active[0] = true;
+            self.active[b] = true;
+            for &(_, i) in order.iter().take(k) {
+                self.active[i] = true;
+            }
+        } else {
+            self.active.iter_mut().for_each(|a| *a = true);
+        }
         for h in 0..self.seqs.len() {
-            if h != b && self.totals[h] < -drop {
+            let woke = self.active[h] && !was[h];
+            if h != b && self.active[h] && (woke || self.totals[h] < -drop) {
                 let (src, dst) = if h < b {
                     let (a, c) = self.seqs.split_at_mut(b);
                     (&c[0], &mut a[h])
@@ -1963,7 +2024,12 @@ impl ChannelChain {
     fn retable_all(&mut self) {
         for (sq, u) in self.seqs.iter_mut().zip(&self.seq_units) {
             match u {
-                Some(u) => sq.retable(&self.model.at_unit(*u)),
+                Some(u) => {
+                    // le copie della griglia hanno classi piu' larghe (pugni irregolari)
+                    let mut m = self.model.at_unit(*u);
+                    m.r = m.r.map(|r| r * self.pr.grid_r);
+                    sq.retable(&m)
+                }
                 None => sq.retable(&self.model),
             }
         }
@@ -1983,22 +2049,31 @@ impl ChannelChain {
         }
     }
 
-    fn commit(&mut self, labels: &[bool], out: &mut Vec<u8>) {
-        for &l in labels {
+    fn commit(&mut self, labels: &[bool], pws: &[f64], out: &mut Vec<u8>) {
+        for (i, &l) in labels.iter().enumerate() {
+            let pw = pws.get(i).copied();
             if !self.started {
                 if l {
                     self.started = true;
                     self.run_on = true;
                     self.run_len = 1;
+                    self.run_pw = pw.unwrap_or(0.0);
                 }
                 continue;
             }
             if l == self.run_on {
                 self.run_len += 1;
+                if l {
+                    self.run_pw += pw.unwrap_or(0.0);
+                }
             } else {
+                if self.run_on {
+                    self.last_rel = self.tone_strength(self.run_pw, self.run_len, !pws.is_empty());
+                }
                 self.element(self.run_on, self.run_len, out);
                 self.run_on = l;
                 self.run_len = 1;
+                self.run_pw = if l { pw.unwrap_or(0.0) } else { 0.0 };
                 if !l {
                     self.char_closed = false;
                     self.word_closed = false;
@@ -2041,6 +2116,7 @@ impl ChannelChain {
             }
         }
         self.seg.flush(out);
+        self.after_silence = true;
         self.started = false;
         self.run_on = false;
         self.run_len = 0;
@@ -2095,6 +2171,7 @@ impl ChannelChain {
         if on {
             let c = self.model.classify_on(d);
             self.code.push(if c == 0 { '.' } else { '-' });
+            self.char_conf = self.char_conf.min(self.last_rel);
             self.model.update(c, d);
             if self.code.len() > self.pr.restart_len {
                 // un carattere cosi' lungo non esiste: la velocita' e' cambiata, si rifa' l'avvio sugli ultimi elementi
@@ -2123,12 +2200,27 @@ impl ChannelChain {
         if self.code.is_empty() {
             return;
         }
-        if let Some(t) = morse_to_text(&self.code) {
+        // squelch del carattere: il suo tono piu' debole (potenza media rispetto all'ampiezza imparata) deve superare la soglia, piu' alta
+        // per il primo carattere dopo un silenzio
+        let thr = if self.after_silence { self.pr.char_min_first } else { self.pr.char_min };
+        if self.char_conf >= thr
+            && let Some(t) = morse_to_text(&self.code)
+        {
             for c in t.bytes() {
                 self.seg.push_char(c, out);
             }
+            self.after_silence = false;
         }
+        self.char_conf = f64::INFINITY;
         self.code.clear();
+    }
+
+    /// Forza di un tono: potenza media dei suoi passi meno il rumore, rispetto all'ampiezza imparata (1 = tono tipico).
+    fn tone_strength(&self, sum: f64, len: usize, known: bool) -> f64 {
+        if !known || len == 0 || self.coh_amp2 <= 0.0 {
+            return 1.0;
+        }
+        (sum / len as f64 - self.coh_noise) / self.coh_amp2
     }
 }
 
