@@ -12,7 +12,7 @@ const CLEAN_REFRESH_MS = 4000;
 /**
  * Ricezione: l'immagine in arrivo si riempie riga per riga su un canvas alla risoluzione vera del modo, ingrandito senza sfocare
  * (pixel netti; «ingrandimento morbido» a scelta nelle Impostazioni SSTV). Accanto: modo, righe, sincronismo, livello, sintonia, comandi.
- * `spectrum` sta sotto il visore, nella stessa colonna (stessi bordi); `log` e' una terza colonna a destra della scheda del modo.
+ * `tuning` sta sotto il visore, nella stessa colonna (stessi bordi); `log` e' una terza colonna a destra della scheda del modo.
  * Sopra l'immagine il nominativo letto dall'FSK ID; sotto, «Originale / Pulita» per vedere l'immagine pulita dal rumore.
  * La ricezione vive nel servizio del motore: il componente puo' smontarsi e rimontarsi (cambio di pagina) e riprende dall'immagine in corso.
  */
@@ -22,7 +22,7 @@ export function ReceiveView({
   onSaved,
   onTransmit,
   onListen,
-  spectrum,
+  tuning,
   log,
 }: {
   snap: SstvSnapshot;
@@ -31,7 +31,7 @@ export function ReceiveView({
   onTransmit: () => void;
   /** L'operatore accende o spegne l'ascolto (la pagina lo tiene acceso finche' non lo spegne lui). */
   onListen?: (on: boolean) => void;
-  spectrum?: ReactNode;
+  tuning?: ReactNode;
   log?: ReactNode;
 }) {
   const t = useT();
@@ -217,7 +217,7 @@ export function ReceiveView({
             </span>
           ) : null}
         </div>
-        {spectrum}
+        {tuning}
       </div>
 
       <aside className="sstv-side">

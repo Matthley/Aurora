@@ -26,7 +26,7 @@ import { getCallsign, getSstv, sstvRx, sstvTune, type CallsignInfo } from '../ap
 import { emitSstv } from '../lib/sstvBus';
 import { openSettingsWindow } from '../lib/settingsWindow';
 import { usePrefs } from '../lib/prefs';
-import { emitSpectrum, spectrumListenerCount } from '../lib/spectrumFeed';
+import { spectrumListenerCount } from '../lib/spectrumFeed';
 import { SstvPage } from './SstvPage';
 
 const SNAP: SstvSnapshot = {
@@ -56,19 +56,19 @@ beforeEach(() => {
 });
 
 describe('SstvPage, ricezione', () => {
-  it('puts the thin spectrum in the image column and the small log next to the mode card', async () => {
+  it('puts the tuning box in the image column and the small log next to the mode card', async () => {
     const { container, unmount } = page();
     await screen.findByText('In attesa di un’immagine: Aurora riconosce il modo dal codice VIS o, senza VIS, dal ritmo delle righe.');
     const rx = container.querySelector('.sstv-rx');
     expect(rx).toHaveClass('sstv-rx--log');
-    // lo spettro sta nella colonna del visore, sotto lo schermo: stessi bordi della scheda dell'immagine
+    // il riquadro di sintonia sta nella colonna del visore, sotto lo schermo: stessi bordi della scheda dell'immagine
     const stage = rx?.querySelector(':scope > .sstv-stage');
-    const spectrum = screen.getByTestId('sstv-spectrum');
-    expect(stage?.contains(spectrum)).toBe(true);
-    expect(stage?.querySelector('.sstv-screen')?.compareDocumentPosition(spectrum)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    // niente piu' riquadro «Rx 1200»: la sintonia e' nel riquadro sotto lo spettro
-    expect(within(spectrum).queryByText('Rx 1200')).toBeNull();
-    expect(stage?.contains(screen.getByTestId('sstv-tuning'))).toBe(true);
+    const tuning = screen.getByTestId('sstv-tuning');
+    expect(stage?.contains(tuning)).toBe(true);
+    expect(stage?.querySelector('.sstv-screen')?.compareDocumentPosition(tuning)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // niente piu' spettro verde ne' riquadro «Rx 1200»
+    expect(screen.queryByTestId('sstv-spectrum')).toBeNull();
+    expect(screen.queryByText('Rx 1200')).toBeNull();
     // niente piu' cascata
     expect(container.querySelector('.digi-wf')).toBeNull();
     // il log e' la terza colonna, subito dopo la scheda del modo
@@ -78,11 +78,9 @@ describe('SstvPage, ricezione', () => {
     for (const name of ['Nominativo', 'Inviato', 'Ricevuto', 'Nome', 'QTH', 'Locatore', 'Note']) expect(within(log).getByLabelText(name)).toBeInTheDocument();
     expect(within(log).getByRole('button', { name: 'Metti a log' })).toBeInTheDocument();
     expect(within(log).getByRole('button', { name: 'Pulisci' })).toBeInTheDocument();
-    // lo spettro riceve le righe e smette all'uscita
-    expect(spectrumListenerCount()).toBe(1);
-    expect(() => act(() => emitSpectrum(new Uint8Array(4096).fill(40), 0, 3000))).not.toThrow();
-    unmount();
+    // lo spettro dell'audio non serve piu' a questa pagina: nessun ascoltatore
     expect(spectrumListenerCount()).toBe(0);
+    unmount();
   });
 
   it('keeps only the operating controls on the page; the settings are behind the gear', async () => {
@@ -96,14 +94,10 @@ describe('SstvPage, ricezione', () => {
     expect(openSettingsWindow).toHaveBeenCalledWith('sstv');
   });
 
-  it('draws the fixed marks on the spectrum and tells how far to move the VFO from the AFC estimate', async () => {
+  it('tells how far to move the VFO from the AFC estimate', async () => {
     vi.mocked(getSstv).mockResolvedValue({ ...SNAP, rx: { ...SNAP.rx, rows: 40, offset_hz: 35 } });
-    const { container } = page();
+    page();
     await screen.findByText(/^Martin 1\s+1:54$/);
-    const labels = [...container.querySelectorAll('.sstv-mark i')].map((i) => i.textContent);
-    expect(labels).toEqual(['1200', '1500', '2300']);
-    expect(container.querySelectorAll('.sstv-mark--vis')).toHaveLength(3);
-    expect(container.querySelector('.sstv-mark--found')).toBeNull();
     expect(screen.getByTestId('sstv-tuning')).toHaveTextContent('Sposta il VFO di +35 Hz');
   });
 

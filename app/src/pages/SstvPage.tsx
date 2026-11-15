@@ -15,8 +15,7 @@ import { Composer, type IncomingImage } from '../components/sstv/Composer';
 import { SstvLogCard } from '../components/sstv/LogCard';
 import { History } from '../components/sstv/History';
 import { ReceiveView } from '../components/sstv/ReceiveView';
-import { SstvSpectrum } from '../components/sstv/SstvSpectrum';
-import { SstvTuning, stepsForSyncAt } from '../components/sstv/SstvTuning';
+import { SstvTuning } from '../components/sstv/SstvTuning';
 import { useT } from '../i18n';
 import { useGroups } from '../lib/detached';
 import { REMOTE_HOST } from '../lib/phone';
@@ -157,7 +156,7 @@ function SstvBody({ solo }: { solo: boolean }) {
         <div className="sstv-body">
           <div className="sstv-main">
           <div hidden={view !== 'rx'}>
-            {/* sotto il visore lo spettro sottile, largo quanto la scheda; a destra della scheda del modo il log del QSO */}
+            {/* sotto il visore il riquadro di sintonia, largo quanto la scheda; a destra della scheda del modo il log del QSO */}
             <ReceiveView
               snap={data}
               onChanged={refresh}
@@ -167,12 +166,7 @@ function SstvBody({ solo }: { solo: boolean }) {
                 setSendRequest((n) => n + 1);
               }}
               onListen={onListen}
-              spectrum={
-                <>
-                  <SstvSpectrum onPick={(hz) => void sstvTune(stepsForSyncAt(hz)).then(refresh, refresh)} />
-                  {rx ? <SstvTuning rx={rx} onChanged={refresh} /> : null}
-                </>
-              }
+              tuning={rx ? <SstvTuning rx={rx} onChanged={refresh} /> : null}
               log={<SstvLogCard dialHz={dialHz} />}
             />
           </div>
