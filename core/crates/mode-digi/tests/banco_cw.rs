@@ -449,10 +449,12 @@ fn allinea(sent: &[u8], got: &[u8]) -> (Conta, Vec<(usize, usize)>) {
     (c, pairs)
 }
 
-/// Sembra un nominativo: 4-8 caratteri con lettere e almeno una cifra non in fondo.
+/// Sembra un nominativo: 4-8 caratteri con lettere e almeno una cifra non in fondo (un locatore come IO91WM no).
 fn sembra_nominativo(w: &str) -> bool {
     let b = w.as_bytes();
-    (4..=8).contains(&b.len())
+    let locatore = b.len() == 6 && b[..2].iter().all(u8::is_ascii_alphabetic) && b[2..4].iter().all(u8::is_ascii_digit) && b[4..].iter().all(u8::is_ascii_alphabetic);
+    !locatore
+        && (4..=8).contains(&b.len())
         && b.iter().all(u8::is_ascii_alphanumeric)
         && b.iter().filter(|c| c.is_ascii_alphabetic()).count() >= 2
         && b[..b.len() - 1].iter().any(u8::is_ascii_digit)
@@ -523,6 +525,9 @@ fn canale(caso: &Caso) -> Esito {
     for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
         let t = ((k + 1) * BLOCCO) as f64 / RATE;
         raw.extend(rx.process(block).into_iter().map(|c| (c, t)));
+        if std::env::var_os("CW_DEBUG_WPM").is_some() && k % 20 == 19 {
+            print!("{:.0}/{:.0} ", rx.wpm(), rx.snr_db());
+        }
     }
     let cpu = t0.elapsed().as_secs_f64();
     if std::env::var_os("CW_DEBUG").is_some() {
@@ -606,7 +611,7 @@ impl Somma {
         let c = e.conta;
         let cpu = 1000.0 * e.cpu_s / e.secondi.max(1e-9);
         if rumore {
-            return format!("{chi:<4} {nome:<13} falsi {:.1}/min   cpu {cpu:.1} ms/s", e.stampati as f64 * 60.0 / e.secondi);
+            return format!("{chi:<4} {nome:<13} falsi {:.2}/min ({} in {:.0} min)   cpu {cpu:.1} ms/s", e.stampati as f64 * 60.0 / e.secondi, e.stampati, e.secondi / 60.0);
         }
         let cer = 100.0 * (c.sbagliati + c.mancanti + c.inseriti) as f64 / e.mandati.max(1) as f64;
         let cer_ns = 100.0 * e.err_ns as f64 / e.mandati_ns.max(1) as f64;
@@ -632,6 +637,7 @@ fn banco_cw() {
     let debug = std::env::var_os("CW_DEBUG").is_some();
     let (mut tot1, mut tot2) = (Somma::default(), Somma::default());
     let mut cer_somma = (0.0, 0.0, 0usize);
+    println!();
     for s in scelti() {
         let rumore = s.tipo == Tipo::Rumore;
         let (mut a, mut b) = (Somma::default(), Somma::default());
@@ -683,7 +689,7 @@ fn allineamento_conta_i_quattro_tipi() {
     assert_eq!((c.giusti, c.inseriti), (6, 1));
     let (c, _) = allinea(b"IU3ABC", b"I3ABC");
     assert_eq!((c.giusti, c.mancanti), (5, 1));
-    assert!(sembra_nominativo("IU3ABC") && sembra_nominativo("K1XY") && !sembra_nominativo("5NN") && !sembra_nominativo("TEST"));
+    assert!(sembra_nominativo("IU3ABC") && sembra_nominativo("K1XY") && !sembra_nominativo("5NN") && !sembra_nominativo("TEST") && !sembra_nominativo("IO91WM"));
     assert_eq!(aggiunto("ABCD", "CDEF"), "EF");
     assert_eq!(aggiunto("AB", "ABC"), "C");
 }
