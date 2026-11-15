@@ -83,7 +83,14 @@ struct Rx {
     spec: &'static ModeSpec,
     /// Prodotti del discriminatore, uno per campione.
     buf: Vec<[f32; 2]>,
+    /// Scarto di sintonia attuale, inseguito sul tono del sincronismo (AFC).
     offset: f32,
+    /// Scarto con cui e' stato letto ogni gruppo: il ridisegno finale non ricolora le righe di prima di un colpo di VFO.
+    offsets: Vec<Option<f32>>,
+    /// Ampiezza media dei prodotti nei sincronismi trovati: un riaggancio deve avere un tono forte quanto il segnale, non il fruscio.
+    sync_mag: f32,
+    /// Nuova sintonia vista in un solo sincronismo: diventa buona solo se il sincronismo dopo la conferma.
+    retune: Option<f32>,
     /// Campioni per gruppo attesi (con la correzione manuale).
     b0: f64,
     syncs: Vec<(f64, f64)>,
@@ -223,6 +230,9 @@ impl Decoder {
             fit: (a0, b0),
             next_group: 0,
             groups: vec![None; spec.groups() as usize],
+            offsets: vec![None; spec.groups() as usize],
+            sync_mag: 0.0,
+            retune: None,
             image: RgbImage { width: spec.width, height: spec.height, data: vec![0; (spec.width * spec.height * 3) as usize] },
             missed: 0,
             phase_known: !forced,
@@ -382,6 +392,9 @@ impl Decoder {
                 break;
             }
             measure_sync(rx, g);
+            if let Some(o) = rx.offsets.get_mut(g as usize) {
+                *o = Some(rx.offset);
+            }
             let vals = decode_group(rx, g);
             rx.groups[g as usize] = Some(vals);
             let (r0, n) = compose(rx, g);
@@ -460,31 +473,56 @@ fn measure_sync(rx: &mut Rx, g: u32) {
         rx.missed += 1;
         return;
     }
-    // indicatore morbido: 1 a 1200 Hz, 0 dai 1450 Hz in su (il nero a 1500 Hz non conta)
-    let off = rx.offset;
-    let mut prefix = Vec::with_capacity(end - lo + 1);
-    prefix.push(0.0f32);
-    let mut acc = 0.0;
-    for p in &rx.buf[lo..end] {
-        let f = product_to_hz(p[0], p[1]);
-        acc += ((1450.0 - (f - off)) / 200.0).clamp(0.0, 1.0);
-        prefix.push(acc);
-    }
-    let (mut best, mut best_at) = (-1.0f32, 0usize);
-    for s in 0..=(end - lo - len) {
-        let v = prefix[s + len] - prefix[s];
-        if v > best {
-            best = v;
-            best_at = s;
+    let window = &rx.buf[lo..end];
+    let (mut score, mut best_at) = sync_score(window, len, rx.offset);
+    if score < 0.6 {
+        // il tono del sincronismo non e' dove ce lo si aspetta: forse la sintonia si e' spostata (VFO girato, deriva). Si cerca il
+        // tratto piu' basso della finestra, lungo quanto il sincronismo, e se e' un sincronismo pulito con il nuovo scarto si riaggancia.
+        let strong = |m: f32| rx.sync_mag > 0.0 && m >= 0.4 * rx.sync_mag;
+        if let Some(moved) = lowest_run_offset(window, len).filter(|&(o, m)| (o - rx.offset).abs() <= MAX_RETUNE_HZ && o.abs() <= MAX_OFFSET_HZ && strong(m)).map(|(o, _)| o) {
+            let (s2, at2) = sync_score(window, len, moved);
+            if s2 >= 0.75 {
+                if rx.retune.is_some_and(|r| (r - moved).abs() <= 40.0) {
+                    tracing::debug!("SSTV: sintonia spostata da {:+.0} a {:+.0} Hz, riagganciato", rx.offset, moved);
+                    rx.offset = moved;
+                    score = s2;
+                    best_at = at2;
+                } else {
+                    // alla fine della trasmissione l'ultimo tratto di riga puo' sembrare un sincronismo spostato: serve una conferma
+                    rx.retune = Some(moved);
+                }
+            } else {
+                rx.retune = None;
+            }
+        } else {
+            rx.retune = None;
         }
     }
-    let score = best / len as f32;
     if score < 0.6 {
         rx.missed += 1;
         return;
     }
     rx.missed = 0;
+    rx.retune = None;
     let pos = (lo + best_at) as f64;
+    let run = &window[best_at..best_at + len];
+    let mag = run.iter().map(|p| p[0].hypot(p[1])).sum::<f32>() / len as f32;
+    let (sr, si) = run.iter().fold((0.0f32, 0.0f32), |(r, i), p| (r + p[0], i + p[1]));
+    let coherence = f64::from(sr.hypot(si) / (mag * len as f32).max(1e-12));
+    // AFC: il centro del sincronismo dice dov'e' davvero il 1200 Hz. Solo con un tono pulito e forte quanto il segnale: un
+    // sincronismo "trovato" nel fruscio (fine della trasmissione, evanescenza) non deve trascinare la sintonia.
+    let clean = coherence >= MIN_COHERENCE && (rx.sync_mag == 0.0 || mag >= 0.4 * rx.sync_mag);
+    if clean {
+        let l = len as f64;
+        if let Some(f) = mean_between(&rx.buf, pos + l * 0.2, pos + l * 0.8) {
+            let err = f - SYNC_HZ - rx.offset;
+            if err.abs() <= MAX_RETUNE_HZ {
+                let gain = if err.abs() > 30.0 { 0.6 } else { AFC_GAIN };
+                rx.offset = (rx.offset + gain * err).clamp(-MAX_OFFSET_HZ, MAX_OFFSET_HZ);
+            }
+        }
+        rx.sync_mag = if rx.sync_mag == 0.0 { mag } else { 0.9 * rx.sync_mag + 0.1 * mag };
+    }
     if !rx.phase_known {
         rx.phase_known = true;
         rx.fit = (pos - rx.b0 * gf, rx.b0);
@@ -492,6 +530,69 @@ fn measure_sync(rx: &mut Rx, g: u32) {
     rx.syncs.push((gf, pos));
     refit(rx);
 }
+
+/// Frequenza del sincronismo.
+const SYNC_HZ: f32 = 1200.0;
+/// Guadagno dell'inseguimento della sintonia per ogni sincronismo (passi piccoli: il rumore di un solo impulso non sposta i colori).
+const AFC_GAIN: f32 = 0.25;
+/// Spostamento massimo della sintonia accettato fra un sincronismo e il successivo.
+const MAX_RETUNE_HZ: f32 = 300.0;
+/// Scarto massimo di sintonia (come la correzione manuale).
+const MAX_OFFSET_HZ: f32 = 400.0;
+
+/// Miglior posizione del sincronismo lungo `len` nella finestra e quanto somiglia a un sincronismo (0-1) con lo scarto `off`.
+fn sync_score(window: &[[f32; 2]], len: usize, off: f32) -> (f32, usize) {
+    if window.len() < len {
+        return (0.0, 0);
+    }
+    // indicatore morbido: 1 a 1200 Hz, 0 dai 1450 Hz in su (il nero a 1500 Hz non conta)
+    let mut prefix = Vec::with_capacity(window.len() + 1);
+    prefix.push(0.0f32);
+    let mut acc = 0.0;
+    for p in window {
+        let f = product_to_hz(p[0], p[1]);
+        acc += ((1450.0 - (f - off)) / 200.0).clamp(0.0, 1.0);
+        prefix.push(acc);
+    }
+    let (mut best, mut best_at) = (-1.0f32, 0usize);
+    for s in 0..=(window.len() - len) {
+        let v = prefix[s + len] - prefix[s];
+        if v > best {
+            best = v;
+            best_at = s;
+        }
+    }
+    (best / len as f32, best_at)
+}
+
+/// Scarto che porterebbe a 1200 Hz il tratto piu' basso della finestra lungo `len` (media pesata dei prodotti del discriminatore).
+/// Ritorna anche l'ampiezza media dei prodotti nel tratto.
+fn lowest_run_offset(window: &[[f32; 2]], len: usize) -> Option<(f32, f32)> {
+    if window.len() < len || len == 0 {
+        return None;
+    }
+    let mut re = vec![0.0f64; window.len() + 1];
+    let mut im = vec![0.0f64; window.len() + 1];
+    for (i, p) in window.iter().enumerate() {
+        re[i + 1] = re[i] + f64::from(p[0]);
+        im[i + 1] = im[i] + f64::from(p[1]);
+    }
+    let mut mag = vec![0.0f64; window.len() + 1];
+    for (i, p) in window.iter().enumerate() {
+        mag[i + 1] = mag[i] + f64::from(p[0]).hypot(f64::from(p[1]));
+    }
+    let (f, s) = (0..=(window.len() - len))
+        .map(|s| (product_to_hz((re[s + len] - re[s]) as f32, (im[s + len] - im[s]) as f32), s))
+        .min_by(|a, b| a.0.total_cmp(&b.0))?;
+    // un tono fermo ha i prodotti tutti nella stessa direzione; il rumore no (dopo la fine della trasmissione non si riaggancia al fruscio)
+    let sum = (re[s + len] - re[s]).hypot(im[s + len] - im[s]);
+    let coherence = sum / (mag[s + len] - mag[s]).max(1e-12);
+    let mean_mag = ((mag[s + len] - mag[s]) / len as f64) as f32;
+    (coherence >= MIN_COHERENCE).then_some((f - SYNC_HZ, mean_mag))
+}
+
+/// Coerenza minima (|somma dei prodotti| / somma dei moduli) del tratto scelto per riagganciare la sintonia.
+const MIN_COHERENCE: f64 = 0.85;
 
 /// Retta dei sincronismi ai minimi quadrati, con gli scarti grandi tolti; la pendenza si stima solo con abbastanza punti.
 fn refit(rx: &mut Rx) {
@@ -529,7 +630,7 @@ fn decode_group(rx: &Rx, g: u32) -> GroupVals {
     let scale = b / (spec.group_seconds() * rate);
     let mut t = a + b * f64::from(g) - spec.sync_offset() * rate * scale;
     let w = spec.width as usize;
-    let off = rx.offset;
+    let off = rx.offsets.get(g as usize).copied().flatten().unwrap_or(rx.offset);
     let mut vals = GroupVals::default();
     for seg in spec.segments() {
         let dur = seg.dur * rate * scale;
