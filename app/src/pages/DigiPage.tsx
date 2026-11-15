@@ -954,7 +954,9 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
   const run = (script: string, extra: Pick<MacroContext, 'files' | 'lastQso'>) => {
     const l = live.current;
     const result = runMacro(script, { ...context(), ...extra });
-    const busy = l.snap.tx.state === 'sending';
+    // in trasmissione anche se lo stato letto ogni secondo non lo dice ancora: una macro appena partita o testo ancora in coda.
+    // Cosi' una macro premuta mentre trasmette butta subito il testo non partito e riparte da capo, invece di accodarsi.
+    const busy = l.snap.tx.state === 'sending' || macroInflight.current > 0 || txLiveRef.current.txLive.progress.queued > 0;
     const plan = planMacro(result.steps, busy);
     const apply = (a: MacroAction) => {
       switch (a.type) {
