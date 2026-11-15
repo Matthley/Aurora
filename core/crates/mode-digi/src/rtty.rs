@@ -603,6 +603,8 @@ struct Frame {
     t: f64,
     /// Viene dalla catena principale (non da una variante).
     main: bool,
+    /// Presenza della portante mentre arrivava (il tono piu' forte contro il rumore accanto, `RttyDemodulator::pres`).
+    pres: f32,
 }
 
 /// Quanto un'interpretazione deve superare quella letta (in nat: probabilita' dei codici piu' modello del testo) per cambiarla.
@@ -681,6 +683,12 @@ impl Frame {
     fn prob_of(&self, code: u8) -> f32 {
         let sig = |x: f32| 1.0 / (1.0 + (-LLR_SCALE * x).exp());
         sig(-self.sums[0]) * sig(self.sums[6]) * self.code_log_prob(code).exp()
+    }
+
+    /// La probabilita' che conta per lo squelch: zero se mentre arrivava il carattere non c'era una portante (il tono piu' forte non
+    /// superava di `PRES_MIN` volte il rumore accanto ai toni): il rumore da solo, anche quando da' un carattere ben formato, non apre.
+    fn sq_prob(&self) -> f32 {
+        if self.pres < PRES_MIN { 0.0 } else { self.prob() }
     }
 
     /// La probabilita' che il carattere sia giusto: il prodotto delle probabilita' dei sette bit, start a space e stop a mark compresi
@@ -792,7 +800,7 @@ impl Frames {
                             code |= 1 << k;
                         }
                     }
-                    Some(Frame { code, sums, t: best, main: true })
+                    Some(Frame { code, sums, t: best, main: true, pres: f32::INFINITY })
                 } else {
                     self.next_min = best + 0.5 * self.t;
                     None
@@ -819,6 +827,10 @@ struct ProbSquelch {
     nl_now: bool,
 }
 
+/// Presenza minima della portante (ampiezza del tono piu' forte contro il rumore accanto ai toni, media su 4 bit) perche' un carattere
+/// conti per lo squelch. Sul solo rumore la presenza sta sotto 2,1 nel 95 % dei caratteri, a -10 dB il 95 % dei caratteri buoni sta
+/// sopra 2,7 (banco `tests/rtty_caratteri.rs`).
+const PRES_MIN: f32 = 2.2;
 /// Caratteri ricordati dallo squelch statistico.
 const SQ_MEMORY: usize = 4;
 /// Probabilita' minima di un CR o LF buttato a cancello chiuso perche' all'apertura seguente si vada a capo.
@@ -850,7 +862,7 @@ impl ProbSquelch {
         if self.hist.len() == SQ_MEMORY {
             self.hist.pop_front();
         }
-        self.hist.push_back(fr.prob());
+        self.hist.push_back(fr.sq_prob());
         let mean = self.hist.iter().sum::<f32>() / self.hist.len() as f32;
         if self.open {
             // aperto: un carattere incerto aspetta il seguente, cosi' alla fine del segnale il rumore che chiude lo squelch non passa
@@ -876,7 +888,7 @@ impl ProbSquelch {
             let mut ready = std::mem::take(&mut self.held);
             // il testo comincia dal primo carattere affidabile: i deboli trattenuti prima, a cancello chiuso, sono il rumore che precede
             // il segnale (la media dei quattro sale gia' con tre caratteri buoni e uno di rumore davanti)
-            let first = ready.iter().position(|f| f.prob() >= self.close_at).unwrap_or(0);
+            let first = ready.iter().position(|f| f.sq_prob() >= self.close_at).unwrap_or(0);
             let dropped: Vec<Frame> = ready.drain(..first).collect();
             self.drop_frames(dropped);
             if self.nl_pending && !ready.first().is_some_and(|f| matches!(f.code, CR | LF)) {
@@ -889,6 +901,10 @@ impl ProbSquelch {
     }
 }
 
+/// Fondo del rumore accanto ai toni per la presenza della portante: media su `FLOOR_BITS` bit, con i campioni ritagliati a `FLOOR_CLIP`
+/// volte il fondo (una scarica non lo alza).
+const FLOOR_CLIP: f32 = 2.5;
+const FLOOR_BITS: f32 = 16.0;
 /// Il soppressore d'impulsi (passo 10): soglia, in volte il livello medio.
 const BLANK_K: f32 = 8.0;
 /// Le varianti del passo 11: taratura delle LLR del limitatore (le sue ampiezze sono costanti e le LLR risulterebbero troppo sicure),
@@ -1110,7 +1126,20 @@ pub struct RttyDemodulator {
     llr_mul: f32,
     /// Limitatore: filtro largo quanto la coppia di toni prima di limitare.
     limiter: Option<(Channel, Vec<f32>)>,
+    /// Rumore accanto ai toni (il minore dei due canali): fondo lento senza le scariche, campioni contati per avviarlo e media veloce
+    /// (un quarto di bit).
+    floor_ref: f32,
+    floor_n: u32,
+    floor_now: f32,
+    /// Presenza della portante: ampiezza del tono piu' forte contro il rumore accanto (il maggiore fra fondo e media veloce, cosi' una
+    /// scarica larga non la alza), media su 4 bit. Sul solo rumore sta intorno a 1,7.
+    pres: f32,
+    /// Le presenze degli ultimi `PRES_RING` campioni decimati (per i caratteri delle varianti, che arrivano dopo).
+    pres_ring: Vec<f32>,
 }
+
+/// Campioni decimati di presenza ricordati (circa 45 s a 45,45 baud).
+const PRES_RING: usize = 1 << 16;
 
 impl RttyDemodulator {
     /// Il ricevitore con le impostazioni di base: decodifica del carattere intero, soppressore d'impulsi e le varianti in parallelo.
@@ -1217,6 +1246,11 @@ impl RttyDemodulator {
             delay: (len as f64 - 1.0) / 2.0,
             llr_mul: 1.0,
             limiter: None,
+            floor_ref: 0.0,
+            floor_n: 0,
+            floor_now: 0.0,
+            pres: 0.0,
+            pres_ring: Vec::new(),
         }
     }
 
@@ -1570,7 +1604,9 @@ impl RttyDemodulator {
     /// decodifica del carattere intero.
     pub fn set_variants(&mut self, on: bool) {
         self.variants.clear();
+        self.pres_ring.clear();
         if on && self.disc.is_none() && self.frames.is_some() {
+            self.pres_ring = vec![0.0; PRES_RING];
             for kind in [Variant::Normalized, Variant::Limiter] {
                 let mut v = RttyDemodulator::variant(self.params, kind);
                 v.offset_hz = self.offset_hz;
@@ -1608,8 +1644,14 @@ impl RttyDemodulator {
             for v in &mut variants {
                 let mut none = Vec::new();
                 // i caratteri delle varianti hanno `main` falso: da soli devono essere probabili
-                frames.extend(v.run(samples, &mut none).into_iter().map(|(t, mut f)| {
+                let lag = v.delay - self.delay;
+                let found = v.run(samples, &mut none);
+                frames.extend(found.into_iter().map(|(t, mut f)| {
                     f.main = false;
+                    // la presenza si legge dalla catena principale nell'istante in cui li' il carattere sarebbe finito (il limitatore
+                    // appiattisce le ampiezze dei toni)
+                    let at = f.t - lag + 6.0 * f64::from(self.spb) + self.soft_len as f64 / 2.0 + 1.0;
+                    f.pres = self.pres_at(at);
                     (t, f)
                 }));
             }
@@ -1790,6 +1832,26 @@ impl RttyDemodulator {
         }
     }
 
+    /// La presenza della portante al campione decimato `at` (dalla memoria; troppo vecchia o non ancora arrivata: nessun limite).
+    fn pres_at(&self, at: f64) -> f32 {
+        let at = at.round().max(0.0) as u64;
+        if self.pres_ring.is_empty() || at >= self.dec_n || self.dec_n - at >= PRES_RING as u64 {
+            return f32::INFINITY;
+        }
+        self.pres_ring[(at % PRES_RING as u64) as usize]
+    }
+
+    /// Aggiorna il rumore accanto ai toni con il minore dei due canali (una stazione vicina ne alza uno solo, una scarica larga tutti e due).
+    fn track_floor(&mut self, x: f32) {
+        self.floor_now = decayavg(self.floor_now, x, self.spb / 4.0);
+        let x = self.floor_now;
+        // il fondo si misura senza tagli per i primi bit (all'inizio i filtri si riempiono e il fondo parte da zero)
+        self.floor_n = self.floor_n.saturating_add(1);
+        let warm = self.floor_n as f32 > self.spb * FLOOR_BITS;
+        let input = if warm { x.min(FLOOR_CLIP * self.floor_ref) } else { x };
+        self.floor_ref = decayavg(self.floor_ref, input, self.spb * FLOOR_BITS);
+    }
+
     /// La sintonia fine a decisione guidata entro `limit_hz` (passo 14); `None` la spegne (di base: con una portante vicina a un tono
     /// la soglia peggiora di 0,26 dB).
     pub fn set_fine_tuning(&mut self, limit_hz: Option<f32>) {
@@ -1854,6 +1916,10 @@ impl RttyDemodulator {
             self.sum_n += 2.0 * nz;
             self.sum_count += 1;
             self.level_db = (20.0 * (m + sp).max(1e-6).log10()).max(-90.0);
+            self.pres = decayavg(self.pres, m.max(sp) / self.floor_ref.max(self.floor_now).max(1e-9), self.spb * 4.0);
+            if !self.pres_ring.is_empty() {
+                self.pres_ring[(self.dec_n % PRES_RING as u64) as usize] = self.pres;
+            }
             let (m, sp) = if self.norm_w > 0.0 {
                 let x = n0.min(n1);
                 let w = if x < self.noise_ref { self.norm_down } else { self.norm_w };
@@ -1872,6 +1938,7 @@ impl RttyDemodulator {
                 self.afc_acc[k].1 += im;
                 self.afc_prev = [zm, zs];
             }
+            self.track_floor(n0.min(n1));
             let mut l = self.llr(v);
             // diversity (passo 16): la catena del secondo ingresso consegna le sue LLR, quella principale le somma alle sue
             if let Some(collect) = &mut self.llr_out {
@@ -1890,6 +1957,7 @@ impl RttyDemodulator {
                 Some(f) => {
                     if let Some(fr) = f.push(l) {
                         self.lock_prob += 0.25 * (fr.prob() - self.lock_prob);
+                        let fr = Frame { pres: self.pres, ..fr };
                         found.push((fr.t - self.delay, fr));
                     }
                 }
@@ -2025,7 +2093,21 @@ mod tests {
                 *x = -forza;
             }
         }
-        Frame { code, sums, t: 0.0, main: true }
+        Frame { code, sums, t: 0.0, main: true, pres: f32::INFINITY }
+    }
+
+    #[test]
+    fn squelch_non_apre_sui_caratteri_senza_portante() {
+        // caratteri ben formati ma senza portante (rumore): lo squelch resta chiuso; con la portante si apre
+        let mut sq = ProbSquelch::new(SQUELCH_OPEN, SQUELCH_CLOSE);
+        for _ in 0..8 {
+            assert!(sq.push(Frame { pres: 1.8, ..quadro(3, 200.0) }).is_empty());
+        }
+        let mut out = Vec::new();
+        for _ in 0..4 {
+            out.extend(sq.push(Frame { pres: 5.0, ..quadro(3, 200.0) }));
+        }
+        assert_eq!(out.len(), 4);
     }
 
     #[test]
@@ -2356,7 +2438,7 @@ mod tests {
         for k in 0..5 {
             sums[k + 1] = if code >> k & 1 == 1 { b } else { -b };
         }
-        Frame { code, sums, t: 0.0, main: true }
+        Frame { code, sums, t: 0.0, main: true, pres: f32::INFINITY }
     }
 
     #[test]
