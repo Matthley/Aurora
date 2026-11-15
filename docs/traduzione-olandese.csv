@@ -3973,7 +3973,9 @@ sstv.bg.contain,Whole (bands),Geheel (met balken)
 sstv.bg.zoom,Zoom,Zoom
 sstv.bg.panX,Pan horizontal,Horizontaal verschuiven
 sstv.bg.panY,Pan vertical,Verticaal verschuiven
-sstv.bg.panHint,Drag the photo with the right button or two fingers to frame it; wheel to zoom.,Sleep de foto met de rechtermuisknop of twee vingers om hem in te kaderen; scrollwiel om te zoomen.
+sstv.bg.panHint,Drag the photo with the right button or two fingers to frame it; Ctrl + wheel on the preview zooms it in or out around the mouse.,Sleep de foto met de rechtermuisknop of twee vingers om hem in te kaderen; Ctrl + scrollwiel op het voorbeeld zoomt in of uit rond de muis.
+sstv.bg.fitAll,Fit: whole photo inside,Aanpassen: hele foto erin
+sstv.bg.fitAllTip,"Makes the whole photo fit inside the picture, centred, with the background colour around it","Laat de hele foto in het beeld passen, gecentreerd, met de achtergrondkleur eromheen"
 sstv.bg.color,Background colour,Achtergrondkleur
 sstv.bg.brightness,Brightness,Helderheid
 sstv.bg.contrast,Contrast,Contrast

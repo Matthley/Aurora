@@ -180,12 +180,37 @@ export interface Rect {
 
 /**
  * Dove disegnare una foto `srcW`x`srcH` in un'immagine `dstW`x`dstH`: «cover» la riempie tutta (taglia cio' che avanza), «contain» la
- * mostra intera (bande ai lati). `zoom` >= 1 ingrandisce, `panX`/`panY` (-1..1) spostano la parte visibile fin dove la foto arriva.
+ * mostra intera (bande ai lati). `zoom` sopra 1 ingrandisce, sotto 1 (fino a 0,1) rimpicciolisce la foto, che resta centrata con il colore di
+ * fondo attorno; `panX`/`panY` (-1..1) spostano la parte visibile fin dove la foto sporge.
  */
+/** Limiti dello zoom della foto di sfondo: dal 10% (foto piccola dentro l'immagine) al 600%. */
+export const ZOOM_MIN = 0.1;
+export const ZOOM_MAX = 6;
+export function clampZoom(zoom: number): number {
+  return Number.isFinite(zoom) ? Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom)) : 1;
+}
+
+/**
+ * Zoom attorno a un punto (`atX`, `atY` in pixel dell'immagine, di solito sotto il mouse): il punto della foto che sta li' resta li', per
+ * quanto lo spostamento lo permette. Restituisce zoom e spostamento nuovi.
+ */
+export function zoomAround(srcW: number, srcH: number, dstW: number, dstH: number, fit: 'cover' | 'contain', zoom: number, panX: number, panY: number, nextZoom: number, atX: number, atY: number): { zoom: number; panX: number; panY: number } {
+  const z = clampZoom(nextZoom);
+  const r = placeImage(srcW, srcH, dstW, dstH, fit, zoom, panX, panY);
+  const n = placeImage(srcW, srcH, dstW, dstH, fit, z, 0, 0);
+  if (r.w <= 0 || r.h <= 0) return { zoom: z, panX, panY };
+  const axis = (at: number, from: number, size: number, newSize: number, dst: number) => {
+    const want = at - ((at - from) / size) * newSize;
+    const spare = (newSize - dst) / 2;
+    return spare > 0 ? Math.max(-1, Math.min(1, ((dst - newSize) / 2 - want) / spare)) : 0;
+  };
+  return { zoom: z, panX: axis(atX, r.x, r.w, n.w, dstW), panY: axis(atY, r.y, r.h, n.h, dstH) };
+}
+
 export function placeImage(srcW: number, srcH: number, dstW: number, dstH: number, fit: 'cover' | 'contain', zoom = 1, panX = 0, panY = 0): Rect {
   if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, w: dstW, h: dstH };
   const base = fit === 'cover' ? Math.max(dstW / srcW, dstH / srcH) : Math.min(dstW / srcW, dstH / srcH);
-  const scale = base * Math.max(1, zoom);
+  const scale = base * clampZoom(zoom);
   const w = srcW * scale;
   const h = srcH * scale;
   const clamp = (v: number) => Math.max(-1, Math.min(1, v));

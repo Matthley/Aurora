@@ -13,6 +13,7 @@ import {
   moveLayer,
   parseTemplates,
   placeImage,
+  zoomAround,
   pointInRotatedRect,
   rgbIntoRgba,
   textLayer,
@@ -44,6 +45,19 @@ describe('placeImage', () => {
   it('zoom enlarges around the centre', () => {
     const r = placeImage(320, 256, 320, 256, 'cover', 2);
     expect(r).toEqual({ x: -160, y: -128, w: 640, h: 512 });
+  });
+
+  it('zoom below 100% shrinks the photo and keeps it centred', () => {
+    const r = placeImage(320, 256, 320, 256, 'cover', 0.5, 1, 1);
+    expect(r).toEqual({ x: 80, y: 64, w: 160, h: 128 });
+    expect(placeImage(320, 256, 320, 256, 'cover', 0.01).w).toBeCloseTo(32);
+  });
+
+  it('zoomAround keeps the point under the mouse in place', () => {
+    const z = zoomAround(320, 256, 320, 256, 'cover', 1, 0, 0, 2, 320, 256);
+    expect(z).toEqual({ zoom: 2, panX: 1, panY: 1 });
+    const r = placeImage(320, 256, 320, 256, 'cover', z.zoom, z.panX, z.panY);
+    expect(r.x + r.w).toBeCloseTo(320);
   });
 });
 

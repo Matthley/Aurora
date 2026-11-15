@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, type WheelEvent as RWheelEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode, } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, deleteSstvTxPhotos, getSstvTxFolder, getSstvTxPhoto, sstvTxPhotoUrl, sstvAbort, sstvTransmit, type SstvSnapshot } from '../../api/client';
 import { useT, type Key } from '../../i18n';
@@ -22,6 +22,9 @@ import {
   shapeLayer,
   textLayer,
   updateLayer,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomAround,
   type Background,
   type Composition,
   type Fill,
@@ -354,11 +357,29 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
     setHist((h) => (h.present === d.before ? h : { past: [...h.past, d.before].slice(-60), present: h.present, future: [] }));
   };
 
-  const onWheel = (e: RWheelEvent<HTMLCanvasElement>) => {
-    if (!bg) return;
-    const zoom = Math.max(1, Math.min(6, comp.background.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
-    commit({ ...comp, background: { ...comp.background, zoom } }, 'zoom');
-  };
+  // Ctrl + rotellina sull'anteprima: zoom della foto attorno al punto del mouse (gli strati di testo restano dove sono). La rotellina da sola
+  // scorre la pagina come sempre; con Ctrl si ferma lo zoom del browser. Ascolto nativo perche' quello di React e' passivo e non puo' fermarlo.
+  const wheelState = useRef({ comp, bg, commit, W, H });
+  wheelState.current = { comp, bg, commit, W, H };
+  useEffect(() => {
+    const el = overlay.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const { comp: c, bg: photo, commit: save, W: w, H: h } = wheelState.current;
+      if (!photo || e.deltaY === 0) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const atX = ((e.clientX - rect.left) / rect.width) * w;
+      const atY = ((e.clientY - rect.top) / rect.height) * h;
+      const b = c.background;
+      const next = zoomAround(photo.width, photo.height, w, h, b.fit, b.zoom, b.panX, b.panY, b.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), atX, atY);
+      save({ ...c, background: { ...b, ...next } }, 'zoom');
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const sel = comp.layers.find((l) => l.id === selected) ?? null;
   const patchSel = (patch: Partial<TextLayer> | Partial<ShapeLayer>, key: string) => {
@@ -643,7 +664,6 @@ export function Composer({ snap, incoming, onChanged, sendRequest }: { snap: Sst
               onPointerUp={onUp}
               onPointerCancel={onUp}
               onContextMenu={(e) => e.preventDefault()}
-              onWheel={onWheel}
               aria-label={t('sstv.p.hint')}
             />
             {/* in trasmissione: la linea che scende dove si e' arrivati; sopra, la parte gia' inviata e' piu' scura */}
@@ -933,7 +953,11 @@ function BackgroundInspector({ background, hasPhoto, patch, onPick, onRemove, on
           {t('sstv.bg.contain')}
         </button>
       </div>
-      <Slider label={t('sstv.bg.zoom')} value={Math.round(background.zoom * 100)} min={100} max={600} step={5} show={`${Math.round(background.zoom * 100)} %`} disabled={!hasPhoto} onChange={(v) => patch({ zoom: v / 100 }, 'zoom')} />
+      {/* «Adatta»: la foto torna tutta dentro l'immagine (intera, centrata, senza zoom) */}
+      <button type="button" className="glass sstv-btn sstv-wide" disabled={!hasPhoto} title={t('sstv.bg.fitAllTip')} onClick={() => patch({ fit: 'contain', zoom: 1, panX: 0, panY: 0 }, 'fitAll')}>
+        {t('sstv.bg.fitAll')}
+      </button>
+      <Slider label={t('sstv.bg.zoom')} value={Math.round(background.zoom * 100)} min={Math.round(ZOOM_MIN * 100)} max={Math.round(ZOOM_MAX * 100)} step={5} show={`${Math.round(background.zoom * 100)} %`} disabled={!hasPhoto} onChange={(v) => patch({ zoom: v / 100 }, 'zoom')} />
       <Slider label={t('sstv.bg.panX')} value={Math.round(background.panX * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panX: v / 100 }, 'panX')} />
       <Slider label={t('sstv.bg.panY')} value={Math.round(background.panY * 100)} min={-100} max={100} step={1} disabled={!hasPhoto} onChange={(v) => patch({ panY: v / 100 }, 'panY')} />
       <p className="sstv-hint">{t('sstv.bg.panHint')}</p>
