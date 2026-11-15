@@ -102,7 +102,7 @@ export function MacroEditor({ macro, modeName, scope, onSave, onCancel }: Props)
               {commands.map((c) => (
                 <li key={c.tag}>
                   <button type="button" role="option" aria-selected={picked === c.tag} className={picked === c.tag ? 'on' : ''} onClick={() => setPicked(c.tag)} onDoubleClick={() => { setPicked(c.tag); window.setTimeout(insert, 0); }}>
-                    <b>{c.tag}</b> — {pick(c.desc, lang)}{c.soon ? ` (${t('digi.edit.soon')})` : ''}
+                    <b>{c.tag}</b> — {pick(c.desc, lang)}{c.soon ? ` (${t('digi.edit.soon')})` : ''}{c.blocked ? ` (${t('digi.edit.blocked')})` : ''}
                   </button>
                 </li>
               ))}

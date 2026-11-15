@@ -1470,6 +1470,8 @@ export const NL_UI: Record<string, string> = {
   "digi.edit.scope": "Geldt voor",
   "digi.edit.scopeAll": "Alle modi",
   "digi.edit.scopeMode": "Alleen {mode}",
+  "digi.edit.blocked": "om veiligheidsredenen niet ondersteund",
+  "digi.run.exec": "EXEC-opdracht genegeerd: Aurora start geen externe programma's",
   "digi.edit.soon": "nog niet",
   "digi.edit.subset": "Opdrachten",
   "digi.edit.text": "Tekst (script)",

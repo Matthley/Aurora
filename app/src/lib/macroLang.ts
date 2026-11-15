@@ -92,6 +92,8 @@ export type MacroAction =
   | { type: 'macros'; file: string }
   /** `<CATCMD:...>`: una stringa CAT mandata alla radio cosi' com'e'. */
   | { type: 'cat'; cmd: string }
+  /** `<EXEC:...>`: avvierebbe un programma esterno; Aurora non lo fa e lo dice (non supportato per sicurezza). */
+  | { type: 'exec'; file: string }
   /** Un comando che Aurora non conosce ancora: resta nell'elenco per dirlo all'utente. */
   | { type: 'unknown'; tag: string };
 
@@ -231,6 +233,7 @@ function actionOf(tag: string, arg: string | undefined): MacroAction | null {
     case 'SEEKLEFT': return { type: 'seek', direction: 'left' };
     case 'SEEKRIGHT': return { type: 'seek', direction: 'right' };
     case 'BOOKMARK': return { type: 'bookmark' };
+    case 'EXEC': return { type: 'exec', file: arg ?? '' };
     case 'AFCON': return { type: 'toggle', what: 'afc', value: true };
     case 'AFCOFF': return { type: 'toggle', what: 'afc', value: false };
     case 'AFC': return { type: 'toggle', what: 'afc', value: 'toggle' };

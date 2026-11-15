@@ -1119,6 +1119,7 @@ function DigiBody({ snap: rawSnap, onChanged }: { snap: DigiSnapshot; onChanged:
         case 'tune': toast(t('digi.run.unknown', { tag: 'TUNE' }), 'info'); break;
         case 'bookmark': toast(t('digi.run.unknown', { tag: 'BOOKMARK' }), 'info'); break;
         case 'macros': toast(t('digi.run.unknown', { tag: `MACROS:${a.file}` }), 'info'); break;
+        case 'exec': toast(t('digi.run.exec'), 'info'); break;
         case 'unknown': toast(t('digi.run.unknown', { tag: a.tag }), 'info'); break;
         // TX, RX e la pulizia della finestra di trasmissione li ordina planMacro: qui non arrivano
         case 'tx':

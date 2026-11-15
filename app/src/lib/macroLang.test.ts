@@ -87,7 +87,7 @@ describe('runMacro: comandi di programma', () => {
   it('i comandi non ancora fatti restano nell\'elenco', () => {
     const r = runMacro('<TX>CQ<LETTERS><EXEC:Backup.bat>', ctx);
     expect(r.text).toBe('CQ');
-    expect(r.actions).toEqual([{ type: 'tx' }, { type: 'unknown', tag: 'LETTERS' }, { type: 'unknown', tag: 'EXEC:Backup.bat' }]);
+    expect(r.actions).toEqual([{ type: 'tx' }, { type: 'unknown', tag: 'LETTERS' }, { type: 'exec', file: 'Backup.bat' }]);
   });
 
   it('CATCMD manda la stringa alla radio; IMD e SP non scrivono niente', () => {
@@ -181,5 +181,13 @@ describe('IGNOREBEFORE e PERIOD', () => {
     expect(runMacro('<IGNOREBEFORE:2026-11-14 12:30>', ctx).actions).toEqual([{ type: 'ignoreBefore', at: Date.UTC(2026, 10, 14, 12, 30) }]);
     expect(runMacro('<IGNOREBEFORE:ERASE>', ctx).actions).toEqual([{ type: 'ignoreBefore', at: 'erase' }]);
     expect(runMacro('<PERIOD:60>', ctx).actions).toEqual([{ type: 'period', minutes: 60 }]);
+  });
+});
+
+describe('EXEC', () => {
+  it('riconosce <EXEC:...> come comando non supportato per sicurezza, senza eseguire niente', () => {
+    const r = runMacro('<EXEC:Backup.bat>CQ', ctx);
+    expect(r.actions).toEqual([{ type: 'exec', file: 'Backup.bat' }]);
+    expect(r.text).toBe('CQ');
   });
 });

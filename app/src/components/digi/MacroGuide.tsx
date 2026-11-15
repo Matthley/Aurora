@@ -84,7 +84,7 @@ export function MacroGuide({ onClose }: Props) {
     catRefs.current.get(next)?.focus();
   };
 
-  const row = (id: string, tag: string, desc: string, off: boolean, more: { ex?: string; long?: string; aliases?: readonly string[] }) => {
+  const row = (id: string, tag: string, desc: string, off: boolean, more: { ex?: string; long?: string; aliases?: readonly string[]; badge?: string }) => {
     const expanded = open.has(id);
     const canOpen = Boolean(more.long || more.ex);
     return (
@@ -94,7 +94,7 @@ export function MacroGuide({ onClose }: Props) {
           <span className="mguide-desc">
             {desc}
             {more.aliases ? <span className="mguide-alias"> · {more.aliases.join(' · ')}</span> : null}
-            {off ? <span className="mguide-badge">{t('mguide.notAvail')}</span> : null}
+            {off ? <span className="mguide-badge">{more.badge ?? t('mguide.notAvail')}</span> : null}
           </span>
           {more.ex ? <code className="mguide-chip">{more.ex}</code> : <span />}
         </button>
@@ -127,7 +127,7 @@ export function MacroGuide({ onClose }: Props) {
           {cat === 'events' ? <p>{t('mguide.eventsIntro')}</p> : null}
         </header>
         <ul className="mguide-rows">
-          {g.cmds.map((c) => row(c.tag, c.tag, pick(c.desc, lang), Boolean(c.soon), { ex: c.ex, long: c.long ? pick(c.long, lang) : undefined, aliases: c.aliases }))}
+          {g.cmds.map((c) => row(c.tag, c.tag, pick(c.desc, lang), Boolean(c.soon || c.blocked), { ex: c.ex, long: c.long ? pick(c.long, lang) : undefined, aliases: c.aliases, badge: c.blocked ? t('digi.edit.blocked') : undefined }))}
           {g.events.map((e) => row(`ev:${e.name}`, e.name, pick(e.desc, lang), !e.runs, {}))}
         </ul>
       </section>

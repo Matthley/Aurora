@@ -15,6 +15,8 @@ export interface MacroCommand {
   desc: readonly [string, string, string, string, string, string];
   /** Il comando e' nell'elenco ma Aurora non lo esegue ancora. */
   soon?: boolean;
+  /** Il comando non e' supportato per sicurezza: Aurora lo riconosce, lo dice e non fa niente (`<EXEC:...>`). */
+  blocked?: boolean;
   /** La categoria nella Guida alle macro. */
   cat: HelpCategory;
   /** Un esempio di macro che lo usa. */
@@ -25,11 +27,14 @@ export interface MacroCommand {
   aliases?: readonly string[];
 }
 
-type RawCommand = Pick<MacroCommand, 'group' | 'tag' | 'desc' | 'soon'>;
+type RawCommand = Pick<MacroCommand, 'group' | 'tag' | 'desc' | 'soon' | 'blocked'>;
 
 const c = (group: CommandGroup, tag: string, ...desc: [string, string, string, string, string, string]): RawCommand => ({ group, tag, desc });
 /** Un comando che Aurora non esegue ancora (si vede nell'elenco, con «non ancora»). */
 const cs = (group: CommandGroup, tag: string, ...desc: [string, string, string, string, string, string]): RawCommand => ({ group, tag, desc, soon: true });
+
+/** Un comando non supportato per sicurezza (si vede nell'elenco, con «non supportato per sicurezza»). */
+const cb = (group: CommandGroup, tag: string, ...desc: [string, string, string, string, string, string]): RawCommand => ({ group, tag, desc, blocked: true });
 
 const RAW_COMMANDS: readonly RawCommand[] = [
   c('text', '<MYCALL>', 'il tuo nominativo', 'your callsign', 'dein Rufzeichen', 'ton indicatif', 'tu indicativo', 'o teu indicativo'),
@@ -69,6 +74,7 @@ const RAW_COMMANDS: readonly RawCommand[] = [
   c('text', '<[> <]>', 'i segni < e > nel testo', 'the < and > signs in the text', 'die Zeichen < und > im Text', 'les signes < et > dans le texte', 'los signos < y > en el texto', 'os sinais < e > no texto'),
   c('text', '<IMD>', 'IMD del segnale PSK ricevuto: Aurora la mostra nella barra ma il comando non scrive niente', 'IMD of the received PSK signal: Aurora shows it in the status bar but the command writes nothing', 'IMD des empfangenen PSK-Signals: Aurora zeigt sie in der Statusleiste, der Befehl schreibt aber nichts', 'IMD du signal PSK reçu : Aurora l’affiche dans la barre mais la commande n’écrit rien', 'IMD de la señal PSK recibida: Aurora la muestra en la barra pero el comando no escribe nada', 'IMD do sinal PSK recebido: o Aurora mostra-a na barra mas o comando não escreve nada'),
   c('text', '<VER>', 'nome del programma', 'program name', 'Programmname', 'nom du programme', 'nombre del programa', 'nome do programa'),
+  cb('program', '<EXEC:file>', 'avvierebbe un programma esterno: Aurora non avvia programmi, il comando si ignora con un avviso', 'would start an external program: Aurora does not start programs, the command is ignored with a notice', 'würde ein externes Programm starten: Aurora startet keine Programme, der Befehl wird mit einem Hinweis ignoriert', 'lancerait un programme externe : Aurora ne lance pas de programmes, la commande est ignorée avec un avertissement', 'iniciaría un programa externo: Aurora no inicia programas, el comando se ignora con un aviso', 'iniciaria um programa externo: o Aurora não inicia programas, o comando é ignorado com um aviso'),
   c('program', '<TX>', 'passa in trasmissione e manda il testo della macro (da solo: quello della casella)', 'switches to transmit and sends the macro text (alone: the text in the box)', 'schaltet auf Senden und sendet den Makrotext (allein: den Text im Feld)', 'passe en émission et envoie le texte de la macro (seul : celui de la case)', 'pasa a transmitir y envía el texto de la macro (solo: el de la casilla)', 'passa a transmitir e envia o texto da macro (sozinho: o da caixa)'),
   c('program', '<TXE>', 'trasmette quando cade il segnale sulla frequenza di ricezione (al massimo dopo 30 s; Esc annulla)', 'transmit when the signal on the receive frequency drops (after 30 s at most; Esc cancels)', 'sendet, wenn das Signal auf der Empfangsfrequenz wegfällt (spätestens nach 30 s; Esc bricht ab)', 'émet quand le signal sur la fréquence de réception tombe (au plus après 30 s ; Échap annule)', 'transmite cuando cae la señal en la frecuencia de recepción (como máximo tras 30 s; Esc cancela)', 'transmite quando cai o sinal na frequência de receção (no máximo após 30 s; Esc cancela)'),
   c('program', '<TXTOGGLE>', 'alterna fra trasmissione e ricezione (in trasmissione: torna in ricezione a fine testo)', 'toggles between transmit and receive (while sending: back to receive at the end of the text)', 'wechselt zwischen Senden und Empfang (beim Senden: zurück zum Empfang am Textende)', 'alterne entre émission et réception (en émission : retour en réception à la fin du texte)', 'alterna entre transmisión y recepción (transmitiendo: vuelve a recepción al final del texto)', 'alterna entre transmissão e receção (a transmitir: volta à receção no fim do texto)'),
@@ -170,7 +176,7 @@ const CATEGORY: Record<string, HelpCategory> = {
   '<AUTOCQ>': 'autocq', '<ACQ>': 'autocq', '<ACQDELAY:s>': 'autocq', '<ASAUTOCQ>': 'autocq', '<AUTOCQRESUME>': 'autocq',
   '<ROTOR:gradi>': 'rotor', '<ROTOR:SP>': 'rotor', '<ROTOR:LP>': 'rotor',
   '<CATCMD:comando>': 'cat',
-  '<TEXTFILE:nome>': 'files', '<MACROS:file>': 'files', '<EDITMACRO:nome>': 'files', '<MODEMACROS:file>': 'files',
+  '<TEXTFILE:nome>': 'files', '<MACROS:file>': 'files', '<EXEC:file>': 'files', '<EDITMACRO:nome>': 'files', '<MODEMACROS:file>': 'files',
   '<AR> <BT> <KN> <SK>': 'cw', '<WPM:n>': 'cw', '<LANGUAGE:xx>': 'cw', '<WK:comando>': 'cw',
   '<LETTERS>': 'rtty', '<NUMBERS>': 'rtty',
   '<LOADPICTURE>': 'sstv', '<FROMCLIP>': 'sstv', '<FONT:nome>': 'sstv', '<LIMITSCANLINES:n>': 'sstv',
@@ -202,7 +208,7 @@ const EXAMPLE: Record<string, string> = {
   '<AUTOCQRESUME>': '<AUTOCQRESUME>',
   '<ROTOR:gradi>': '<ROTOR:45>', '<ROTOR:SP>': '<ROTOR:SP>', '<ROTOR:LP>': '<ROTOR:LP>',
   '<CATCMD:comando>': '<CATCMD:AN1;>',
-  '<TEXTFILE:nome>': '<TX><TEXTFILE:station.txt><RX>', '<MACROS:file>': '<MACROS:contest.mc>', '<EDITMACRO:nome>': '<EDITMACRO:F5>', '<MODEMACROS:file>': '<MODEMACROS:rtty.mc>',
+  '<TEXTFILE:nome>': '<TX><TEXTFILE:station.txt><RX>', '<MACROS:file>': '<MACROS:contest.mc>', '<EXEC:file>': '<EXEC:Backup.bat>', '<EDITMACRO:nome>': '<EDITMACRO:F5>', '<MODEMACROS:file>': '<MODEMACROS:rtty.mc>',
   '<AR> <BT> <KN> <SK>': '<CALL> DE <MYCALL> <KN>', '<WPM:n>': '<WPM:+2>', '<LANGUAGE:xx>': '<LANGUAGE:RU>', '<WK:comando>': '<WK:02>',
   '<LETTERS>': '<LETTERS>', '<NUMBERS>': '<NUMBERS>',
   '<LOADPICTURE>': '<LOADPICTURE>', '<FROMCLIP>': '<FROMCLIP>', '<FONT:nome>': '<FONT:Arial>', '<LIMITSCANLINES:n>': '<LIMITSCANLINES:128>',
