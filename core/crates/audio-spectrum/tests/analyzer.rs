@@ -286,3 +286,20 @@ fn anticlick_without_clicks_changes_nothing() {
     assert_eq!(b.recent_clicks().count(), 0);
     assert_eq!(ra, rb);
 }
+
+#[test]
+fn level_does_not_depend_on_the_phase_of_the_tone() {
+    // tono al centro di un canale: con `|re| + |im|` il livello cambiava fino a 3 dB con la fase (traccia granulosa)
+    let rate = 12_000u32;
+    let freq = 2048.0 * 12000.0 / 16384.0;
+    let level = |phase: f32| {
+        let s: Vec<f32> = (0..rate as usize * 3)
+            .map(|i| 0.1 * (2.0 * std::f32::consts::PI * freq * i as f32 / rate as f32 + phase).sin())
+            .collect();
+        let mut a = SpectrumAnalyzer::new(rate).unwrap();
+        let rows = a.push(&s);
+        db_of(rows.last().unwrap()[2048])
+    };
+    let (a, b) = (level(0.0), level(std::f32::consts::FRAC_PI_4));
+    assert!((a - b).abs() < 0.6, "fase 0: {a:.1} dB, fase pi/4: {b:.1} dB");
+}

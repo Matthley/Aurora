@@ -29,6 +29,8 @@ const FAC0: f32 = 0.1 * 32768.0;
 /// Il client usa gli stessi valori (`app/src/render/jtdxRow.ts`): vanno cambiati insieme.
 pub const DB_MIN: f32 = -40.0;
 pub const DB_STEP: f32 = 80.0 / 255.0;
+/// Media di `|cos x| + |sin x|` su una fase qualsiasi (4/pi): rapporto tra l'ampiezza L1 di JTDX e il modulo.
+const L1_MEAN: f32 = 4.0 / std::f32::consts::PI;
 
 /// Anti-click: campioni da spegnere prima e dopo il click trovato (s) e fronte morbido ai due lati (s).
 const CLICK_PAD_S: f32 = 0.001;
@@ -55,7 +57,7 @@ impl std::fmt::Display for AnalyzerError {
 impl std::error::Error for AnalyzerError {}
 
 /// Trasforma l'audio in righe di 6827 byte su 0-5000 Hz (canali da 0,732 Hz), circa 15 al secondo, con lo spettro di JTDX:
-/// finestra di Nuttall di WSJT-X su tutta la FFT di 1,365 s, ampiezza `(|re| + |im|) / n`. Il byte e' l'ampiezza in dB (`DB_MIN`, `DB_STEP`):
+/// finestra di Nuttall di WSJT-X su tutta la FFT di 1,365 s, modulo `|X| / n` (scalato di 4/pi). Il byte e' l'ampiezza in dB (`DB_MIN`, `DB_STEP`):
 /// la scala mediana, i canali per pixel, il guadagno e i colori li applica il client come il Wide Graph.
 ///
 /// Anti-click (`aurora_core::waterfall::anticlick`, o [`SpectrumAnalyzer::set_anticlick`] nelle prove): i click di manipolazione trovati
@@ -223,8 +225,10 @@ impl SpectrumAnalyzer {
                 if j >= self.n / 2 {
                     return 0;
                 }
-                let c = self.buf[j];
-                let amplitude = (c.re.abs() + c.im.abs()) * fac1;
+                // modulo vero come la potenza di `symspec.f90` di WSJT-X (`real(cx)**2 + aimag(cx)**2`): `|re| + |im|` di JTDX
+                // cambia fino a 3 dB con la fase, che ruota da una riga all'altra, e rende la traccia granulosa. `4/pi` e' la media
+                // di `|cos| + |sin|`: il livello medio resta quello di prima
+                let amplitude = self.buf[j].norm() * fac1 * L1_MEAN;
                 let db = 20.0 * amplitude.max(1e-12).log10();
                 ((db - DB_MIN) / DB_STEP).clamp(0.0, 255.0).round() as u8
             })
