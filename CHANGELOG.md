@@ -2,6 +2,11 @@
 
 ## Non rilasciato
 
+## 0.11.261 - 2026-11-15
+
+- Ricevitore RTTY: lo squelch si apre dal primo carattere affidabile (molto meno rumore stampato fra una trasmissione e l'altra: errori nei silenzi da 10,6 a 3,0 %); Aurora BIGScan RTTY con finestra che scorre ogni mezzo secondo, spostamento e velocita' per canale e limite di carico rispettato anche dai ricevitori.
+- Ricevitore CW: confine fra pausa di lettera e di parola ricalcolato e pugno tarato sul banco di prova: col tasto a mano errori quasi dimezzati (17 -> 9 %), nominativi letti giusti da 693 a 716 su 938.
+
 ## 0.11.260 - 2026-11-14
 
 - CAT Hamlib: lettura veloce della sola frequenza (160 ms mentre si gira il VFO, 300 ms da ferma), anche su seriale: display, cascata e BIGScan seguono la manopola.

@@ -22,6 +22,27 @@ export const NOVITA_MAX = 40;
 
 export const NOVITA: readonly Novita[] = [
   {
+    version: '0.11.261',
+    released: '2026-11-15T00:00:00Z',
+    kind: 'changed',
+    title: [
+      'RTTY e CW: decodifica migliore',
+      'RTTY and CW: better decoding',
+      'RTTY und CW: bessere Dekodierung',
+      'RTTY et CW : meilleur décodage',
+      'RTTY y CW: mejor decodificación',
+      'RTTY e CW: melhor descodificação',
+    ],
+    text: [
+      'RTTY: il testo comincia dal primo carattere affidabile, quindi molto meno rumore stampato fra una trasmissione e l’altra (errori nei silenzi da 10,6 a 3,0 %). Aurora BIGScan RTTY guarda la banda ogni mezzo secondo, riconosce spostamento e velocità di ogni stazione e rispetta il limite di carico. CW: pause fra lettere e parole riconosciute meglio, soprattutto col tasto a mano (errori quasi dimezzati), e più nominativi letti giusti.',
+      'RTTY: text starts from the first reliable character, so much less noise is printed between transmissions (errors in silences down from 10.6 to 3.0 %). Aurora BIGScan RTTY scans the band every half second, detects shift and speed of each station and respects the load limit. CW: letter and word gaps recognised better, especially with a straight key (errors almost halved), and more callsigns read correctly.',
+      'RTTY: Der Text beginnt mit dem ersten zuverlässigen Zeichen, daher viel weniger Rauschen zwischen den Aussendungen (Fehler in Pausen von 10,6 auf 3,0 %). Aurora BIGScan RTTY prüft das Band jede halbe Sekunde, erkennt Shift und Geschwindigkeit jeder Station und hält die Lastgrenze ein. CW: Buchstaben- und Wortpausen werden besser erkannt, vor allem mit der Handtaste (Fehler fast halbiert), und mehr Rufzeichen richtig gelesen.',
+      'RTTY : le texte commence au premier caractère fiable, donc beaucoup moins de bruit imprimé entre les émissions (erreurs dans les silences de 10,6 à 3,0 %). Aurora BIGScan RTTY examine la bande toutes les demi-secondes, reconnaît shift et vitesse de chaque station et respecte la limite de charge. CW : espaces entre lettres et mots mieux reconnus, surtout avec un manipulateur droit (erreurs presque divisées par deux), et plus d’indicatifs lus correctement.',
+      'RTTY: el texto empieza en el primer carácter fiable, así se imprime mucho menos ruido entre transmisiones (errores en los silencios de 10,6 a 3,0 %). Aurora BIGScan RTTY revisa la banda cada medio segundo, reconoce desplazamiento y velocidad de cada estación y respeta el límite de carga. CW: pausas entre letras y palabras mejor reconocidas, sobre todo con manipulador manual (errores casi a la mitad), y más indicativos leídos correctamente.',
+      'RTTY: o texto começa no primeiro carácter fiável, por isso imprime-se muito menos ruído entre transmissões (erros nos silêncios de 10,6 para 3,0 %). O Aurora BIGScan RTTY examina a banda a cada meio segundo, reconhece desvio e velocidade de cada estação e respeita o limite de carga. CW: pausas entre letras e palavras melhor reconhecidas, sobretudo com manipulador manual (erros quase para metade), e mais indicativos lidos corretamente.',
+    ],
+  },
+  {
     version: '0.11.260',
     released: '2026-11-14T23:01:32Z',
     kind: 'new',
@@ -847,27 +868,6 @@ export const NOVITA: readonly Novita[] = [
       'Les fréquences CW, SSTV, RTTY et PSK suivent les plans de bande : HF selon le plan IARU Région 1, à partir du 6 m selon le plan ARI. Centres d’activité, QRS, QRP, EME et meteor scatter y figurent.',
       'Las frecuencias de CW, SSTV, RTTY y PSK siguen los planes de banda: HF según el plan IARU Región 1, desde 6 m según el plan ARI. Se incluyen centros de actividad, QRS, QRP, EME y meteor scatter.',
       'As frequências de CW, SSTV, RTTY e PSK seguem os planos de banda: HF pelo plano IARU Região 1, a partir dos 6 m pelo plano ARI. Incluem centros de atividade, QRS, QRP, EME e meteor scatter.',
-    ],
-  },
-  {
-    version: '0.11.244',
-    released: '2026-11-13T09:23:34Z',
-    kind: 'new',
-    title: [
-      'Manuale completo di tutte le Impostazioni',
-      'Complete manual of every Setting',
-      'Vollständiges Handbuch aller Einstellungen',
-      'Manuel complet de tous les Réglages',
-      'Manual completo de todos los Ajustes',
-      'Manual completo de todas as Definições',
-    ],
-    text: [
-      'La Guida spiega ogni pagina delle Impostazioni, una riga per casella, campo e tendina, più i pannelli, i tasti rapidi di PSK · RTTY · CW e SSTV e un capitolo di domande frequenti.',
-      'The Guide now explains every Settings page, one line per box, field and drop-down, plus the panels, the PSK · RTTY · CW and SSTV shortcuts and a chapter of frequently asked questions.',
-      'Die Hilfe erklärt jetzt jede Einstellungsseite, eine Zeile je Kästchen, Feld und Auswahlliste, dazu die Panels, die Tastenkürzel von PSK · RTTY · CW und SSTV und ein Kapitel mit häufigen Fragen.',
-      'Le guide explique maintenant chaque page des Réglages, une ligne par case, champ et liste, plus les panneaux, les raccourcis de PSK · RTTY · CW et SSTV et un chapitre de questions fréquentes.',
-      'La Guía explica ahora cada página de los Ajustes, una línea por casilla, campo y desplegable, además de los paneles, los atajos de PSK · RTTY · CW y SSTV y un capítulo de preguntas frecuentes.',
-      'O Guia explica agora cada página das Definições, uma linha por caixa, campo e lista, mais os painéis, os atalhos de PSK · RTTY · CW e SSTV e um capítulo de perguntas frequentes.',
     ],
   },
 ];
