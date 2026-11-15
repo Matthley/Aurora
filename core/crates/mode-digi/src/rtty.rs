@@ -87,7 +87,7 @@ const SOFT_BITS: f32 = 0.8;
 /// Scala delle somme delle LLR per la probabilita' di un bit (passo 8): le LLR dei campioni vicini sono legate dal filtro e la loro somma
 /// conta la stessa prova piu' volte; il valore viene dalla prova `taratura` di `tests/rtty_tabella.rs` (probabilita' detta contro caratteri
 /// giusti davvero: con 0,03 i caratteri detti al 90-100 % sono giusti al 98 %, quelli al 50-60 % al 58 %).
-const LLR_SCALE: f32 = 0.03;
+pub(crate) const LLR_SCALE: f32 = 0.03;
 /// Sotto questa probabilita' un carattere e' «incerto»: l'interfaccia lo mostra in chiaro.
 pub const WEAK_PROB: f32 = 0.9;
 /// Le soglie di base dello squelch statistico (probabilita' media degli ultimi quattro caratteri per aprire e per chiudere).
@@ -198,6 +198,11 @@ pub(crate) fn encode(charset: RttyCharset, c: char) -> Option<(u8, Reg)> {
         return None;
     }
     Some((code, if matches!(code, SPACE | CR | LF) { Reg::Any } else if fig { Reg::Figures } else { Reg::Letters }))
+}
+
+/// Il carattere di un codice nel registro dato (per altri ricevitori del crate, senza le lettere russe).
+pub(crate) fn decode_char(charset: RttyCharset, code: u8, figures: bool) -> char {
+    decode(charset, code, figures, false)
 }
 
 /// Il carattere ricevuto per un codice (non di controllo) nel registro dato.
@@ -855,7 +860,7 @@ const FUSE_WAIT_SEQ_BITS: f64 = 15.0;
 /// Decodifica di sequenza a durate esplicite: i valori morbidi, a passi di circa un ottavo di bit, entrano in un modello di stati
 /// (riposo a mark, start, cinque bit a mark o space, stop di durata variabile, silenzio) e il percorso migliore (Viterbi) dice dove
 /// cominciano i caratteri. Il percorso si rilegge all'indietro ogni `emit` passi e i caratteri piu' vecchi di `hist - emit` passi escono.
-struct Seq {
+pub(crate) struct Seq {
     /// Campioni decimati per passo.
     q: usize,
     hist: usize,
@@ -889,7 +894,7 @@ struct Seq {
 }
 
 impl Seq {
-    fn new(spb: f64) -> Self {
+    pub(crate) fn new(spb: f64) -> Self {
         let q = ((spb / 8.0).round() as usize).max(1);
         let l = spb / q as f64;
         let edge = |k: usize| (k as f64 * l).round() as usize;
@@ -971,7 +976,7 @@ impl Seq {
     /// Un valore morbido con la presenza istantanea della portante; restituisce gli inizi di start (in campioni decimati dall'inizio)
     /// dei caratteri decisi.
     #[allow(clippy::needless_range_loop)]
-    fn push(&mut self, llr: f32, inst: f32) -> Vec<f64> {
+    pub(crate) fn push(&mut self, llr: f32, inst: f32) -> Vec<f64> {
         self.acc += llr;
         self.racc += inst;
         self.acc_n += 1;

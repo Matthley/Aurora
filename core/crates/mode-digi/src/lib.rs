@@ -35,6 +35,7 @@ pub mod notch;
 pub mod psk;
 pub mod psk_viterbi;
 pub mod rtty;
+pub mod rtty_chain;
 pub mod rtty_multi;
 pub mod service;
 pub mod skim;

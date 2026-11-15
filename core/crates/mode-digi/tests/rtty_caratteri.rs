@@ -12,6 +12,7 @@ mod banco_rtty;
 
 use banco_rtty::*;
 use mode_digi::rtty::{self, RttyDemodulator, RttyParams};
+use mode_digi::rtty_chain::RttyChain;
 use mode_digi::rtty_multi::RttyMulti;
 use mode_sstv::resample::Resampler;
 use std::path::Path;
@@ -50,6 +51,20 @@ fn passa_singolo(audio: &[f32], centro: f64) -> (Vec<(char, f64)>, f64) {
 }
 
 /// Come [`passa_singolo`] con `RttyMulti`: i caratteri dei canali entro mezzo shift da `centro` (tutti, se `None`).
+/// Come [`passa_singolo`] con il ricevitore a catena probabilistica (`rtty_chain::RttyChain`).
+fn passa_catena(audio: &[f32], centro: f64) -> (Vec<(char, f64)>, f64) {
+    let mut d = RttyChain::new(RttyParams { centre_hz: centro as f32, shift_hz: SHIFT as f32, baud: BAUD as f32, reverse: false });
+    let mut out = Vec::new();
+    let t0 = Instant::now();
+    let mut n = 0usize;
+    for b in audio.chunks(BLOCCO) {
+        n += b.len();
+        let t = n as f64 / RATE;
+        out.extend(d.process_chars(b).into_iter().map(|c| (c.ch, t)));
+    }
+    (out, cpu(t0, audio.len()))
+}
+
 fn passa_multi(audio: &[f32], centro: Option<f64>) -> (Vec<(char, f64)>, f64) {
     let mut m = RttyMulti::new(SHIFT as f32, BAUD as f32);
     let mut out = Vec::new();
@@ -129,6 +144,10 @@ fn banco_rtty_caratteri() {
         let mut m1 = misura(&tr.caratteri, &l1, &tr.silenzi, true);
         m1.cpu_ms_s = c1;
         println!("{}", riga(s.nome, "singolo", &m1));
+        let (l3, c3) = passa_catena(&audio, CENTRO);
+        let mut m3 = misura(&tr.caratteri, &l3, &tr.silenzi, true);
+        m3.cpu_ms_s = c3;
+        println!("{}", riga(s.nome, "catena", &m3));
         if std::env::var_os("AURORA_STAMPA").is_some() {
             println!("ATTESO {:?}\nLETTO  {:?}", tr.caratteri.iter().map(|c| c.0).collect::<String>(), l1.iter().map(|c| c.0).collect::<String>());
         }
@@ -146,6 +165,10 @@ fn banco_rtty_caratteri() {
     let mut m1 = misura(&[], &l1, &silenzio, false);
     m1.cpu_ms_s = c1;
     println!("{}", riga("solo rumore 60 s", "singolo", &m1));
+    let (l3, c3) = passa_catena(&audio, CENTRO);
+    let mut m3 = misura(&[], &l3, &silenzio, false);
+    m3.cpu_ms_s = c3;
+    println!("{}", riga("solo rumore 60 s", "catena", &m3));
     let (l2, c2) = passa_multi(&audio, None);
     let mut m2 = misura(&[], &l2, &silenzio, false);
     m2.cpu_ms_s = c2;
@@ -181,6 +204,9 @@ fn banco_rtty_silenzi() {
             println!("{nome}\nATTESO {:?}\nLETTO  {:?}", tr.caratteri.iter().map(|c| c.0).collect::<String>(), l1.iter().map(|c| c.0).collect::<String>());
         }
         println!("{}", riga_silenzi(nome, "singolo", tr.passaggi.len(), cer1, &misura_silenzi(&tr, &l1)));
+        let (l3, _) = passa_catena(&audio, CENTRO);
+        let cer3 = misura(&tr.caratteri, &l3, &[], false).cer();
+        println!("{}", riga_silenzi(nome, "catena", tr.passaggi.len(), cer3, &misura_silenzi(&tr, &l3)));
         let (l2, _) = passa_multi(&audio, Some(CENTRO));
         let cer2 = misura(&tr.caratteri, &l2, &[], false).cer();
         println!("{}", riga_silenzi(nome, "multi", tr.passaggi.len(), cer2, &misura_silenzi(&tr, &l2)));
