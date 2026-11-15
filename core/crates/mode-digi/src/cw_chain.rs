@@ -1206,11 +1206,11 @@ impl Sequence {
         // la coda: o arriva dall'ultima eta' o continua quella di prima
         let tail_stay = self.on_stay[ON_AGES - 1];
         let enter = self.base[ON_AGES - 2];
-        let from_prev = if enter > NEG / 2.0 { enter + stay_cum[ON_AGES - 1] + self.segment_llr(now - ON_AGES as u64, j) } else { NEG };
+        let from_prev = if enter > NEG / 2.0 { enter + stay_cum[ON_AGES - 1] + self.segment_llr(now.saturating_sub(ON_AGES as u64), j) } else { NEG };
         let (tb, ts, te) = self.tail;
         let from_self = if tb > NEG / 2.0 { tb + stay_cum[ON_AGES - 1] + f64::from(te + 1) * tail_stay + self.segment_llr(ts, j) } else { NEG };
         b.on_tail_self = from_self > from_prev;
-        let (mut tail, tail_score) = if b.on_tail_self { ((tb, ts, te + 1), from_self) } else { ((enter, now - ON_AGES as u64, 0), from_prev) };
+        let (mut tail, tail_score) = if b.on_tail_self { ((tb, ts, te + 1), from_self) } else { ((enter, now.saturating_sub(ON_AGES as u64), 0), from_prev) };
         on[ON_AGES - 1] = tail_score;
         let mut off = [NEG; OFF_AGES];
         off[0] = best_on_end;
