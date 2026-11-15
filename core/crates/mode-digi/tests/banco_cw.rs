@@ -16,6 +16,7 @@ mod common;
 
 use common::Rng;
 use mode_digi::cw::CwDemodulator;
+use mode_digi::cw_chain::{ChainParams, CwChain, CwChainBand};
 use mode_digi::skim::CwBandDecoder;
 use std::f64::consts::PI;
 use std::time::Instant;
@@ -517,16 +518,37 @@ fn valuta(caso: &Caso, raw: &[(u8, f64)], cpu_s: f64) -> Esito {
     }
 }
 
+/// Quale ricevitore si misura: `CW_RX=catena` il ricevitore a catena (`cw_chain`), altrimenti quello attuale.
+fn catena() -> bool {
+    std::env::var("CW_RX").is_ok_and(|v| v == "catena")
+}
+
+/// I parametri della catena, con le modifiche di `CW_PARAM` (`nome=valore,nome=valore`).
+fn parametri() -> ChainParams {
+    let mut p = ChainParams::default();
+    let bad = p.apply_list(&std::env::var("CW_PARAM").unwrap_or_default());
+    assert!(bad.is_empty(), "parametri sconosciuti: {bad:?}");
+    p
+}
+
 /// Il canale singolo, con le impostazioni di base del servizio, al tono giusto.
 fn canale(caso: &Caso) -> Esito {
-    let mut rx = CwDemodulator::new(TONO as f32, 20.0);
     let mut raw = Vec::new();
     let t0 = Instant::now();
-    for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
-        let t = ((k + 1) * BLOCCO) as f64 / RATE;
-        raw.extend(rx.process(block).into_iter().map(|c| (c, t)));
-        if std::env::var_os("CW_DEBUG_WPM").is_some() && k % 20 == 19 {
-            print!("{:.0}/{:.0} ", rx.wpm(), rx.snr_db());
+    if catena() {
+        let mut rx = CwChain::with_params(TONO as f32, 20.0, &parametri());
+        for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
+            let t = ((k + 1) * BLOCCO) as f64 / RATE;
+            raw.extend(rx.process(block).into_iter().map(|c| (c, t)));
+        }
+    } else {
+        let mut rx = CwDemodulator::new(TONO as f32, 20.0);
+        for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
+            let t = ((k + 1) * BLOCCO) as f64 / RATE;
+            raw.extend(rx.process(block).into_iter().map(|c| (c, t)));
+            if std::env::var_os("CW_DEBUG_WPM").is_some() && k % 20 == 19 {
+                print!("{:.0}/{:.0} ", rx.wpm(), rx.snr_db());
+            }
         }
     }
     let cpu = t0.elapsed().as_secs_f64();
@@ -553,7 +575,33 @@ fn aggiunto<'a>(old: &str, new: &'a str) -> &'a str {
 
 /// BigScan CW su tutta la banda: il testo dei canali entro 25 Hz dal tono (sul rumore di tutti i canali).
 fn bigscan(caso: &Caso, tutti: bool) -> Esito {
+    if catena() {
+        return bigscan_catena(caso, tutti);
+    }
     let mut dec = CwBandDecoder::new(150.0, 4_000.0, 40);
+    let mut last: std::collections::HashMap<u32, String> = std::collections::HashMap::new();
+    let mut raw = Vec::new();
+    let mut cpu = 0.0;
+    for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
+        let t0 = Instant::now();
+        dec.process(block);
+        cpu += t0.elapsed().as_secs_f64();
+        let t = ((k + 1) * BLOCCO) as f64 / RATE;
+        for ch in dec.channels() {
+            let old = last.entry(ch.id).or_default();
+            let add = aggiunto(old, &ch.text).to_string();
+            *old = ch.text.clone();
+            if tutti || (f64::from(ch.freq_hz) - TONO).abs() <= 25.0 {
+                raw.extend(add.bytes().map(|c| (c, t)));
+            }
+        }
+    }
+    valuta(caso, &raw, cpu)
+}
+
+/// BigScan con la catena ([`CwChainBand`]), raccolto come [`bigscan`].
+fn bigscan_catena(caso: &Caso, tutti: bool) -> Esito {
+    let mut dec = CwChainBand::with_params(150.0, 4_000.0, 40, &parametri());
     let mut last: std::collections::HashMap<u32, String> = std::collections::HashMap::new();
     let mut raw = Vec::new();
     let mut cpu = 0.0;
