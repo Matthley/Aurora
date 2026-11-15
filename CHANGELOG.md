@@ -2,7 +2,15 @@
 
 ## Non rilasciato
 
+## 0.11.264 - 2026-11-15
+
 - CW: «Ricevitore CW: preciso / veloce» nella pagina del modo, veloce di base: le lettere compaiono in grigio dopo circa mezzo secondo (prima 1,25 s) e il ricevitore preciso le conferma o corregge; testo finale invariato.
+- Aurora BIGScan RTTY apre anche la stazione debole accanto a una forte (conferma con testo proprio, trattenuto finche' non e' sicura): sulla registrazione di prova la stazione vicina passa da 0 a 239 caratteri letti, con le stesse 17 stazioni su 26 e senza canali falsi in piu'; «CQ DE» di nuovo letto giusto quando il primo carattere e' incerto.
+- Display della radio: PWR e SPLIT in un solo riquadro compatto, uguale in tutti gli stili, allineato in alto al display.
+- SSTV: istogramma dei livelli veloce (aggiornato ogni 100 ms) in una striscia bassa come nei programmi classici, cursore di correzione piccolo; tolto lo spettro verde.
+- CW: tasti - e + sulla velocita' di trasmissione nella barra in basso.
+- Pannello Aurora BIGScan: la maniglia sotto cambia solo la sua altezza, non piu' quella delle finestre RX/TX.
+- Pagina Informazioni di nuovo in tre colonne anche con lo schermo in scala.
 
 ## 0.11.263 - 2026-11-15
 
