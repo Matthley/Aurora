@@ -65,7 +65,8 @@ describe('SstvPage, ricezione', () => {
     const spectrum = screen.getByTestId('sstv-spectrum');
     expect(stage?.contains(spectrum)).toBe(true);
     expect(stage?.querySelector('.sstv-screen')?.compareDocumentPosition(spectrum)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(within(spectrum).getByText('Rx 1200')).toBeInTheDocument();
+    expect(within(spectrum).queryByText('Rx 1200')).toBeNull();
+    expect(spectrum.querySelector('.sstv-spec-rx')).toBeNull();
     // niente piu' cascata
     expect(container.querySelector('.digi-wf')).toBeNull();
     // il log e' la terza colonna, subito dopo la scheda del modo
@@ -101,6 +102,10 @@ describe('SstvPage, ricezione', () => {
     expect(labels).toEqual(['1200', '1500', '2300']);
     expect(container.querySelectorAll('.sstv-mark--vis')).toHaveLength(3);
     expect(container.querySelector('.sstv-mark--found')).toHaveTextContent('+35 Hz');
+    // suggerimenti al mouse su 1200, 2300 e sulla parentesi verde
+    expect(container.querySelector('.sstv-mark--sync')).toHaveAttribute('title', expect.stringContaining('1200'));
+    expect([...container.querySelectorAll('.sstv-mark--level')].map((m) => m.getAttribute('title'))[1]).toContain('2300');
+    expect(container.querySelector('.ruler-bracket--rx')).toHaveAttribute('title', expect.stringContaining('1100'));
   });
 
   it('shows the FSK ID callsign next to the picture and puts it in the log', async () => {

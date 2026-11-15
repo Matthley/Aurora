@@ -12,6 +12,8 @@ interface Props {
   bandwidthHz?: number;
   /** Dove comincia il segnale rispetto alla frequenza (Hz, MSK144 -1000: centrato). */
   startOffsetHz?: number;
+  /** Suggerimento al passaggio del mouse sulla parentesi Rx (SSTV). */
+  rxTitle?: string;
 }
 
 /** Percentuale della larghezza per una frequenza, tenuta dentro il righello. */
@@ -23,7 +25,7 @@ function at(hz: number, fMinHz: number, fMaxHz: number): number {
  * Righello stretto delle frequenze audio: una tacca ogni 100 Hz (piu' lunga e con il numero ogni 500), le parentesi di Tx e Rx e,
  * lungo il bordo basso, un segno per ogni decodifica dell'ultimo periodo.
  */
-export function FrequencyRuler({ fMinHz, fMaxHz, decodes, rxHz, txHz, bandwidthHz = 50, startOffsetHz = 0 }: Props) {
+export function FrequencyRuler({ fMinHz, fMaxHz, decodes, rxHz, txHz, bandwidthHz = 50, startOffsetHz = 0, rxTitle }: Props) {
   const ticks = rulerTicks(fMinHz, fMaxHz, 100);
   const markers = decodeMarkers(decodes, fMaxHz, fMinHz);
   const span = fMaxHz - fMinHz;
@@ -31,7 +33,7 @@ export function FrequencyRuler({ fMinHz, fMaxHz, decodes, rxHz, txHz, bandwidthH
     if (hz === null || hz === undefined || !(span > 0)) return null;
     const left = at(hz + startOffsetHz, fMinHz, fMaxHz);
     const width = Math.max(0.6, (Math.max(bandwidthHz, 20) / span) * 100);
-    return <span className={`ruler-bracket ruler-bracket--${kind}`} style={{ left: `${left}%`, width: `${width}%` }} />;
+    return <span className={`ruler-bracket ruler-bracket--${kind}`} title={kind === 'rx' ? rxTitle : undefined} style={{ left: `${left}%`, width: `${width}%` }} />;
   };
   return (
     <div className="ruler" aria-hidden="true">

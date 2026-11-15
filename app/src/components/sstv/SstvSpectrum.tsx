@@ -24,10 +24,17 @@ export const SSTV_MARKS: readonly { hz: number; label: string; kind: 'sync' | 'v
   { hz: 2300, label: '2300', kind: 'level' },
 ];
 
+/** Il suggerimento di un segno: il sincronismo e il bianco hanno la loro spiegazione, gli altri quella generica del tipo. */
+function markTitle(t: ReturnType<typeof useT>, m: { hz: number; kind: 'sync' | 'vis' | 'level' }): string {
+  if (m.hz === 2300) return t('sstv.mark.white');
+  const key = m.kind === 'sync' ? 'sstv.mark.sync' : m.kind === 'vis' ? 'sstv.mark.vis' : 'sstv.mark.level';
+  return t(key, { hz: m.hz });
+}
+
 /**
  * Lo spettro sottile sotto il visore SSTV: la stessa curva verde su griglia a puntini dello spettro della Stazione (`drawSpectrum`,
- * righe del core passate da `processRow` come nella cascata), l'etichetta «Rx» come le barre della cascata e il righello delle frequenze.
- * In SSTV la frequenza audio non si sceglie (il sincronismo e' sempre a 1200 Hz): la barra Rx e' solo un riferimento, non si trascina.
+ * righe del core passate da `processRow` come nella cascata), il righello delle frequenze.
+ * In SSTV la frequenza audio non si sceglie (il sincronismo e' sempre a 1200 Hz): la parentesi Rx e' solo un riferimento, non si trascina.
  */
 export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number; /** Scarto di sintonia stimato dal VIS o dal sincronismo (Hz), se noto. */ offsetHz?: number | null }) {
   const t = useT();
@@ -71,11 +78,9 @@ export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number
     <div className="sstv-spec" data-testid="sstv-spectrum">
       <div className="sstv-spec-plot" style={{ height }}>
         <canvas ref={plot} className="sstv-spec-canvas" aria-hidden="true" />
-        {/* l'etichetta Rx e' un testo piccolo nell'angolo in alto a destra: prima il riquadro verde al centro copriva il segnale */}
-        <span className="sstv-spec-rx" aria-hidden="true">{`Rx ${SYNC_HZ}`}</span>
         {/* i segni fissi: il sincronismo del segnale deve cadere sulla riga a 1200, il nero a 1500, il bianco a 2300 */}
         {SSTV_MARKS.map((m) => (
-          <span key={m.hz} className={`sstv-mark sstv-mark--${m.kind}`} style={{ left: `${leftPercent(m.hz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={t(`sstv.mark.${m.kind}`, { hz: m.hz })} aria-hidden="true">
+          <span key={m.hz} className={`sstv-mark sstv-mark--${m.kind}`} style={{ left: `${leftPercent(m.hz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={markTitle(t, m)}>
             {m.kind === 'vis' ? null : <i>{m.label}</i>}
           </span>
         ))}
@@ -86,7 +91,7 @@ export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number
           </span>
         ) : null}
       </div>
-      <FrequencyRuler fMinHz={SSTV_SPEC_MIN_HZ} fMaxHz={SSTV_SPEC_MAX_HZ} decodes={[]} rxHz={SYNC_HZ} bandwidthHz={SIGNAL_HZ} />
+      <FrequencyRuler fMinHz={SSTV_SPEC_MIN_HZ} fMaxHz={SSTV_SPEC_MAX_HZ} decodes={[]} rxHz={SYNC_HZ} bandwidthHz={SIGNAL_HZ} rxTitle={t('sstv.mark.band')} />
     </div>
   );
 }
