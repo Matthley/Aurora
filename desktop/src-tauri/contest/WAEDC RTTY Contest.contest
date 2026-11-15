@@ -44,3 +44,9 @@ m_bDupeNoBand=0
 m_bDupeNoMode=0
 m_iLogBarDispMode=1
 m_iQtc=2
+
+[Score]
+bands=80,40,20,15,10
+points=any=1
+mult=dxcc/band/except:K,VE,VK,ZL,ZS,JA,BY,PY,UA9; area:K,VE,VK,ZL,ZS,JA,BY,PY,UA9/band
+mult_band=80:4,40:3,20:2,15:2,10:2

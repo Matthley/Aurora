@@ -41,5 +41,10 @@ m_bSuggestItuZone=0
 m_bSuggestDomain=0
 m_bSuggestDxccPfx=0
 m_bDupeNoBand=0
-m_bDupeNoMode=0
+m_bDupeNoMode=1
 m_iLogBarDispMode=1
+
+[Score]
+bands=80,40,20,15,10
+points=any=1
+mult=exch/if:dxcc:K,VE; dxcc/except:K,VE
