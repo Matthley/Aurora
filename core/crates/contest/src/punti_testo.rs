@@ -130,6 +130,8 @@ pub enum TipoMolt {
     Area,
     /// Le chiavi date dalla funzione `moltiplicatori(qso)` della sezione `[Script]`.
     Script,
+    /// Il nominativo (solo dalle regole `[Score]`).
+    Call,
 }
 
 impl TipoMolt {
@@ -202,6 +204,8 @@ pub struct Punteggio {
     pub esclusi: u32,
     /// Fattore finale in millesimi (1000 = 1; RAEM polare 1100).
     pub fattore_mille: i64,
+    /// Il punteggio si moltiplica anche per i QSO validi (Alessandro Volta).
+    pub per_qso: bool,
     /// I moltiplicatori lavorati, con le bande.
     pub griglia: Vec<CellaMolt>,
     /// I moltiplicatori che mancano dei tipi con elenco chiuso.
@@ -232,7 +236,7 @@ pub struct NuovoMolt {
 
 impl Default for Punteggio {
     fn default() -> Self {
-        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0, recenti: Vec::new(), errore_script: None, script: String::new(), primo_mandato: String::new() }
+        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, per_qso: false, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0, recenti: Vec::new(), errore_script: None, script: String::new(), primo_mandato: String::new() }
     }
 }
 
@@ -294,7 +298,7 @@ fn valuta_con(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
             RegoleScore::dalle_chiavi(c)
         }
     };
-    let mut tipi: Vec<TipoMolt> = if molt_script { vec![TipoMolt::Script] } else { r.molt.iter().map(|d| d.tipo.tipo()).collect() };
+    let mut tipi: Vec<TipoMolt> = if molt_script { vec![TipoMolt::Script] } else { r.molt.iter().filter(|d| d.aggiunta == 0).map(|d| d.tipo.tipo()).collect() };
     tipi.dedup();
     let mut griglia_script: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
     let mut visti: HashSet<(String, String, String)> = HashSet::new();
@@ -327,7 +331,7 @@ fn valuta_con(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
             out.push(Valutato { qso: q.clone(), doppio: true, punti: 0, nuovi: Vec::new(), escluso: None });
             continue;
         }
-        let p = match sc.map(|s| s.punti(&xs)).transpose()?.flatten() {
+        let mut p = match sc.map(|s| s.punti(&xs)).transpose()?.flatten() {
             Some(p) => p,
             None => punti(&r, &x),
         };
@@ -362,7 +366,9 @@ fn valuta_con(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
                 nuovi.push(format!("{}:{v}", d.tipo.nome()));
                 riga.molt += 1;
                 let w = if d.per_banda { peso(&r, &banda) } else { 1 };
-                if d.prodotto {
+                if d.aggiunta != 0 {
+                    p += d.aggiunta;
+                } else if d.prodotto {
                     prodotto += w;
                 } else {
                     somma += w;
@@ -384,16 +390,17 @@ fn valuta_con(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
         }
         out.push(Valutato { qso: q.clone(), doppio: false, punti: p, nuovi, escluso: None });
     }
-    let ha_somma = r.molt.iter().any(|d| !d.prodotto);
-    let ha_prodotto = r.molt.iter().any(|d| d.prodotto);
+    let ha_somma = r.molt.iter().any(|d| !d.prodotto && d.aggiunta == 0);
+    let ha_prodotto = r.molt.iter().any(|d| d.prodotto && d.aggiunta == 0);
     tot.molt = if molt_script {
         somma
-    } else if r.molt.is_empty() {
+    } else if tipi.is_empty() {
         0
     } else {
         (if ha_somma { somma } else { 1 }) * if ha_prodotto { prodotto } else { 1 }
     };
     tot.primo_mandato = qsos.iter().map(|q| q.exch_sent.clone()).find(|e| !e.trim().is_empty()).unwrap_or_default();
+    tot.per_qso = r.per_qso;
     tot.griglia = griglia.into_iter().map(|((i, valore), b)| CellaMolt { tipo: r.molt[i].tipo.nome().to_string(), valore, bande: ordina_bande(b.into_iter().collect()) }).collect();
     tot.griglia.extend(griglia_script.into_iter().map(|((tipo, valore), b)| CellaMolt { tipo, valore, bande: ordina_bande(b.into_iter().collect()) }));
     for d in r.molt.iter().filter(|_| !molt_script) {
@@ -416,11 +423,12 @@ fn ordina_bande(mut v: Vec<String>) -> Vec<String> {
     v
 }
 
-/// Punteggio = (punti + QTC) x moltiplicatori x fattore finale (senza moltiplicatori: i punti).
+/// Punteggio = (punti + QTC) x moltiplicatori [x QSO validi] x fattore finale (senza moltiplicatori: i punti).
 /// Con la funzione `punteggio(totali)` dello script e' lei a dare il totale (un errore la toglie e resta in `errore_script`).
 fn calcola(tot: &mut Punteggio) {
     let base = tot.punti + i64::from(tot.qtc);
     let lordo = if tot.tipi.is_empty() { base } else { base * tot.molt };
+    let lordo = if tot.per_qso { lordo * i64::from(tot.qso) } else { lordo };
     tot.punteggio = (lordo * tot.fattore_mille + 500) / 1000;
     if tot.script.trim().is_empty() || tot.errore_script.is_some() {
         return;

@@ -4,15 +4,19 @@
 //! - `points`: punti per relazione, la prima condizione vera vince (`same_dxcc=1; same_cont=2; other_cont=3`);
 //! - `points_band`: fattore dei punti per banda (`80:2,40:2`);
 //! - `bands`, `valid`: bande e condizione dei QSO ammessi (gli altri sono «non ammessi», con il motivo);
-//! - `mult`: moltiplicatori `tipo/opzione/...` separati da `;` (tipi `dxcc`, `cq`, `itu`, `wpx`, `cont`, `area:K,VE`, `exch`;
-//!   opzioni `band`, `mode`, `product`, `if:<condizione>`, `except:<paesi>`);
+//! - `mult`: moltiplicatori `tipo/opzione/...` separati da `;` (tipi `dxcc`, `cq`, `itu`, `wpx`, `cont`, `area:K,VE`, `exch`, `call`;
+//!   opzioni `band`, `mode`, `product`, `if:<condizione>`, `except:<paesi>`, `add:<punti>`);
 //! - `mult_band`: peso dei moltiplicatori per banda (`80:4,40:3`);
 //! - `bonus`: punti in piu' per condizione (`call:RAEM=300`);
 //! - `cqN`: tabella dei punti zona CQ -> zona CQ (riga della propria zona N, 40 valori), usata da `points=...=cqtab`;
+//! - `special`: le regole scritte a mano (`makrothen`);
+//! - `times_qso`: il punteggio si moltiplica anche per i QSO validi (`1`).
 //! I casi che i pezzi non coprono (RAEM) stanno nella sezione `[Script]` (`crate::script`).
 //!
-//! Le condizioni sono pezzi uniti da `&`: `any`, `same_dxcc`, `same_cont`, `other_cont`, `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU`,
-//! `my_dxcc:..`, `my_cont:..`, `call:RAEM`, `band:80,40`, `mode:RTTY`.
+//! I punti `cqtab*N` sono la tabella delle zone per N.
+//!
+//! Le condizioni sono pezzi uniti da `&`: `any`, `same_dxcc`, `other_dxcc`, `same_cont`, `other_cont`, `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU`,
+//! `my_dxcc:..`, `not_my_dxcc:..`, `my_cont:..`, `call:RAEM`, `band:80,40`, `mode:RTTY`.
 //! Un file senza sezione `[Score]` usa le vecchie chiavi (`m_iPointsMyDxcc`, `m_iMultipliers`...), tradotte negli stessi pezzi.
 
 use crate::elenco::{ContestTesto, Dominio};
@@ -25,12 +29,14 @@ use std::collections::BTreeMap;
 pub enum Pezzo {
     Tutti,
     StessoPaese,
+    AltroPaese,
     StessoCont,
     AltroCont,
     Dxcc(Vec<String>),
     NonDxcc(Vec<String>),
     Cont(Vec<String>),
     MioDxcc(Vec<String>),
+    NonMioDxcc(Vec<String>),
     MioCont(Vec<String>),
     Call(Vec<String>),
     Banda(Vec<String>),
@@ -45,7 +51,8 @@ pub struct Cond(pub Vec<Pezzo>);
 #[derive(Debug, Clone, PartialEq)]
 pub enum Valore {
     Fisso(i64),
-    TabellaCq,
+    /// La tabella delle zone per un fattore (`cqtab`, `cqtab*2`).
+    TabellaCq(i64),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +73,8 @@ pub enum TipoM {
     Area(Vec<String>),
     /// Lo scambio ricevuto (stato, provincia, oblast): dall'elenco dei domini, o l'ultima parola non numerica.
     Scambio,
+    /// Il nominativo stesso (ogni stazione di un paese e' un moltiplicatore: OK DX RTTY, ARR PSK63).
+    Nominativo,
 }
 
 impl TipoM {
@@ -78,6 +87,7 @@ impl TipoM {
             TipoM::Cont => "cont",
             TipoM::Area(_) => "area",
             TipoM::Scambio => "dom",
+            TipoM::Nominativo => "call",
         }
     }
     pub fn tipo(&self) -> TipoMolt {
@@ -89,6 +99,7 @@ impl TipoM {
             TipoM::Cont => TipoMolt::Cont,
             TipoM::Area(_) => TipoMolt::Area,
             TipoM::Scambio => TipoMolt::Dominio,
+            TipoM::Nominativo => TipoMolt::Call,
         }
     }
 }
@@ -103,6 +114,8 @@ pub struct DefMolt {
     pub prodotto: bool,
     pub se: Option<Cond>,
     pub eccetto: Vec<String>,
+    /// Punti in piu' per ogni valore nuovo invece di moltiplicare (`add:10`, Open Ukraine RTTY): 0 = moltiplicatore normale.
+    pub aggiunta: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -116,6 +129,9 @@ pub struct RegoleScore {
     pub bonus: Vec<(Cond, i64)>,
     /// `tabella_cq[mia-1][sua-1]`.
     pub tabella_cq: Vec<Vec<i64>>,
+    pub speciale: String,
+    /// Il punteggio si moltiplica anche per il numero dei QSO validi (`times_qso=1`, Alessandro Volta).
+    pub per_qso: bool,
 }
 
 /// Una banda senza la `m` (`20m` -> `20`).
@@ -145,12 +161,14 @@ pub fn leggi_cond(s: &str) -> Result<Cond, String> {
         v.push(match k.to_ascii_lowercase().as_str() {
             "any" => Pezzo::Tutti,
             "same_dxcc" => Pezzo::StessoPaese,
+            "other_dxcc" => Pezzo::AltroPaese,
             "same_cont" => Pezzo::StessoCont,
             "other_cont" => Pezzo::AltroCont,
             "dxcc" => Pezzo::Dxcc(l()),
             "not_dxcc" => Pezzo::NonDxcc(l()),
             "cont" => Pezzo::Cont(l()),
             "my_dxcc" => Pezzo::MioDxcc(l()),
+            "not_my_dxcc" => Pezzo::NonMioDxcc(l()),
             "my_cont" => Pezzo::MioCont(l()),
             "call" => Pezzo::Call(l()),
             "band" => Pezzo::Banda(arg.split(',').map(banda_corta).collect()),
@@ -176,9 +194,10 @@ fn leggi_molt(s: &str) -> Result<DefMolt, String> {
         "cont" => TipoM::Cont,
         "area" => TipoM::Area(lista(arg)),
         "exch" => TipoM::Scambio,
+        "call" => TipoM::Nominativo,
         x => return Err(format!("moltiplicatore sconosciuto: {x}")),
     };
-    let mut d = DefMolt { tipo, per_banda: false, per_modo: false, prodotto: false, se: None, eccetto: Vec::new() };
+    let mut d = DefMolt { tipo, per_banda: false, per_modo: false, prodotto: false, se: None, eccetto: Vec::new(), aggiunta: 0 };
     for o in parti.filter(|o| !o.is_empty()) {
         let (k, arg) = o.split_once(':').map_or((o, ""), |(a, b)| (a.trim(), b));
         match k.to_ascii_lowercase().as_str() {
@@ -188,6 +207,7 @@ fn leggi_molt(s: &str) -> Result<DefMolt, String> {
             "product" => d.prodotto = true,
             "if" => d.se = Some(leggi_cond(arg)?),
             "except" => d.eccetto = lista(arg),
+            "add" => d.aggiunta = arg.trim().parse().map_err(|_| format!("punti in piu' non validi: {arg}"))?,
             x => return Err(format!("opzione sconosciuta: {x}")),
         }
     }
@@ -206,7 +226,12 @@ impl RegoleScore {
                 "points" => {
                     for p in v.split(';').map(str::trim).filter(|p| !p.is_empty()) {
                         let (c, n) = p.rsplit_once('=').ok_or_else(|| format!("regola dei punti senza valore: {p}"))?;
-                        let valore = if n.trim().eq_ignore_ascii_case("cqtab") { Valore::TabellaCq } else { Valore::Fisso(n.trim().parse().map_err(|_| format!("punti non validi: {n}"))?) };
+                        let n = n.trim();
+                        let valore = match n.to_ascii_lowercase().strip_prefix("cqtab") {
+                            Some("") => Valore::TabellaCq(1),
+                            Some(f) => Valore::TabellaCq(f.strip_prefix('*').and_then(|f| f.trim().parse().ok()).ok_or_else(|| format!("punti non validi: {n}"))?),
+                            None => Valore::Fisso(n.parse().map_err(|_| format!("punti non validi: {n}"))?),
+                        };
                         r.punti.push(RegolaPunti { cond: leggi_cond(c)?, valore });
                     }
                 }
@@ -225,6 +250,13 @@ impl RegoleScore {
                         r.bonus.push((leggi_cond(c)?, n.trim().parse().map_err(|_| format!("bonus non valido: {n}"))?));
                     }
                 }
+                "special" => {
+                    r.speciale = v.to_ascii_lowercase();
+                    if !["", "makrothen"].contains(&r.speciale.as_str()) {
+                        return Err(format!("regola scritta a mano sconosciuta: {v}"));
+                    }
+                }
+                "times_qso" => r.per_qso = v == "1",
                 _ => {
                     if let Some(n) = k.strip_prefix("cq").and_then(|n| n.parse::<usize>().ok()).filter(|n| (1..=40).contains(n)) {
                         righe_cq.insert(n, v.split(',').map(|x| x.trim().parse().unwrap_or(0)).collect());
@@ -256,7 +288,7 @@ impl RegoleScore {
                 TipoMolt::Itu => TipoM::Itu,
                 _ => TipoM::Scambio,
             };
-            r.molt.push(DefMolt { tipo, per_banda: c.band_mult, per_modo: false, prodotto: false, se: None, eccetto: Vec::new() });
+            r.molt.push(DefMolt { tipo, per_banda: c.band_mult, per_modo: false, prodotto: false, se: None, eccetto: Vec::new(), aggiunta: 0 });
         }
         for b in &c.bands {
             if b.on && b.weight > 0 {
@@ -293,12 +325,14 @@ impl Pezzo {
         match self {
             Pezzo::Tutti => true,
             Pezzo::StessoPaese => !dx.is_empty() && dx == mdx,
+            Pezzo::AltroPaese => dx.is_empty() || dx != mdx,
             Pezzo::StessoCont => !ct.is_empty() && ct == mct,
             Pezzo::AltroCont => ct.is_empty() || mct.is_empty() || ct != mct,
             Pezzo::Dxcc(l) => in_lista(l, dx),
             Pezzo::NonDxcc(l) => !in_lista(l, dx),
             Pezzo::Cont(l) => in_lista(l, ct),
             Pezzo::MioDxcc(l) => in_lista(l, mdx),
+            Pezzo::NonMioDxcc(l) => !in_lista(l, mdx),
             Pezzo::MioCont(l) => in_lista(l, mct),
             Pezzo::Call(l) => l.iter().any(|c| c.eq_ignore_ascii_case(x.call) || x.call.split('/').any(|p| p.eq_ignore_ascii_case(c))),
             Pezzo::Banda(l) => l.contains(&banda_corta(&x.q.band)),
@@ -334,14 +368,18 @@ pub fn punti(r: &RegoleScore, x: &Ctx) -> i64 {
         .find(|p| p.cond.vera(x))
         .map_or(0, |p| match p.valore {
             Valore::Fisso(n) => n,
-            Valore::TabellaCq => {
+            Valore::TabellaCq(f) => {
                 let (m, s) = (x.mio.map_or(0, |i| usize::from(i.cq)), x.info.map_or(0, |i| usize::from(i.cq)));
-                if m == 0 || s == 0 { 0 } else { r.tabella_cq.get(m - 1).and_then(|row| row.get(s - 1)).copied().unwrap_or(0) }
+                if m == 0 || s == 0 { 0 } else { f * r.tabella_cq.get(m - 1).and_then(|row| row.get(s - 1)).copied().unwrap_or(0) }
             }
         });
     let fattore = r.fattore_banda.get(&banda_corta(&x.q.band)).copied().unwrap_or(1);
     let bonus: i64 = r.bonus.iter().filter(|(c, _)| c.vera(x)).map(|(_, n)| n).sum();
-    base * fattore + bonus
+    let speciale = match r.speciale.as_str() {
+        "makrothen" => punti_makrothen(x.q),
+        _ => 0,
+    };
+    base * fattore + bonus + speciale
 }
 
 /// Le coordinate di uno scambio RAEM (funzione `coords` degli script) (`001 57N85E`, `57N 85O`): latitudine e longitudine in gradi interi con il segno.
@@ -373,6 +411,27 @@ pub fn coordinate_raem(scambio: &str) -> Option<(i64, i64)> {
         i = inizio + 1;
     }
     None
+}
+
+/// Il primo locatore di 4 o 6 caratteri di uno scambio, ridotto al quadrato (`IO91`, `599 jn55wm`).
+fn locatore(scambio: &str) -> Option<String> {
+    scambio.split_whitespace().find_map(geo::quadrato)
+}
+
+/// Makrothen (scritto a mano): la distanza in km fra i centri dei quadrati mandato e ricevuto (raggio 6378,16 km, per difetto),
+/// per 2 su 80 m e 1,5 su 40 m (ancora per difetto); 100 punti, senza fattore, se il quadrato e' lo stesso.
+pub fn punti_makrothen(q: &QsoTesto) -> i64 {
+    let (Some(mio), Some(suo)) = (locatore(&q.exch_sent), locatore(&q.exch_rcvd)) else { return 0 };
+    if mio == suo {
+        return 100;
+    }
+    let (Some(a), Some(b)) = (geo::centro(&mio), geo::centro(&suo)) else { return 0 };
+    let km = (geo::angolo_gradi(a, b).to_radians() * 6378.16).floor() as i64;
+    match banda_corta(&q.band).as_str() {
+        "80" => km * 2,
+        "40" => km * 3 / 2,
+        _ => km,
+    }
 }
 
 /// L'area numerica di un nominativo: la cifra dopo la barra (`K5DJ/1`), altrimenti l'ultima cifra del prefisso WPX.
@@ -409,12 +468,21 @@ pub fn valore_molt(d: &DefMolt, x: &Ctx, dominio: Option<&Dominio>) -> Option<St
             let parole: Vec<&str> = x.q.exch_rcvd.split_whitespace().collect();
             match dominio {
                 Some(dm) => parole.iter().find_map(|p| dm.cerca(p, x.call)).unwrap_or_default(),
-                None => parole.iter().rev().find(|p| !p.bytes().all(|b| b.is_ascii_digit())).or(parole.last()).map(|p| p.to_ascii_uppercase()).unwrap_or_default(),
+                None => parole.iter().rev().find(|p| !p.bytes().all(|b| b.is_ascii_digit())).or(parole.last()).map(|p| sigla(p)).unwrap_or_default(),
             }
         }
+        TipoM::Nominativo => x.call.to_string(),
     };
     let v = v.trim().to_ascii_uppercase();
     (!v.is_empty()).then_some(v)
+}
+
+/// La sigla di una parola dello scambio: le lettere iniziali se seguono solo cifre (`PO001` -> `PO`, Open Ukraine RTTY),
+/// altrimenti la parola intera.
+fn sigla(p: &str) -> String {
+    let up = p.to_ascii_uppercase();
+    let lettere = up.trim_end_matches(|c: char| c.is_ascii_digit());
+    if !lettere.is_empty() && lettere.len() < up.len() && lettere.bytes().all(|b| b.is_ascii_alphabetic()) { lettere.to_string() } else { up }
 }
 
 /// Il peso di un moltiplicatore per banda (1 se la banda non ha peso).
@@ -435,7 +503,7 @@ pub fn valori_possibili(t: &TipoM, dominio: Option<&Dominio>) -> Vec<String> {
             v.dedup();
             v
         }
-        TipoM::Dxcc | TipoM::Wpx => Vec::new(),
+        TipoM::Dxcc | TipoM::Wpx | TipoM::Nominativo => Vec::new(),
     }
 }
 
@@ -466,5 +534,23 @@ mod tests {
         assert_eq!(coordinate_raem("599 001"), None);
         assert_eq!(cifra_area("K5DJ/1"), Some('1'));
         assert_eq!(cifra_area("JA7XYZ"), Some('7'));
+        assert_eq!(sigla("po001"), "PO");
+        assert_eq!(sigla("05"), "05");
+        assert_eq!(sigla("K1A"), "K1A");
+    }
+
+    #[test]
+    fn makrothen_e_pezzi_nuovi() {
+        let q = |band: &str, s: &str, r: &str| QsoTesto { call: "W1AW".into(), band: band.into(), mode: "RTTY".into(), freq_hz: 0, time_ms: 0, rst_sent: String::new(), rst_rcvd: String::new(), exch_sent: s.into(), exch_rcvd: r.into() };
+        // l'esempio del regolamento: CM87 - EL49, 3084 km
+        assert_eq!(punti_makrothen(&q("20m", "CM87", "EL49")), 3084);
+        assert_eq!(punti_makrothen(&q("40m", "CM87", "EL49")), 4626);
+        assert_eq!(punti_makrothen(&q("80m", "CM87", "EL49")), 6168);
+        assert_eq!(punti_makrothen(&q("80m", "JN55", "jn55")), 100);
+        let r = RegoleScore::da_testo("points=other_cont=cqtab*2; any=cqtab\nmult=call/band/add:10\ntimes_qso=1").unwrap_or_default();
+        assert_eq!(r.punti[0].valore, Valore::TabellaCq(2));
+        assert_eq!(r.molt[0].aggiunta, 10);
+        assert!(r.per_qso);
+        assert!(RegoleScore::da_testo("special=boh").is_err());
     }
 }

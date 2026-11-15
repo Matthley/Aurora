@@ -98,7 +98,7 @@ Dopo `[Contest]` un file puo' avere la sezione `[Score]` con le regole vere del 
 
 | Chiave | Significato | Esempio |
 |---|---|---|
-| `points` | regole dei punti `condizione=punti` separate da `;`: vince la prima vera; nessuna vera = 0. `=cqtab` usa la tabella delle zone | `same_dxcc=1; same_cont=2; other_cont=3` |
+| `points` | regole dei punti `condizione=punti` separate da `;`: vince la prima vera; nessuna vera = 0. `=cqtab` usa la tabella delle zone, `=cqtab*2` il doppio | `same_dxcc=1; same_cont=2; other_cont=3` |
 | `points_band` | fattore dei punti per banda | `80:2,40:2` |
 | `bands` | bande ammesse (le altre: QSO non ammesso) | `80,40,20,15,10` |
 | `valid` | condizione dei QSO ammessi (per i contest validi solo con un paese) | `dxcc:F` |
@@ -106,17 +106,22 @@ Dopo `[Contest]` un file puo' avere la sezione `[Score]` con le regole vere del 
 | `mult_band` | peso dei moltiplicatori per banda (solo quelli con `band`) | `80:4,40:3,20:2,15:2,10:2` |
 | `bonus` | punti in piu' `condizione=punti` (si sommano tutti quelli veri) | `call:RAEM=300; dxcc:EA=5` |
 | `cq1` ... `cq40` | tabella dei punti zona CQ -> zona CQ: riga della propria zona, 40 valori separati da virgola | `cq15=10,10,...` |
+| `special` | regole scritte a mano | `makrothen` |
+| `times_qso` | il punteggio si moltiplica anche per il numero dei QSO validi | `1` |
 
-Condizioni (pezzi uniti da `&`, tutti veri): `any`, `same_dxcc` (stesso paese della stazione), `same_cont` (stesso continente),
-`other_cont` (altro continente o sconosciuto), `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU,AS`, `my_dxcc:...`, `my_cont:...`, `call:RAEM`
+Condizioni (pezzi uniti da `&`, tutti veri): `any`, `same_dxcc` (stesso paese della stazione), `other_dxcc` (altro paese o sconosciuto),
+`same_cont` (stesso continente),
+`other_cont` (altro continente o sconosciuto), `dxcc:K,VE`, `not_dxcc:K,VE`, `cont:EU,AS`, `my_dxcc:...`, `not_my_dxcc:...`, `my_cont:...`, `call:RAEM`
 (nominativo o una sua parte fra le barre), `band:80,40`, `mode:RTTY,BPSK63`. I paesi sono i prefissi principali del database DXCC di
 Aurora (cty.dat): `K` Stati Uniti, `VE` Canada, `UA` Russia europea, `UA9` asiatica, `UA2` Kaliningrad, `UR` Ucraina...
 
 Tipi di moltiplicatore: `dxcc` paese, `cq` e `itu` zone (dal database DXCC), `wpx` prefisso WPX, `cont` continente, `area:K,VE,JA`
 area numerica dei paesi elencati (`K1`, `VE3`: la cifra dopo la barra `K5DJ/1`, altrimenti quella del prefisso), `exch` lo scambio
-ricevuto (la parola trovata nell'elenco `.dom` del contest, oppure l'ultima parola non numerica: stato, provincia, oblast).
+ricevuto (la parola trovata nell'elenco `.dom` del contest, oppure l'ultima parola non numerica: stato, provincia, oblast; di una parola
+fatta di lettere e cifre come `PO001` contano le lettere), `call` il nominativo stesso (ogni stazione OK nell'OK DX RTTY).
 Opzioni: `band` per banda (con il peso di `mult_band`), `mode` per modo, `once` una volta sola (il predefinito), `product` moltiplica
-a parte, `if:<condizione>` solo per i QSO che la rispettano, `except:<paesi>` non per questi paesi.
+a parte, `if:<condizione>` solo per i QSO che la rispettano, `except:<paesi>` non per questi paesi, `add:<punti>` non moltiplica ma da'
+quei punti in piu' al QSO che porta il valore nuovo (i 10 punti per regione nuova dell'Open Ukraine RTTY).
 
 Punteggio = (punti + QTC) x (somma dei moltiplicatori pesati senza `product`) x (somma di quelli `product`). Un QSO
 non ammesso (`bands`, `valid`) vale zero punti e nessun moltiplicatore e non fa doppio. I casi che questi pezzi non coprono
