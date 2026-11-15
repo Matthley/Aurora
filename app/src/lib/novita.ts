@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.262',
-    released: '2026-11-15T12:00:00Z',
+    released: '2026-11-15T10:16:01Z',
     kind: 'new',
     featured: true,
     title: [
@@ -45,7 +45,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.262',
-    released: '2026-11-15T12:00:00Z',
+    released: '2026-11-15T10:16:01Z',
     kind: 'changed',
     title: [
       'RTTY e CW: decodifica migliorata',
@@ -66,7 +66,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.262',
-    released: '2026-11-15T12:00:00Z',
+    released: '2026-11-15T10:16:01Z',
     kind: 'new',
     title: [
       'Display radio: S-meter, SPLIT e tasto CAT',
@@ -87,7 +87,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.262',
-    released: '2026-11-15T12:00:00Z',
+    released: '2026-11-15T10:16:01Z',
     kind: 'changed',
     title: [
       'Cascata come WSJT-X e frequenza più pronta',
@@ -108,7 +108,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.262',
-    released: '2026-11-15T12:00:00Z',
+    released: '2026-11-15T10:16:01Z',
     kind: 'changed',
     title: [
       'SSTV: nuova disposizione e zoom della foto',

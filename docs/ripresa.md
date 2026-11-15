@@ -2,6 +2,12 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-15 (0.11.262 pubblicata 2026-11-15T10:16:01Z)
+
+- QTC del WAE (`contest/src/qtc.rs`, `QtcDialog.tsx`, macro `<QTCSEND>`/`<QTCREAD>`, `docs/contest-qtc.md`); RTTY squelch con presenza della portante, BIGScan velocita' dal passo dei cambi (`lattice()`) e reverse con LSB; CW pezzi coerenti di 2 unita' e Kalman sulle pause (759/938 nominativi); cascata con finestra di Nuttall come WSJT-X (`audio-spectrum/analyzer.rs`); display della radio largo zero corretto (#55 #60, `components.css`), tasto SPLIT, pulsante CAT (`CatSwitch.tsx`); `dial_hz` iniziale solo senza CAT; bande accese nel selettore, misure per modo (`modeSizes.ts`), SSTV ridisposta.
+- In corso: ricevitori completi CW (`cw_chain.rs`) e RTTY (decodifica di sequenza + catena completa) costruiti dal materiale di analisi, confrontati sul banco con gli attuali.
+- Manuali del portale con versione propria (`data/manual-version.json`, `npm run manual:bump`), ora 1.1.
+
 ## Stato al 2026-11-15 mattina (0.11.261 pubblicata 2026-11-15T02:23:53Z: decodifica RTTY e CW)
 
 - **RTTY** (banco a caratteri `core/crates/mode-digi/tests/rtty_caratteri.rs`, `docs/banco-rtty.md`): squelch che si apre dal primo carattere affidabile (`ProbSquelch::push`): CER nei silenzi 10,6 -> 3,0 %, trasmissioni separate -5 dB 9,4 -> 2,9 %, AWGN -5 dB 10,3 -> 7,6 %. BIGScan: finestra mobile ogni 0,5 s e spostamento/velocita' per canale (`tmp30515`: stazioni 16 -> 17/26, ritardo 6 -> 5 s), limite di carico anche sui ricevitori (`RttyMulti::set_max_lanes`).
