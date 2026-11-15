@@ -236,3 +236,63 @@ si spezza, le lettere non cambiano) — lasciato:
 
 Il traliccio non incolla mai due parole (spezzare non scatta). Unire toglie spazi inventati ma crea nominativi falsi, e la parola tenuta
 raddoppia la latenza.
+
+## Quinto giro: un secondo ricevitore completo, a catena (`cw_chain.rs`)
+
+Invece di provare le idee una per volta dentro `cw_bayes.rs`, si e' costruito un ricevitore intero a se' (`mode_digi::cw_chain`:
+`CwChain` per il canale, `CwChainBand` per BigScan), misurabile sullo stesso banco con `CW_RX=catena`; `CW_PARAM=nome=valore,...`
+cambia i suoi parametri (`ChainParams::set`). Stadi: spettro a 93,75 passi al secondo (1024 punti, finestra a quattro coseni per un sinc
+da 25 Hz) e confronto di forma su ±10 righe; inviluppo (mediana di 3, media lunga 71 con cancello a isteresi, massimo 17 e media 9, fondo
+col minimo 111); probabilita' di tasto abbassato; sequenza a durate esplicite (20 eta' del tono, 30 del silenzio, code, risalita a blocchi
+di 25 su 50 passi); cinque classi lognormali con avvio sulle ipotesi dei primi 14 elementi e adattamento di Kalman a 5 dimensioni; Morse
+con divisione dei codici sconosciuti; segmentazione lessicale delle parole e conteggio dei nominativi ripetuti; per BigScan accumulatore,
+contrasto a ±4 righe, massimi stretti con maschera e ciclo di vita dei canali.
+
+Cambi necessari rispetto alla descrizione di partenza, trovati sul banco: densita' confrontate in logaritmo e classi in ordine di durata
+(lontano dalle medie le densita' si annullavano e una pausa di un passo diventava fine parola); il fondo dell'inviluppo scende solo sui picchi
+del tono (col minimo sempre attivo crollava nelle pause lunghe); avvio con unita' separate per toni e pause e quota attesa di ogni classe;
+avvio rifatto quando un carattere supera 7 elementi e controllo ogni 14 elementi (cambio di velocita', tasto a mano); ibrido: al posto delle
+due tanh la verosimiglianza di Rice contro Rayleigh della potenza della riga (S/N dal minimo fra media lunga e inviluppo corto, spalle
+lontane 6-8 righe usate solo per i disturbi larghi e solo se vicine al livello del centro). Le due tanh restano come `emit_mode=0`.
+
+8 semi, CER in %:
+
+| scenario | attuale canale | catena canale | catena con le due tanh | attuale BigScan | catena BigScan |
+|---|---|---|---|---|---|
+| 18/25/32/40 WPM +10 | 0,0 | 0,1-0,7 | 0,2-28,3 | 0,0 | 0,2-0,5 |
+| 25 WPM +3 | 0,0 | 0,6 | 7,2 | 0,0 | 1,3 |
+| 25 WPM 0 | 1,5 | 2,5 | 18,6 | 1,6 | 3,9 |
+| 25 WPM -3 | 20,1 | 23,7 | 33,2 | 21,7 | 25,9 |
+| 25 WPM -6 | 81,7 | 88,3 | 88,9 | 86,8 | 91,3 |
+| 40 WPM 0 | 8,7 | 13,7 | 76,3 | 11,6 | 13,7 |
+| salto 18-35 | 1,1 | 7,7 | 41,8 | 0,6 | 8,0 |
+| manuale +10 / +3 | 6,6 / 7,7 | 14,2 / 14,8 | 15,8 / 31,0 | 7,4 / 8,4 | 14,7 / 14,8 |
+| qsb lento / lento 0 | 5,9 / 20,8 | 8,4 / 34,3 | 10,3 / 29,9 | 5,3 / 20,5 | 9,3 / 34,0 |
+| qsb veloce | 52,4 | 63,3 | 39,4 | 51,1 | 62,1 |
+| crepitii | 0,0 | 3,8 | 2,1 | 0,0 | 3,6 |
+| vicina +20 | 1,1 | 10,5 | 17,6 | 1,1 | 74,8 |
+| silenzi / 0 / 32 | 0,0 / 0,9 / 0,1 | 1,6 / 5,2 / 2,0 | 2,4 / 16,7 / 12,8 | 0,1 / 0,9 / 0,1 | 4,6 / 9,3 / 5,9 |
+| **CER medio** | **10,43** | **14,77** | **23,86** | **10,87** | **18,91** |
+
+| totali | attuale canale | catena canale | catena con le due tanh | attuale BigScan | catena BigScan |
+|---|---|---|---|---|---|
+| caratteri giusti | 16728 | 16557 | 14223 | 16622 | 16312 |
+| sbagliati / mancanti / inseriti | 893 / 661 / 290 | 1547 / 178 / 876 | 3121 / 938 / 535 | 833 / 827 / 274 | 1759 / 211 / 1360 |
+| nominativi esatti / falsi | 759 / 143 | 718 / 231 | 509 / 289 | 755 / 143 | 688 / 260 |
+| falsi sul rumore (8 min) | 0 | 0 | 0 | 0 | 0 |
+| latenza mediana / 95° | 1,25 / 2,13 s | 0,57 / 0,72 s | 0,57 / 0,72 s | 1,26 / 2,13 s | 0,58 / 0,73 s |
+| calcolo | 11,2 ms/s | 1,6 ms/s | 1,4 ms/s | 5,7 ms/s | 1,6 ms/s |
+
+Esito: **il ricevitore attuale resta il predefinito**; la catena resta nel codice, spenta (non collegata al servizio). Perde 171 caratteri
+giusti sul canale e piu' di 300 su BigScan, con nominativi falsi in piu'. Vince solo sull'evanescenza veloce nella variante con le due tanh
+(39,4 contro 52,4), sulla latenza (meno della meta') e sul calcolo (un settimo). Il limite principale e' il fronte: la riga di 11,7 Hz su
+85 ms e' incoerente e spalma i fronti (a 40 WPM le pause fra gli elementi durano 2-3 passi), mentre il ricevitore attuale somma in fase.
+In BigScan «vicina +20» la catena apre un canale sulla stazione forte che finisce entro 25 Hz dal tono.
+
+Provati e lasciati sulla catena (3 semi): taglio della finestra 35 e 50 Hz (instabile, peggio); varianza minima delle classi 0,02 / 0,05;
+peso della verosimiglianza 0,15-1,6 (tenuto 0,8); S/N minimo creduto 1,5 / 10 (tenuto 6); deviazione massima delle classi 0,8 / 1,2;
+rumore di processo 0,01; pesi delle pause lunghe 0,3 / 0,05; coda delle pause fra le parole 0,05; segmentazione lessicale con 2-3 lettere
+d'attesa (peso 0,3: +3 caratteri giusti e latenza +1,1 s; peso 1: -246 caratteri, il lessico unisce parole).
+
+Da provare: la verosimiglianza coerente di `cw_bayes` come emissione della sequenza a durate esplicite (serve la banda base I/Q dentro la
+catena); in BigScan una maschera piu' larga attorno ai canali forti.
