@@ -10,7 +10,7 @@ import { drawSpectrum } from '../../render/spectrumPlot';
 /** Il tratto audio mostrato (Hz): VIS a 1100/1300, sincronismo a 1200, immagine da 1500 a 2300. */
 export const SSTV_SPEC_MIN_HZ = 300;
 export const SSTV_SPEC_MAX_HZ = 2800;
-/** Il sincronismo dell'SSTV e la larghezza fino al bianco (2300 Hz): la barra Rx copre tutto il segnale. */
+/** Il sincronismo dell'SSTV e la larghezza fino al bianco (2300 Hz): l'etichetta Rx sta in un angolo, fuori dalla traccia. */
 const SYNC_HZ = 1200;
 const SIGNAL_HZ = 1100;
 
@@ -71,10 +71,8 @@ export function SstvSpectrum({ height = 46, offsetHz = null }: { height?: number
     <div className="sstv-spec" data-testid="sstv-spectrum">
       <div className="sstv-spec-plot" style={{ height }}>
         <canvas ref={plot} className="sstv-spec-canvas" aria-hidden="true" />
-        <div className="wf-marker wf-marker--rx wf-marker--band sstv-spec-rx" style={{ left: `${leftPercent(SYNC_HZ, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%`, width: `${(SIGNAL_HZ / (SSTV_SPEC_MAX_HZ - SSTV_SPEC_MIN_HZ)) * 100}%` }} aria-hidden="true">
-          <span className="wf-marker-tag">{`Rx ${SYNC_HZ}`}</span>
-          <span className="wf-marker-line" />
-        </div>
+        {/* l'etichetta Rx e' un testo piccolo nell'angolo in alto a destra: prima il riquadro verde al centro copriva il segnale */}
+        <span className="sstv-spec-rx" aria-hidden="true">{`Rx ${SYNC_HZ}`}</span>
         {/* i segni fissi: il sincronismo del segnale deve cadere sulla riga a 1200, il nero a 1500, il bianco a 2300 */}
         {SSTV_MARKS.map((m) => (
           <span key={m.hz} className={`sstv-mark sstv-mark--${m.kind}`} style={{ left: `${leftPercent(m.hz, SSTV_SPEC_MIN_HZ, SSTV_SPEC_MAX_HZ)}%` }} title={t(`sstv.mark.${m.kind}`, { hz: m.hz })} aria-hidden="true">
