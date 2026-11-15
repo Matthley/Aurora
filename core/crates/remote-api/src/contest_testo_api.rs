@@ -94,7 +94,7 @@ fn info_paese(state: &AppState, call: &str) -> Option<contest::punti_testo::Info
 /// Il contest attivo valutato sui QSO del log: contest, QSO valutati, totali (con i QTC), nominativo della stazione e QTC dell'edizione.
 type Valutazione = (ContestTesto, Vec<contest::punti_testo::Valutato>, contest::punti_testo::Punteggio, String, Vec<contest::qtc::Qtc>);
 
-async fn valuta_attivo(state: &AppState) -> Result<Valutazione, ApiError> {
+async fn valuta_attivo(state: &AppState, prova: Option<contest::punti_testo::QsoTesto>) -> Result<Valutazione, ApiError> {
     use contest::punti_testo::{QsoTesto, qso_del_contest, scambi_da_commento, valuta};
     let s = service(state)?;
     let attivo = s.elenco().attivo().ok_or_else(|| ApiError::new(StatusCode::CONFLICT, "contest_off"))?;
@@ -115,7 +115,10 @@ async fn valuta_attivo(state: &AppState) -> Result<Valutazione, ApiError> {
         })
         .collect();
     let ora = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
-    let del_contest = qso_del_contest(&attivo.contest, &qsos, ora);
+    let mut del_contest = qso_del_contest(&attivo.contest, &qsos, ora);
+    if let Some(p) = prova {
+        del_contest.push(QsoTesto { time_ms: ora, ..p });
+    }
     let (call, _) = s.stazione();
     let mio = info_paese(state, &call);
     let paese = |c: &str| info_paese(state, c);
@@ -128,17 +131,38 @@ async fn valuta_attivo(state: &AppState) -> Result<Valutazione, ApiError> {
     Ok((attivo.contest, valutati, tot, call, qtc))
 }
 
+#[derive(Deserialize)]
+pub(crate) struct AmmessoQuery {
+    call: String,
+    #[serde(default)]
+    band: String,
+    #[serde(default)]
+    mode: String,
+    #[serde(default)]
+    exch: String,
+}
+
+/// Il valore di un nominativo nel contest attivo, mentre lo si scrive: ammesso o no (motivo `band`/`valid`), doppio, punti e
+/// moltiplicatori nuovi che porterebbe.
+#[utoipa::path(get, path = "/api/v1/contest-testo/ammesso", responses((status = 200, description = "Valore del nominativo"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
+pub(crate) async fn ammesso(State(state): State<AppState>, _: Authed, Query(q): Query<AmmessoQuery>) -> Result<Json<Value>, ApiError> {
+    let prova = contest::punti_testo::QsoTesto { call: q.call.trim().to_ascii_uppercase(), band: q.band, mode: q.mode, exch_rcvd: q.exch, ..Default::default() };
+    let (_, valutati, _, _, _) = valuta_attivo(&state, Some(prova)).await?;
+    let v = valutati.last().ok_or_else(|| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "contest_eval"))?;
+    Ok(Json(json!({ "ammesso": v.escluso.is_none(), "motivo": v.escluso, "doppio": v.doppio, "punti": v.punti, "nuovi": v.nuovi })))
+}
+
 /// Il punteggio del contest attivo dei modi testuali: QSO, doppi, punti, moltiplicatori, punteggio e righe per banda.
 #[utoipa::path(get, path = "/api/v1/contest-testo/punteggio", responses((status = 200, description = "Punteggio del contest attivo"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
 pub(crate) async fn punteggio(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
-    let (_, _, tot, _, _) = valuta_attivo(&state).await?;
+    let (_, _, tot, _, _) = valuta_attivo(&state, None).await?;
     Ok(Json(json!(tot)))
 }
 
 /// Il file Cabrillo 3.0 del contest attivo dei modi testuali, con il nome proposto.
 #[utoipa::path(get, path = "/api/v1/contest-testo/cabrillo", responses((status = 200, description = "`{testo, nome, qso}`"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
 pub(crate) async fn cabrillo(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
-    let (c, valutati, tot, call, qtc) = valuta_attivo(&state).await?;
+    let (c, valutati, tot, call, qtc) = valuta_attivo(&state, None).await?;
     let s = service(&state)?;
     let testo = contest::punti_testo::cabrillo(&c, &call, &valutati, &tot, s.versione(), &qtc);
     let nome = format!("{}-{}.log", call.trim().to_ascii_uppercase().replace('/', "_"), c.id.replace(' ', "_"));
@@ -163,7 +187,7 @@ fn divieto(d: Result<(), contest::qtc::Divieto>) -> Value {
 #[utoipa::path(get, path = "/api/v1/contest-testo/qtc", responses((status = 200, description = "`{regola, qtc, stazione}`"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
 pub(crate) async fn qtc(State(state): State<AppState>, _: Authed, Query(q): Query<QtcQuery>) -> Result<Json<Value>, ApiError> {
     use contest::qtc::{Divieto, RegolaQtc, ammesso, prossima_serie, proposte, residuo, scambiati};
-    let (c, valutati, _, call, tutti) = valuta_attivo(&state).await?;
+    let (c, valutati, _, call, tutti) = valuta_attivo(&state, None).await?;
     let Some(regola) = RegolaQtc::da_codice(c.qtc) else {
         return Ok(Json(json!({ "regola": Value::Null, "qtc": [], "stazione": Value::Null })));
     };
