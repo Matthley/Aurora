@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRoute } from './route';
+import { isSettingsRoute, parseRoute, remoteFallback } from './route';
 
 describe('parseRoute', () => {
   it('reads the pairing link with the code', () => {
@@ -41,5 +41,19 @@ describe('parseRoute', () => {
     expect(parseRoute('')).toEqual({ name: 'live' });
     expect(parseRoute('#/')).toEqual({ name: 'live' });
     expect(parseRoute('#/sconosciuta')).toEqual({ name: 'live' });
+  });
+});
+
+describe('remoteFallback', () => {
+  it('sends every Settings route of a remote client back to the main page', () => {
+    for (const hash of ['#/impostazioni', '#/impostazioni/clock', '#/automazioni', '#/finestra/impostazioni']) {
+      expect(remoteFallback(parseRoute(hash), true)).toEqual({ name: 'live' });
+      expect(isSettingsRoute(parseRoute(hash))).toBe(true);
+    }
+  });
+  it('leaves the Settings open on the PC and the other pages untouched on a remote client', () => {
+    expect(remoteFallback(parseRoute('#/impostazioni/clock'), false)).toEqual({ name: 'settings', tab: 'clock' });
+    expect(remoteFallback(parseRoute('#/statistiche'), true)).toEqual({ name: 'stats' });
+    expect(remoteFallback(parseRoute('#/finestra/mappa'), true)).toEqual({ name: 'window', id: 'mappa' });
   });
 });

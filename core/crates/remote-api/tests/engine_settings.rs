@@ -88,3 +88,21 @@ async fn region_and_type2_messages_are_live_settings_with_their_own_values() {
     }
     assert_eq!(store.values()["Region"], "R1", "un valore rifiutato non cambia niente");
 }
+
+#[tokio::test]
+async fn the_settings_are_written_only_from_the_pc_but_the_phone_still_reads_and_operates() {
+    let (s, store) = with_store("pc-only");
+    let cookie = cookie_for(&s);
+    let body = r#"{"changes":{"UDP2ServerPort":"2241"}}"#;
+    // il telefono sulla rete di casa: le impostazioni non si cambiano
+    let home = call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).json(body)).await;
+    status_is(&home, StatusCode::FORBIDDEN);
+    assert_eq!(body_json(home).await["error"], "local_only");
+    assert_ne!(store.values().get("UDP2ServerPort").map(String::as_str), Some("2241"), "niente e' cambiato");
+    // dal PC si'
+    status_is(&call(&router(&s), req(Method::PUT, "/api/v1/engine-settings").cookie(&cookie).via_loopback().json(body)).await, StatusCode::OK);
+    // il telefono legge lo stato e salva i filtri delle bande
+    status_is(&call(&router(&s), req(Method::GET, "/api/v1/engine-settings").cookie(&cookie)).await, StatusCode::OK);
+    let filters = call(&router(&s), req(Method::PUT, "/api/v1/band-filters").cookie(&cookie).json("{}")).await;
+    assert_ne!(filters.status(), StatusCode::FORBIDDEN, "i filtri delle bande restano del telefono");
+}
