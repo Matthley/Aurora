@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCat } from '../../api/client';
 import { SetupCta } from '../SetupCta';
 import { RigSwitch } from './RigSwitch';
-import { SplitOffButton } from './SplitOffButton';
+import { SplitButton } from './SplitButton';
 import { useTuning } from './RadioExtras';
 
 /**
@@ -194,26 +194,39 @@ function FaceHeader({ model, style }: { model: DisplayModel; style: 'ft2000' | '
   const data = { extras: rig?.extras ?? {}, passbandHz: rig?.passband_hz ?? null, split: rig?.split ?? null };
   const props = { model, noRadio: t('rd.noRadio'), ariaLabel: describeDisplay(model, t), data, waiting, onAction: (item: Parameters<typeof click>[0]) => void click(item) };
   const power = rig?.extras?.power_set;
+  // il blocco a destra del display, diviso a meta': sopra la potenza (nel pannello FT-2000 c'e' gia' disegnata), sotto il tasto SPLIT
+  const showPower = power != null && style !== 'ft2000';
   return (
     <div className="rd-face-row">
-      {/* «Spegni split» a sinistra del display (richiesta del proprietario) */}
-      <SplitOffButton split={rig?.split} />
       <div className="rd-header rd-face-slot">{style === 'ft2000' ? <Ft2000Display {...props} /> : <Ic7610Display {...props} />}</div>
-      {/* la potenza della radio, a passi del 5%: nel pannello disegnato non c'e' posto per i pulsanti */}
-      {power != null && style !== 'ft2000' ? (
-        <div className="rd-pwr" role="group" aria-label="PWR">
-          <span className="rd-pwr-val data">{powerPct(power)}%</span>
-          <div className="rd-pwr-btns">
-            <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrDown')} aria-label={t('rx.act.pwrDown')} disabled={waiting !== null} onClick={() => void click('pwr_down')}>
-              −
-            </button>
-            <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrUp')} aria-label={t('rx.act.pwrUp')} disabled={waiting !== null} onClick={() => void click('pwr_up')}>
-              +
-            </button>
-          </div>
-          <span className="rd-pwr-lbl">PWR</span>
-        </div>
+      {showPower || rig?.split != null ? (
+        <SidePanel split={rig?.split}>
+          {showPower ? (
+            <div className="rd-pwr-top" role="group" aria-label="PWR">
+              <span className="rd-pwr-lbl">PWR</span>
+              <span className="rd-pwr-val data">{powerPct(power)}%</span>
+              <div className="rd-pwr-btns">
+                <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrDown')} aria-label={t('rx.act.pwrDown')} disabled={waiting !== null} onClick={() => void click('pwr_down')}>
+                  −
+                </button>
+                <button type="button" className="rd-pwr-btn" title={t('rx.act.pwrUp')} aria-label={t('rx.act.pwrUp')} disabled={waiting !== null} onClick={() => void click('pwr_up')}>
+                  +
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </SidePanel>
       ) : null}
+    </div>
+  );
+}
+
+/** Il blocco scuro accanto al display: potenza (se c'e') sopra e tasto SPLIT sotto. */
+function SidePanel({ split, children }: { split: boolean | null | undefined; children?: ReactNode }) {
+  return (
+    <div className="rd-pwr rd-side">
+      {children}
+      <SplitButton split={split} />
     </div>
   );
 }
@@ -237,7 +250,8 @@ function ModernHeader({ model, style, solo = false }: { model: DisplayModel; sty
     : style === 'icblueq' ? <IcBlueSquare {...props} />
     : style === 'icblackq' ? <IcBlackSquare {...props} />
     : <YaesuSquare {...props} />;
-  const splitOff = <SplitOffButton split={rig?.split} />;
+  // il tasto SPLIT in un blocchetto accanto al display, come nei pannelli FT-2000 e IC-7610
+  const splitOff = rig?.split != null ? <SidePanel split={rig.split} /> : null;
   // il quasi quadrato va sulla pagina (non dentro la riga dei comandi, che fa da contenitore e lo spostava sotto la testata)
   if (square && solo) return <div className="rd-square-preview">{splitOff}{view}</div>;
   if (square)

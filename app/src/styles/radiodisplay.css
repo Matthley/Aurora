@@ -1026,3 +1026,20 @@ html[data-theme='light'] .rd-zoom {
   background: #f4f6fa;
   border-color: #c4cdda;
 }
+
+/* Blocco a destra del display diviso a meta' in altezza: sopra PWR con - e + compatti, sotto il tasto SPLIT nello stile dei tasti del
+   display (ATT, FLT, AGC: scuro e spento, verde pieno acceso). Il vecchio grosso «Spegni split» a sinistra non c'e' piu' */
+.rd-side { justify-content: stretch; gap: 0.2rem; padding: 0.2rem 0.3rem; min-width: 3.6rem; }
+.rd-pwr-top { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem; min-height: 0; }
+.rd-side .rd-pwr-lbl { font-size: 0.55rem; }
+.rd-side .rd-pwr-val { font-size: 0.75rem; }
+.rd-side .rd-pwr-btn { width: 1.2rem; height: 1rem; font-size: 0.75rem; border-radius: 0.25rem; }
+.rd-split-btn { flex: 1 1 0; min-height: 1.1rem; max-height: 1.6rem; width: 100%; padding: 0 0.3rem; border-radius: 0.25rem; border: 1px solid #2a3a44; background: #0b1216; color: #3b5560; font: 700 0.62rem/1 var(--font-data); letter-spacing: 0.08em; cursor: default; }
+.rd-split-btn--on { background: #3fe07a; border-color: #3fe07a; color: #02140a; cursor: pointer; box-shadow: 0 0 6px rgb(63 224 122 / 0.45); }
+.rd-split-btn--on:hover:not(:disabled) { filter: brightness(1.15); }
+.rd-split-btn:disabled:not(.rd-split-btn--on) { opacity: 1; }
+/* blocco senza potenza (solo SPLIT): il tasto al centro */
+.rd-side:not(:has(.rd-pwr-top)) { justify-content: center; }
+.rd-side:not(:has(.rd-pwr-top)) .rd-split-btn { flex: none; height: 1.4rem; }
+/* display quasi quadrati (fissi nell'angolo): il blocchetto SPLIT sta a sinistra, fuori dal riquadro */
+.rd-square-slot > .rd-side, .rd-square-preview > .rd-side { position: absolute; top: 0; right: calc(100% + 0.35rem); height: 100%; }
