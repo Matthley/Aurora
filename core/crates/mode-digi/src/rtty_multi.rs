@@ -5,6 +5,7 @@
 //! misura la potenza di ogni frequenza su finestre lunghe un bit; ogni mezzo secondo, sull'ultimo secondo e per ogni possibile centro, i due toni devono stare sopra
 //! il fondo della banda (la mediana delle potenze) e le loro potenze bit per bit devono essere anticorrelate (quando c'e' il mark non c'e'
 //! lo space). Una portante o un segnale largo non passano: una portante e' un tono solo, la voce e il rumore non alternano.
+//! Spostamento (170/425/850 Hz) e velocita' (45,45/50/75 baud) si riconoscono per ogni canale: quelli impostati valgono per primi.
 //! Un canale senza caratteri sicuri per 30 secondi si chiude.
 
 use crate::psk::RATE;
@@ -42,10 +43,20 @@ const MISPLACED_S: u32 = 3;
 const DETECTS_PER_S: u32 = 2;
 /// Entro questa distanza (Hz) un segnale trovato e' lo stesso del canale (passo del banco piu' scivolamento).
 const OWN_HZ: f32 = 10.0;
+/// Gli spostamenti e le velocita' che si riconoscono canale per canale (oltre a quelli impostati): una stazione a 425 o 850 Hz, o a 50 o
+/// 75 baud, si legge anche se la banda e' impostata a 170 Hz e 45,45 baud.
+const SHIFTS: [f32; 3] = [170.0, 425.0, 850.0];
+const BAUDS: [f32; 3] = [45.45, 50.0, 75.0];
+/// La velocita' di un canale nuovo: quella che sull'audio gia' passato legge piu' caratteri sicuri; un'altra vince su quella impostata
+/// solo con almeno tanti caratteri sicuri in piu'.
+const BAUD_MARGIN: usize = 3;
 
 /// Un segnale seguito.
 struct Lane {
     centre_hz: f32,
+    /// Spostamento e velocita' riconosciuti per questo segnale.
+    shift_hz: f32,
+    baud: f32,
     demod: RttyDemodulator,
     idle_s: f32,
     /// Appena nato: legge prima l'audio passato (`PREROLL_S`).
@@ -103,7 +114,7 @@ impl RttyMulti {
         self.lanes.retain(|l| (lo..=hi).contains(&(l.centre_hz + audio_hz)));
         for l in self.lanes.iter_mut() {
             l.centre_hz += audio_hz;
-            l.demod = new_demod(l.centre_hz, self.shift_hz, self.baud);
+            l.demod = new_demod(l.centre_hz, l.shift_hz, l.baud);
         }
         self.history.clear();
         self.past.clear();
@@ -171,7 +182,8 @@ impl RttyMulti {
         out
     }
 
-    /// Un secondo di potenze: i centri dei segnali RTTY che non hanno ancora un canale.
+    /// Un secondo di potenze: i centri dei segnali RTTY che non hanno ancora un canale, per ogni spostamento di `SHIFTS` (quello
+    /// impostato per primo); la velocita' di ogni canale nuovo la sceglie `pick_baud`.
     fn detect(&mut self) {
         let bins = self.coef.len();
         let n = self.history.len() as f64;
@@ -179,64 +191,82 @@ impl RttyMulti {
         let mut sorted = mean.clone();
         sorted.sort_by(f64::total_cmp);
         let floor = sorted[sorted.len() / 2].max(1e-12);
-        let step = (self.shift_hz / BIN_HZ).round() as usize;
-        if step == 0 || step >= bins {
-            return;
-        }
         // i due toni devono essere picchi (entro 10 Hz): i lobi laterali di un tono forte, a 50-80 Hz, non contano
         let peak = |k: usize| (k.saturating_sub(2)..=(k + 2).min(bins - 1)).all(|q| mean[q] <= mean[k]);
-        // (centro, punteggio) dei candidati
-        let mut found: Vec<(f32, f64)> = Vec::new();
-        for i in 0..bins - step {
-            let j = i + step;
-            if mean[i] < FLOOR_RATIO * floor || mean[j] < FLOOR_RATIO * floor || !peak(i) || !peak(j) {
+        let mut shifts = vec![self.shift_hz];
+        shifts.extend(SHIFTS.iter().copied().filter(|s| (s - self.shift_hz).abs() > 1.0));
+        // (centro, punteggio, spostamento) dei candidati
+        let mut found: Vec<(f32, f64, f32)> = Vec::new();
+        for (rank, &shift) in shifts.iter().enumerate() {
+            let step = (shift / BIN_HZ).round() as usize;
+            if step == 0 || step >= bins {
                 continue;
             }
-            let (mi, mj) = (mean[i], mean[j]);
-            let (mut cov, mut vi, mut vj) = (0.0, 0.0, 0.0);
-            for w in &self.history {
-                let (a, b) = (w[i] - mi, w[j] - mj);
-                cov += a * b;
-                vi += a * a;
-                vj += b * b;
+            let mut these: Vec<(f32, f64, f32)> = Vec::new();
+            for i in 0..bins - step - 1 {
+                // per gli spostamenti larghi i toni cadono spesso fra due passi del banco e i picchi possono stare a un passo in piu' o in
+                // meno; per quello impostato no (sul banco di prova si aprivano canali falsi)
+                let steps: &[usize] = if rank == 0 { &[step] } else { &[step, step - 1, step + 1] };
+                let Some(j) = steps.iter().map(|d| i + d).find(|&j| peak(j)) else { continue };
+                if mean[i] < FLOOR_RATIO * floor || mean[j] < FLOOR_RATIO * floor || !peak(i) {
+                    continue;
+                }
+                // uno spostamento diverso da quello impostato non vale se uno dei due toni e' gia' di un segnale trovato
+                let tone = |hz: f32| found.iter().any(|f| (hz - (f.0 - f.2 / 2.0)).abs() <= OWN_HZ || (hz - (f.0 + f.2 / 2.0)).abs() <= OWN_HZ);
+                let (fi, fj) = (LOW_HZ + i as f32 * BIN_HZ, LOW_HZ + j as f32 * BIN_HZ);
+                if rank > 0 && (tone(fi) || tone(fj)) {
+                    continue;
+                }
+                let (mi, mj) = (mean[i], mean[j]);
+                let (mut cov, mut vi, mut vj) = (0.0, 0.0, 0.0);
+                for w in &self.history {
+                    let (a, b) = (w[i] - mi, w[j] - mj);
+                    cov += a * b;
+                    vi += a * a;
+                    vj += b * b;
+                }
+                let corr = cov / (vi * vj).sqrt().max(1e-30);
+                if corr < ANTI_CORR {
+                    let centre = LOW_HZ + (i + j) as f32 / 2.0 * BIN_HZ;
+                    these.push((centre, mi.min(mj) / floor * -corr, shift));
+                }
             }
-            let corr = cov / (vi * vj).sqrt().max(1e-30);
-            if corr < ANTI_CORR {
-                let centre = LOW_HZ + (i as f32 + step as f32 / 2.0) * BIN_HZ;
-                found.push((centre, mi.min(mj) / floor * -corr));
-            }
+            found.extend(these);
         }
         found.sort_by(|a, b| b.1.total_cmp(&a.1));
         self.recentre(&found);
-        for &(centre, _) in &found {
-            let near = |c: f32| (c - centre).abs() < SAME_FRACTION * self.shift_hz;
-            if self.lanes.iter().any(|l| near(l.centre_hz)) || self.lanes.len() >= MAX_CHANNELS {
+        let mut past: Option<Vec<f32>> = None;
+        for &(centre, _, shift) in &found {
+            let near = |l: &Lane| (l.centre_hz - centre).abs() < SAME_FRACTION * l.shift_hz.max(shift);
+            if self.lanes.iter().any(near) || self.lanes.len() >= MAX_CHANNELS {
                 continue;
             }
-            self.lanes.push(Lane { centre_hz: centre, demod: new_demod(centre, self.shift_hz, self.baud), idle_s: 0.0, fresh: true, misplaced: 0 });
+            let audio = past.get_or_insert_with(|| self.past.iter().copied().collect());
+            let baud = pick_baud(audio, centre, shift, self.baud);
+            self.lanes.push(Lane { centre_hz: centre, shift_hz: shift, baud, demod: new_demod(centre, shift, baud), idle_s: 0.0, fresh: true, misplaced: 0 });
         }
     }
 
     /// I canali nati storti (vedi `MISPLACED_S`) si spostano sul segnale vero accanto; se li' c'e' gia' un canale si chiudono.
-    fn recentre(&mut self, found: &[(f32, f64)]) {
-        let tol = SAME_FRACTION * self.shift_hz;
-        let mut moves: Vec<(usize, f32)> = Vec::new();
+    fn recentre(&mut self, found: &[(f32, f64, f32)]) {
+        let mut moves: Vec<(usize, f32, f32)> = Vec::new();
         for (k, lane) in self.lanes.iter_mut().enumerate() {
+            let tol = SAME_FRACTION * lane.shift_hz;
             let own = found.iter().any(|f| (f.0 - lane.centre_hz).abs() <= OWN_HZ);
             // il segnale accanto piu' forte (found e' in ordine di punteggio)
             let beside = found.iter().find(|f| (f.0 - lane.centre_hz).abs() > OWN_HZ && (f.0 - lane.centre_hz).abs() < tol);
             match (own, beside) {
-                (false, Some(&(c, _))) => {
+                (false, Some(&(c, _, shift))) => {
                     lane.misplaced += 1;
                     if lane.misplaced >= MISPLACED_S * DETECTS_PER_S {
-                        moves.push((k, c));
+                        moves.push((k, c, shift));
                     }
                 }
                 _ => lane.misplaced = 0,
             }
         }
         let mut drop = vec![false; self.lanes.len()];
-        for (k, c) in moves {
+        for (k, c, shift) in moves {
             let taken = self.lanes.iter().enumerate().any(|(q, l)| q != k && !drop[q] && (l.centre_hz - c).abs() <= OWN_HZ);
             if taken {
                 drop[k] = true;
@@ -244,7 +274,8 @@ impl RttyMulti {
             }
             let l = &mut self.lanes[k];
             l.centre_hz = c;
-            l.demod = new_demod(c, self.shift_hz, self.baud);
+            l.shift_hz = shift;
+            l.demod = new_demod(c, shift, l.baud);
             l.fresh = true;
             l.misplaced = 0;
             l.idle_s = 0.0;
@@ -255,6 +286,21 @@ impl RttyMulti {
             !drop[k - 1]
         });
     }
+}
+
+/// La velocita' di un segnale nuovo a `centre_hz`: fra `BAUDS` quella che sull'audio `past` legge piu' caratteri sicuri; `default` (la
+/// velocita' impostata) se nessun'altra ne legge almeno `BAUD_MARGIN` in piu'.
+fn pick_baud(past: &[f32], centre_hz: f32, shift_hz: f32, default: f32) -> f32 {
+    let sure = |baud: f32| new_demod(centre_hz, shift_hz, baud).process_chars(past).iter().filter(|c| c.prob >= ACTIVE_PROB).count();
+    let base = sure(default);
+    let mut best = (default, base);
+    for &b in BAUDS.iter().filter(|b| (**b - default).abs() > 0.1) {
+        let n = sure(b);
+        if n >= base + BAUD_MARGIN && n > best.1 {
+            best = (b, n);
+        }
+    }
+    best.0
 }
 
 /// Il ricevitore di un canale: squelch statistico e sintonia fine entro `FINE_TUNING_HZ`.
@@ -371,7 +417,7 @@ mod tests {
         }
         let mut multi = RttyMulti::new(170.0, 45.45);
         for c in [970.0_f32, 1110.0] {
-            multi.lanes.push(Lane { centre_hz: c, demod: new_demod(c, 170.0, 45.45), idle_s: 0.0, fresh: false, misplaced: 0 });
+            multi.lanes.push(Lane { centre_hz: c, shift_hz: 170.0, baud: 45.45, demod: new_demod(c, 170.0, 45.45), idle_s: 0.0, fresh: false, misplaced: 0 });
         }
         let mut testo = String::new();
         for blocco in audio.chunks(1200) {
@@ -417,4 +463,42 @@ mod tests {
         }
         assert!(aperto.is_some_and(|t| t <= 1.65), "aperto a {aperto:?} s");
     }
+    fn leggi(multi: &mut RttyMulti, p: RttyParams, testo: &str) -> String {
+        let mut audio = vec![0.0_f32; 6_000];
+        audio.extend(modulate(testo.as_bytes(), p, 0.3));
+        let n = audio.len();
+        for (a, r) in audio.iter_mut().zip(rumore(n, 0.3, 23)) {
+            *a += r;
+        }
+        let mut letto = String::new();
+        for blocco in audio.chunks(1200) {
+            for l in multi.process(blocco) {
+                letto.extend(l.chars.iter().map(|c| c.ch));
+            }
+        }
+        letto
+    }
+
+    /// Banda impostata a 170 Hz: una stazione a 425 Hz di spostamento ha il suo canale a 425 Hz e si legge.
+    #[test]
+    fn lo_spostamento_si_riconosce_per_canale() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 425.0, baud: 45.45, reverse: false };
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        let letto = leggi(&mut multi, p, &"CQ TEST IU3ABC IU3ABC TEST ".repeat(4));
+        assert_eq!(multi.lanes.len(), 1, "canali: {:?}", multi.channels());
+        assert!((multi.lanes[0].centre_hz - 1500.0).abs() <= 10.0 && multi.lanes[0].shift_hz == 425.0, "{} {}", multi.lanes[0].centre_hz, multi.lanes[0].shift_hz);
+        assert!(letto.contains("IU3ABC"), "{letto}");
+    }
+
+    /// Banda impostata a 45,45 baud: una stazione a 75 baud ha il suo canale a 75 baud e si legge.
+    #[test]
+    fn la_velocita_si_riconosce_per_canale() {
+        let p = RttyParams { centre_hz: 1500.0, shift_hz: 170.0, baud: 75.0, reverse: false };
+        let mut multi = RttyMulti::new(170.0, 45.45);
+        let letto = leggi(&mut multi, p, &"CQ TEST IU3ABC IU3ABC TEST ".repeat(6));
+        assert_eq!(multi.lanes.len(), 1, "canali: {:?}", multi.channels());
+        assert_eq!(multi.lanes[0].baud, 75.0);
+        assert!(letto.contains("IU3ABC"), "{letto}");
+    }
 }
+
