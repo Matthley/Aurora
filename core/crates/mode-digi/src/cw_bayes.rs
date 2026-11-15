@@ -47,8 +47,10 @@ const HISTORY_S: f64 = 4.0;
 const DELAY_CHARS: usize = 2;
 const DELAY_S: f64 = 1.5;
 /// Fattori dell'ampiezza (sulla potenza) nella miscela, e loro pesi.
+/// Pesi tarati sul banco `banco_cw`: piu' fiducia nella stima (0,65 invece di 0,55, meno peso a 0,6) da' CER medio 11,4 -> 11,1%; il
+/// peso del fattore 0,3 resta 0,1 perche' con meno le evanescenze profonde e veloci perdono caratteri.
 const AMP_FACTORS: [f64; 4] = [0.3, 0.6, 1.0, 1.6];
-const AMP_WEIGHTS: [f64; 4] = [0.1, 0.2, 0.55, 0.15];
+const AMP_WEIGHTS: [f64; 4] = [0.1, 0.1, 0.65, 0.15];
 /// Peso dell'ampiezza che spiega meglio il tono stesso.
 const ML_WEIGHT: f64 = 0.03;
 /// Peso di base del modello del testo.
@@ -1321,6 +1323,15 @@ impl CwBayes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_amplitude_mixture_is_a_distribution() {
+        let total: f64 = AMP_WEIGHTS.iter().sum();
+        assert!((total - 1.0).abs() < 1e-9, "pesi {total}");
+        // la stima stessa resta la piu' probabile
+        let i = AMP_FACTORS.iter().position(|f| (*f - 1.0).abs() < 1e-9).unwrap_or(usize::MAX);
+        assert!(AMP_WEIGHTS.iter().enumerate().all(|(k, w)| k == i || *w < AMP_WEIGHTS[i]));
+    }
 
     #[test]
     fn the_fist_widths_still_split_dots_from_dashes() {
