@@ -1,9 +1,9 @@
 import type { DecodedMessage } from '../api/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FreqPicker } from '../components/FreqPicker';
 import { getContest } from '../api/contest';
-import { getAutomation, getCat, getLog4om, getControls, getOnline, getStationInfo, postBand, postBandHopNext, postControl, postFrequency, postMode, postQueueReply, postReply, postRxFrequency, postTxFrequency } from '../api/client';
+import { ApiError, getAutomation, getCat, getLog4om, getControls, getOnline, getStationInfo, postBand, postBandHopNext, postControl, postFrequency, postMode, postQueueReply, postReply, postRxFrequency, postTxFrequency } from '../api/client';
 import { ClusterHeadTools, ClusterPanel } from '../components/ClusterPanel';
 import { useClusterOptions } from '../lib/clusterOptions';
 import { CqStrip } from '../components/CqStrip';
@@ -346,6 +346,7 @@ export function Live({ soloPanel }: { soloPanel?: PanelId } = {}) {
     }
   };
 
+  const dragSend = useRef<Record<string, { busy: boolean; next: number | null }>>({});
   const attempt = async (action: () => Promise<void>, done: string | null) => {
     // l'avviso compare subito, al clic, senza aspettare la risposta del motore; se il comando fallisce diventa un errore
     const shown = done ? toast(done, 'ok') : null;
@@ -357,9 +358,27 @@ export function Live({ soloPanel }: { soloPanel?: PanelId } = {}) {
     }
   };
 
-  const setFrequency = (_which: string, hz: number, send: (hz: number) => Promise<void>) =>
-    // spostando le barre si mandano tante frequenze di fila: nessun avviso se va bene (la barra si vede gia' spostata), solo gli errori
-    attempt(() => send(hz), null);
+  // spostando le barre si mandano tante frequenze di fila: una sola richiesta per volta per barra (parte l'ultima posizione), la
+  // frequenza resta nella banda audio ammessa dal motore (100-3000 Hz) e nessun avviso se va bene; solo gli errori veri della radio.
+  // Prima ogni passo del trascinamento era una richiesta: fuori banda o in coda davano «Risposta non inviata»
+  const setFrequency = (which: string, hz: number, send: (hz: number) => Promise<void>) => {
+    const slot = (dragSend.current[which] ??= { busy: false, next: null });
+    slot.next = Math.round(Math.min(3000, Math.max(100, hz)));
+    if (slot.busy) return;
+    slot.busy = true;
+    void (async () => {
+      while (slot.next !== null) {
+        const v = slot.next;
+        slot.next = null;
+        try {
+          await send(v);
+        } catch (error) {
+          if (error instanceof ApiError && (error.code === 'rig_error' || error.code === 'rig_unavailable' || error.code === 'transmitting')) toast(replyErrorMessage(error, t), 'error');
+        }
+      }
+      slot.busy = false;
+    })();
+  };
   // il pulsante scelto si accende subito e resta cosi' finche' il motore non conferma; se il comando fallisce torna com'era
   const pickMode = (mode: string) => {
     const before = useStation.getState().status?.mode;
