@@ -2,6 +2,8 @@
 
 ## Non rilasciato
 
+- CW: «Ricevitore CW: preciso / veloce» nella pagina del modo, veloce di base: le lettere compaiono in grigio dopo circa mezzo secondo (prima 1,25 s) e il ricevitore preciso le conferma o corregge; testo finale invariato.
+
 ## 0.11.263 - 2026-11-15
 
 - WinKeyer (K1EL WK2, WK3 e compatibili WKUSB, WKmini) nel CW dei modi testuali (#66): uscita «WinKeyer» accanto all'audio, macro e finestra TX mandano il testo al manipolatore, avanzamento dalla sua eco, Esc e macro che riparte svuotano il buffer, paddle con precedenza. Impostazioni in Stazione › WinKeyer: porta, stato e firmware, velocita' o potenziometro, Farnsworth, peso, rapporto, compensazione, first extension, autospace, contest spacing, PTT lead/tail e hang time, modo e inversione del paddle, sidetone e nota, tasto «Prova» (VVV). Vedi `docs/winkeyer.md`.

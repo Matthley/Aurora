@@ -414,3 +414,35 @@ divario vero sono le lettere **sbagliate** (1297 contro 893), non le inserite. N
 i due stati migliori a ogni carattere, non fra le copie di velocita'), copia libera per il tasto a mano, ibrido di uscita (testo
 provvisorio dalla catena corretto dal ricevitore attuale: correttezza finale uguale all'attuale per costruzione, latenza percepita da
 misurare sul banco con un confronto del testo provvisorio).
+
+## Nono giro: ricevitore veloce (ibrido di uscita) e ultime prove sulla catena
+
+`cw_hybrid.rs`: il ricevitore attuale e la catena girano insieme sullo stesso audio. I caratteri della catena sono un **testo provvisorio**;
+quando il ricevitore attuale stampa i suoi (definitivi), si allineano con Levenshtein semi-globale all'inizio del provvisorio e ne tolgono la
+parte coperta; un provvisorio mai confermato sparisce dopo 3 s. Sul banco (`CW_RX=ibrido`) ogni carattere definitivo porta il momento in
+cui e' comparso giusto sullo schermo: quello del provvisorio se era uguale, altrimenti quello del definitivo. La correttezza finale e'
+quella dell'attuale per costruzione.
+
+8 semi, canale:
+
+| totali | attuale (preciso) | catena da sola | ibrido (veloce) |
+|---|---|---|---|
+| giusti / sbagliati / mancanti / inseriti | 16728 / 893 / 661 / 290 | 16844 / 1297 / 141 / 695 | **16728 / 893 / 661 / 290** |
+| CER medio | **10,43** | 12,09 | **10,43** |
+| nominativi esatti / falsi | **759 / 143** | 754 / 203 | **759 / 143** |
+| latenza percepita mediana / 95° | 1,25 / 2,13 s | 0,56 / 0,71 s | **0,57 / 1,01 s** |
+| calcolo | 10,3 ms/s | 12,3 ms/s | 25,2 ms/s |
+| provvisori corretti | | | 16,1 % (2403 su 14913, quasi tutti a -3/-6 dB, QSB veloce e tasto a mano) |
+
+Esito: l'ibrido batte l'attuale sul totale (stesso testo, latenza percepita meno della meta'); il calcolo raddoppia ma resta 2,5% di un
+thread. Diventa **predefinito**: impostazione «Ricevitore CW: preciso / veloce» nella pagina del modo CW (`cw_receiver`, di base `fast`),
+evento `rx_prov` (testo provvisorio intero, sostituisce il precedente), mostrato in grigio corsivo in coda alla finestra RX e alle finestre
+RX in piu'. BigScan non e' cambiato: il suo testo per canale e' una finestra che scorre e la catena di banda costa gia' il doppio
+dell'attuale (12,8 contro 5,7 ms/s); da fare in un secondo tempo.
+
+Prove sulla catena (3 semi, canale; base CER 12,91, inserite 254, falsi 79):
+- confidenza del percorso come squelch del carattere (`path_min`: margine medio fra miglior stato a tasto abbassato e alzato nei toni del
+  carattere): 0 -> 13,20 / 196 / 83; 2 -> 14,51 / 106 / 86; 5 -> 22,11 / 68 / 72; 10 -> 37,99. Come lo squelch sulla forza: scambia
+  inserite con mancanti. Spento.
+- copia libera per il tasto a mano (`free_r`, segue il modello adattato con classi larghe): 4 -> 13,08, 10 -> 13,05, 25 -> 13,13, tasto a
+  mano invariato (16,8 / 12,2): le copie della griglia hanno gia' classi larghe. Spenta.
