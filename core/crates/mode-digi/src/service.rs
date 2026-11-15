@@ -800,6 +800,81 @@ impl Inner {
     }
 }
 
+/// I modi che hanno un file di macro loro (`psk31.macro`...).
+fn macro_modes() -> Vec<&'static str> {
+    DigiMode::ALL.iter().map(|m| m.id()).collect()
+}
+
+/// Il nome della copia di sicurezza di `digi.json` fatta prima di spostare le macro nei file.
+pub const DIGI_JSON_BACKUP: &str = "digi.json.prima-dei-file-macro.bak";
+
+/// `digi.json` senza le macro (stanno nei file della cartella `macro/`); `merge_macros` resta.
+fn settings_json(s: &DigiSettings) -> Result<Vec<u8>, serde_json::Error> {
+    let mut v = serde_json::to_value(s)?;
+    if let Some(o) = v.as_object_mut() {
+        o.remove("macros");
+        o.remove("mode_macros");
+    }
+    serde_json::to_vec_pretty(&v)
+}
+
+fn save_macro_files(data_dir: &std::path::Path, s: &DigiSettings) -> std::io::Result<()> {
+    crate::macro_files::save_dir(&data_dir.join(crate::macro_files::MACRO_DIR), &s.macros, &s.mode_macros, &macro_modes())
+}
+
+/// Le macro vengono dai file di `macro/`. La prima volta (cartella senza `comuni.macro`) quelle di `digi.json`, o quelle di base, si scrivono
+/// nei file; se `digi.json` le conteneva se ne fa prima una copia di sicurezza e poi lo si riscrive senza.
+fn load_or_migrate_macros(data_dir: &std::path::Path, raw_json: Option<&[u8]>, settings: &mut DigiSettings) {
+    let dir = data_dir.join(crate::macro_files::MACRO_DIR);
+    if let Some((common, per_mode)) = crate::macro_files::load_dir(&dir, &macro_modes()) {
+        // un file scritto a mano con un tasto sconosciuto o troppe voci: quelle voci si saltano, il resto vale
+        let keep = |mut l: Vec<DigiMacro>| {
+            let n = l.len();
+            for m in l.iter_mut().filter(|m| m.name.starts_with("OnEnd") && !valid_macro_name(&m.name)) {
+                m.name = "OnEnd".to_string();
+            }
+            l.retain(|m| valid_macro_name(&m.name) && m.label.len() <= 60 && m.text.len() <= 4000);
+            l.truncate(100);
+            if l.len() != n {
+                tracing::warn!("macro: {} voci non valide saltate in {}", n - l.len(), dir.display());
+            }
+            l
+        };
+        settings.macros = keep(common);
+        settings.mode_macros = per_mode.into_iter().map(|(k, v)| (k, keep(v))).collect();
+        return;
+    }
+    let json_has_macros = raw_json
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(b).ok())
+        .and_then(|v| v.as_object().map(|o| o.contains_key("macros") || o.contains_key("mode_macros")))
+        .unwrap_or(false);
+    let json_path = data_dir.join("digi.json");
+    if json_has_macros {
+        let backup = data_dir.join(DIGI_JSON_BACKUP);
+        if !backup.exists() {
+            if let Err(e) = std::fs::copy(&json_path, &backup) {
+                tracing::warn!("macro: copia di sicurezza di digi.json non riuscita ({e}): le macro restano in digi.json");
+                return;
+            }
+        }
+    }
+    if let Err(e) = save_macro_files(data_dir, settings) {
+        tracing::warn!("macro: file in {} non scritti: {e}", dir.display());
+        return;
+    }
+    if json_has_macros {
+        match settings_json(settings) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(&json_path, json) {
+                    tracing::warn!("macro: digi.json non riscritto senza le macro: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("macro: digi.json non riscritto: {e}"),
+        }
+        tracing::info!("macro: spostate da digi.json in {} (copia di sicurezza {DIGI_JSON_BACKUP})", dir.display());
+    }
+}
+
 /// Il servizio (uno per programma).
 pub struct DigiService {
     inner: Arc<Inner>,
@@ -809,7 +884,9 @@ impl DigiService {
     /// Legge `digi.json` dalla cartella dei dati e accende il thread di ricezione.
     pub fn open(data_dir: &std::path::Path) -> DigiService {
         let settings_path = data_dir.join("digi.json");
-        let mut settings: DigiSettings = std::fs::read(&settings_path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        let raw = std::fs::read(&settings_path).ok();
+        let mut settings: DigiSettings = raw.as_deref().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        load_or_migrate_macros(data_dir, raw.as_deref(), &mut settings);
         // le macro della prima versione non avevano il tasto: si riparte dall'insieme di base
         if settings.macros.iter().any(|m| m.name.is_empty()) {
             settings.macros = default_macros();
@@ -969,7 +1046,10 @@ impl DigiService {
 
     pub fn apply_settings(&self, s: DigiSettings) -> Result<(), DigiError> {
         s.validate()?;
-        let json = serde_json::to_vec_pretty(&s).map_err(|e| DigiError::Io(e.to_string()))?;
+        if let Some(dir) = self.inner.settings_path.parent() {
+            save_macro_files(dir, &s).map_err(|e| DigiError::Io(format!("file delle macro: {e}")))?;
+        }
+        let json = settings_json(&s).map_err(|e| DigiError::Io(e.to_string()))?;
         std::fs::write(&self.inner.settings_path, json).map_err(|e| DigiError::Io(e.to_string()))?;
         let _ = self.inner.queue.send(Msg::Config(s.clone()));
         self.inner.band.configure(&s);
@@ -1658,6 +1738,37 @@ mod tests {
             }
         }
         out
+    }
+
+    /// Al primo avvio le macro di `digi.json` passano nei file di `macro/`: copia di sicurezza, `digi.json` senza macro, `merge_macros`
+    /// resta. Una modifica successiva si salva nei file e un nuovo avvio la rilegge da li'.
+    #[test]
+    fn le_macro_di_digi_json_passano_nei_file_e_si_salvano_li() {
+        let dir = std::env::temp_dir().join(format!("aurora-digi-macro-mig-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("cartella di prova");
+        let mut s = DigiSettings::default();
+        s.macros = vec![mac("F2", "Mio CQ", "<TX>CQ IU3ABC<RX>", 0x112233)];
+        s.mode_macros.insert("cw".into(), vec![mac("F2", "CW CQ", "<TX>CQ CW<RX>", 0x445566)]);
+        s.merge_macros.insert("cw".into(), false);
+        std::fs::write(dir.join("digi.json"), serde_json::to_vec(&s).expect("json")).expect("digi.json");
+        let svc = DigiService::open(&dir);
+        assert_eq!(svc.settings().macros[0].label, "Mio CQ");
+        assert!(dir.join(DIGI_JSON_BACKUP).is_file(), "copia di sicurezza");
+        assert!(dir.join("macro").join("comuni.macro").is_file());
+        assert!(dir.join("macro").join("cw.macro").is_file());
+        let json: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("digi.json")).expect("digi.json")).expect("json");
+        assert!(json.get("macros").is_none() && json.get("mode_macros").is_none(), "digi.json senza macro");
+        assert_eq!(json["merge_macros"]["cw"], serde_json::Value::Bool(false), "l'unione resta un'impostazione");
+        let mut next = svc.settings();
+        next.mode_macros.get_mut("cw").expect("cw")[0].label = "Nuovo".into();
+        svc.apply_settings(next).expect("salva");
+        drop(svc);
+        let again = DigiService::open(&dir).settings();
+        assert_eq!(again.mode_macros["cw"][0].label, "Nuovo");
+        assert_eq!(again.mode_macros["cw"][0].color, Some(0x445566));
+        assert_eq!(again.merge_macros.get("cw"), Some(&false));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Un `digi.json` con la velocita' RTTY a 0 (scritto a mano o rovinato) faceva cadere il thread di ricezione appena acceso: la velocita'
