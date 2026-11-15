@@ -26,6 +26,7 @@ pub mod cw;
 mod cw_agc;
 pub mod cw_bayes;
 pub mod cw_chain;
+pub mod cw_hybrid;
 mod cw_noise;
 #[cfg(feature = "fldigi-oracle")]
 pub mod fldigi_oracle;

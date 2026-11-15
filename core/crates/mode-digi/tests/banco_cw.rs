@@ -17,6 +17,8 @@ mod common;
 use common::Rng;
 use mode_digi::cw::CwDemodulator;
 use mode_digi::cw_chain::{ChainParams, CwChain, CwChainBand};
+use mode_digi::cw_hybrid::CwHybrid;
+use std::sync::atomic::{AtomicU64, Ordering};
 use mode_digi::skim::CwBandDecoder;
 use std::f64::consts::PI;
 use std::time::Instant;
@@ -523,6 +525,15 @@ fn catena() -> bool {
     std::env::var("CW_RX").is_ok_and(|v| v == "catena")
 }
 
+/// `CW_RX=ibrido`: la catena per il testo provvisorio, il ricevitore attuale per il definitivo (latenza = primo momento in cui il
+/// carattere giusto e' sullo schermo).
+fn ibrido() -> bool {
+    std::env::var("CW_RX").is_ok_and(|v| v == "ibrido")
+}
+
+static PROVVISORI: AtomicU64 = AtomicU64::new(0);
+static CONFERMATI: AtomicU64 = AtomicU64::new(0);
+
 /// I parametri della catena, con le modifiche di `CW_PARAM` (`nome=valore,nome=valore`).
 fn parametri() -> ChainParams {
     let mut p = ChainParams::default();
@@ -535,7 +546,15 @@ fn parametri() -> ChainParams {
 fn canale(caso: &Caso) -> Esito {
     let mut raw = Vec::new();
     let t0 = Instant::now();
-    if catena() {
+    if ibrido() {
+        let mut rx = CwHybrid::with_params(CwDemodulator::new(TONO as f32, 20.0), 20.0, &parametri());
+        for block in caso.audio.chunks(BLOCCO) {
+            raw.extend(rx.process(block).fixed.into_iter().map(|s| (s.ch, s.at_s)));
+        }
+        let st = rx.stats();
+        PROVVISORI.fetch_add(st.provisional, Ordering::Relaxed);
+        CONFERMATI.fetch_add(st.confirmed, Ordering::Relaxed);
+    } else if catena() {
         let mut rx = CwChain::with_params(TONO as f32, 20.0, &parametri());
         for (k, block) in caso.audio.chunks(BLOCCO).enumerate() {
             let t = ((k + 1) * BLOCCO) as f64 / RATE;
@@ -732,6 +751,10 @@ fn banco_cw() {
         println!("{}", tot2.riga("big", "TOTALE", false));
     }
     println!("RIEPILOGO CER medio per scenario: canale {:.2}% bigscan {:.2}%", cer_somma.0 / n, cer_somma.1 / n);
+    let (pv, cf) = (PROVVISORI.load(Ordering::Relaxed), CONFERMATI.load(Ordering::Relaxed));
+    if pv > 0 {
+        println!("PROVVISORI {pv} confermati {cf} corretti {:.1}%", 100.0 * (pv.saturating_sub(cf)) as f64 / pv as f64);
+    }
 }
 
 // ---------------------------------------------------------------- prove veloci
