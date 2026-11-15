@@ -42,6 +42,8 @@ pub struct FakeState {
     /// RIT e XIT in Hz.
     offsets: Mutex<[i32; 2]>,
     vfo: Mutex<String>,
+    /// Ritardo di ogni risposta in ms (una seriale lenta).
+    delay_ms: AtomicU64,
 }
 
 pub struct FakeRigctld {
@@ -69,6 +71,7 @@ impl FakeRigctld {
             refused: Mutex::new(Vec::new()),
             offsets: Mutex::new([0, 0]),
             vfo: Mutex::new("VFOA".into()),
+            delay_ms: AtomicU64::new(0),
         });
         let listener = TcpListener::bind("127.0.0.1:0").expect("porta locale per il finto rigctld");
         let addr = listener.local_addr().expect("indirizzo del finto rigctld");
@@ -209,6 +212,11 @@ impl FakeRigctld {
         self.commands().iter().filter(|c| *c == command).count()
     }
 
+    /// Ogni risposta arriva dopo `ms` millisecondi, come da una radio su una seriale lenta.
+    pub fn set_delay_ms(&self, ms: u64) {
+        self.state.delay_ms.store(ms, Ordering::SeqCst);
+    }
+
     pub fn recall_mode_on_qsy(&self, on: bool) {
         self.state.recall_mode.store(on, Ordering::SeqCst);
     }
@@ -241,6 +249,10 @@ fn serve(stream: TcpStream, state: &FakeState) {
         }
         if state.hang_up.load(Ordering::SeqCst) {
             return;
+        }
+        let delay = state.delay_ms.load(Ordering::SeqCst);
+        if delay > 0 {
+            std::thread::sleep(Duration::from_millis(delay));
         }
         let fail = state.fail_code.load(Ordering::SeqCst);
         let mut parts = cmd.split_whitespace();

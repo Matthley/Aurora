@@ -150,9 +150,44 @@ pub struct RigctldClient {
     /// rigctld e' in modalita' VFO (`--vfo`): si scopre al collegamento con `\chk_vfo`.
     vfo_mode: std::sync::atomic::AtomicBool,
     io: Mutex<(BufReader<TcpStream>, TcpStream)>,
+    /// Comandi urgenti in attesa della sessione (per esempio «Spegni split»): le letture periodiche li lasciano passare per primi.
+    urgent: std::sync::atomic::AtomicUsize,
 }
 
+thread_local! {
+    /// Il thread sta mandando un comando urgente ([`RigctldClient::urgent`]).
+    static URGENT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Un comando normale non aspetta gli urgenti piu' di cosi' (un comando urgente bloccato non deve fermare le letture).
+const URGENT_YIELD_MAX: Duration = Duration::from_secs(2);
+
 impl RigctldClient {
+    /// Manda i comandi di `f` prima delle letture periodiche. La sessione e' una sola e il blocco non e' equo: senza precedenza un comando
+    /// dato dall'utente aspettava che il thread delle letture finisse frequenza, modo, PTT, split e dati in piu' (decine di domande sulle
+    /// seriali lente), cioe' secondi. Cosi' aspetta al massimo la domanda gia' in corso.
+    pub fn urgent<R>(&self, f: impl FnOnce(&Self) -> R) -> R {
+        use std::sync::atomic::Ordering;
+        let was = URGENT.with(|u| u.replace(true));
+        self.urgent.fetch_add(1, Ordering::SeqCst);
+        let out = f(self);
+        self.urgent.fetch_sub(1, Ordering::SeqCst);
+        URGENT.with(|u| u.set(was));
+        out
+    }
+
+    /// Lascia passare i comandi urgenti in attesa (non dal thread che ne sta mandando uno).
+    fn yield_to_urgent(&self) {
+        use std::sync::atomic::Ordering;
+        if URGENT.with(|u| u.get()) {
+            return;
+        }
+        let until = Instant::now() + URGENT_YIELD_MAX;
+        while self.urgent.load(Ordering::SeqCst) > 0 && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     /// Si collega a `addr`, riprovando fino a `wait` (il demone impiega un attimo ad aprire la porta).
     pub fn connect(addr: SocketAddr, wait: Duration) -> Result<RigctldClient, RigError> {
         Self::connect_with_timeout(addr, wait, Duration::from_secs(5))
@@ -168,7 +203,7 @@ impl RigctldClient {
                     stream.set_write_timeout(Some(io_timeout)).map_err(|e| RigError(e.to_string()))?;
                     let _ = stream.set_nodelay(true);
                     let reader = BufReader::new(stream.try_clone().map_err(|e| RigError(e.to_string()))?);
-                    let client = RigctldClient { io: Mutex::new((reader, stream)), vfo_mode: std::sync::atomic::AtomicBool::new(false) };
+                    let client = RigctldClient { io: Mutex::new((reader, stream)), vfo_mode: std::sync::atomic::AtomicBool::new(false), urgent: std::sync::atomic::AtomicUsize::new(0) };
                     // rigctld avviato con --vfo (anche da un altro programma): i comandi devono indicare il VFO
                     if client.ask_raw("\\chk_vfo", 1).is_ok_and(|r| r.first().is_some_and(|l| l.trim().ends_with('1'))) {
                         client.vfo_mode.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -196,6 +231,7 @@ impl RigctldClient {
     }
 
     fn ask_raw(&self, command: &str, lines: usize) -> Result<Vec<String>, RigError> {
+        self.yield_to_urgent();
         let mut io = self.io.lock().map_err(|_| RigError("rigctld: sessione avvelenata".into()))?;
         let (reader, writer) = &mut *io;
         writer.write_all(format!("{command}\n").as_bytes()).map_err(|e| RigError(format!("rigctld: scrittura: {e}")))?;

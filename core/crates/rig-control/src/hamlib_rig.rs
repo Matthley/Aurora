@@ -1192,7 +1192,11 @@ impl HamlibRig {
         inner.tx_audio_hz.store(0, Ordering::SeqCst);
         let rx_vfo = if inner.vfo_reversed.load(Ordering::SeqCst) { "VFOB" } else { "VFOA" };
         inner.split_command(&format!("S 0 {rx_vfo}"), "«Spegni split»");
-        link.client().set_split(false, rx_vfo).map_err(|e| RigError(friendly_error(&e.0)))?;
+        // subito alla radio, prima delle letture periodiche in coda
+        link.client().urgent(|c| c.set_split(false, rx_vfo)).map_err(|e| RigError(friendly_error(&e.0)))?;
+        // una lettura partita mentre il comando aspettava ha letto lo split ancora acceso: la si scarta, se no il display lo rimostrava
+        // acceso fino al controllo seguente
+        inner.epoch.fetch_add(1, Ordering::SeqCst);
         inner.xit_split.store(false, Ordering::SeqCst);
         inner.dx_split.store(false, Ordering::SeqCst);
         inner.update(|s| s.split = Some(false));
@@ -1907,6 +1911,34 @@ mod tests {
         std::thread::sleep(Duration::from_millis(5));
         fake.set_split(true);
         wait_until("secondo avviso", || rig.status().split_external_ms > first);
+    }
+
+    #[test]
+    fn split_off_is_immediate_and_a_poll_already_running_does_not_switch_it_back_on() {
+        // radio su seriale lenta (ogni risposta 40 ms) con lettura continua: «Spegni split» arriva in mezzo a una lettura completa. Prima
+        // il comando aspettava le domande della lettura (frequenza, modo, PTT, split: fino a 4 x 40 ms qui, secondi su una radio vera)
+        let fake = FakeRigctld::start(28_074_000);
+        fake.set_delay_ms(40);
+        let rig = start_with(&fake, RigConfig::default(), Timing { poll: Duration::from_millis(1), ..fast() });
+        for round in 0..12 {
+            fake.set_split(true);
+            wait_until("split letto acceso", || rig.status().split == Some(true));
+            std::thread::sleep(Duration::from_millis(3 * round));
+            let t0 = Instant::now();
+            rig.force_split_off().expect("spegni split");
+            let took = t0.elapsed();
+            assert!(!fake.split(), "la radio deve essere in simplex appena il comando torna");
+            assert_eq!(rig.status().split, Some(false));
+            // il comando aspetta al massimo la domanda gia' in corso (40 ms) piu' la sua (40 ms), non una lettura completa
+            assert!(took < Duration::from_millis(120), "spegnimento lento: {took:?}");
+            // le letture che seguono (anche quella partita prima del comando) non lo riaccendono sul display
+            let checks = rig.inner.split_checks.load(Ordering::SeqCst);
+            let until = Instant::now() + Duration::from_secs(5);
+            while rig.inner.split_checks.load(Ordering::SeqCst) < checks + 2 * SPLIT_CHECK_EVERY && Instant::now() < until {
+                assert_eq!(rig.status().split, Some(false), "giro {round}: split tornato acceso da una lettura vecchia");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
     }
 
     #[test]
