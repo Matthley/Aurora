@@ -277,6 +277,19 @@ export function DigiStatusBar(p: Props) {
                 {m.name}
               </button>
             ))}
+            {/* SSTV ha la sua pagina: la voce la apre */}
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={false}
+              onClick={() => {
+                setModeMenu(null);
+                window.location.hash = '#/sstv';
+              }}
+            >
+              <span className="digi-st-menu-check" />
+              {t('nav.sstv')}
+            </button>
             <hr className="digi-st-menu-sep" />
             <button
               type="button"
