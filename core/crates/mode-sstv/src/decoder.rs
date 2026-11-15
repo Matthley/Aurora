@@ -125,8 +125,8 @@ pub const HIST_BINS: usize = 256;
 pub const HIST_CAP: u16 = 40;
 /// Campioni mediati per ogni valore dell'istogramma (1 ms, circa due pixel dei modi piu' veloci).
 const HIST_BLOCK: usize = 12;
-/// Ogni quanti campioni i cassetti calano (100 ms: un segnale che sparisce si svuota in circa due secondi).
-const HIST_DECAY: usize = RATE as usize / 10;
+/// Ogni quanti campioni i cassetti calano (20 ms, di 2: un blocco pieno si svuota in mezzo secondo e segue il segnale a vista).
+const HIST_DECAY: usize = RATE as usize / 50;
 
 /// Livello del segnale memorizzato (0-255) per una frequenza: 1900 Hz = 128.
 pub fn hz_to_level(f: f32) -> f32 {
@@ -134,7 +134,7 @@ pub fn hz_to_level(f: f32) -> f32 {
 }
 
 /// Istogramma dei livelli degli ultimi secondi: ogni valore riempie un triangolo di sette cassetti (1, 2, 3, 4, 3, 2, 1) centrato
-/// sul suo livello; i cassetti hanno un tetto e calano di 2 ogni [`HIST_DECAY`] campioni.
+/// sul suo livello; i cassetti hanno un tetto e calano di 2 ogni [`HIST_DECAY`] campioni (20 ms).
 struct LevelHistogram {
     bins: [u16; HIST_BINS],
     acc: (f32, f32),

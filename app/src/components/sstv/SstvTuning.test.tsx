@@ -43,7 +43,8 @@ describe('SstvTuning', () => {
     const { rerender } = render(<SstvTuning rx={{ ...RX, offset_hz: 3 }} />);
     expect(screen.getByRole('status')).toHaveTextContent('Sintonia giusta');
     rerender(<SstvTuning rx={{ ...RX, offset_hz: -60 }} />);
-    act(() => emitSstv({ type: 'sstv', kind: 'rx_status', offset_hz: -60, hist: new Array(256).fill(0) }));
+    act(() => emitSstv({ type: 'sstv', kind: 'rx_status', offset_hz: -60 }));
+    act(() => emitSstv({ type: 'sstv', kind: 'rx_hist', hist: new Array(256).fill(0) }));
     expect(screen.getByRole('status')).toHaveTextContent('Sposta il VFO di −60 Hz');
   });
 

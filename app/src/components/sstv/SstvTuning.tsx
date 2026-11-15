@@ -43,7 +43,9 @@ export function stepsForSyncAt(hz: number): number {
 export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: () => void }) {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [hist, setHist] = useState<number[]>(rx.hist ?? []);
+  // l'istogramma arriva ogni 0,1 s: sta in un riferimento e lo ridisegna requestAnimationFrame, senza passare dallo stato di React
+  const hist = useRef<number[]>(rx.hist ?? []);
+  const redraw = useRef<() => void>(() => undefined);
   const [steps, setSteps] = useState(Math.round((rx.tune_hz ?? 0) / TUNE_STEP_HZ));
   const [offset, setOffset] = useState(rx.offset_hz);
   const pending = useRef(0);
@@ -52,8 +54,14 @@ export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: ()
   useEffect(
     () =>
       onSstv((ev) => {
+        if (ev.kind === 'rx_hist') {
+          if (ev.hist) {
+            hist.current = ev.hist;
+            redraw.current();
+          }
+          return;
+        }
         if (ev.kind !== 'rx_status') return;
-        if (ev.hist) setHist(ev.hist);
         if (typeof ev.offset_hz === 'number') setOffset(ev.offset_hz);
         if (typeof ev.tune_hz === 'number' && Date.now() - pending.current > 1500) setSteps(Math.round(ev.tune_hz / TUNE_STEP_HZ));
       }),
@@ -72,10 +80,13 @@ export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: ()
     void sstvTune(s).then(onChanged, () => undefined);
   };
 
+  const tuneRef = useRef(tuneHz);
+  tuneRef.current = tuneHz;
+
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
-    const draw = () => {
+    const paint = () => {
       const ctx = c.getContext?.('2d');
       if (!ctx) return;
       const dpr = window.devicePixelRatio || 1;
@@ -91,24 +102,48 @@ export function SstvTuning({ rx, onChanged }: { rx: SstvRxStatus; onChanged?: ()
       const binW = w / HIST_BINS;
       ctx.fillStyle = ink;
       const top = 7 * dpr;
+      const values = hist.current;
       for (let i = 0; i < HIST_BINS; i += 1) {
-        const v = Math.min(HIST_CAP, hist[i] ?? 0);
+        const v = Math.min(HIST_CAP, values[i] ?? 0);
         if (v <= 0) continue;
         const bh = (v / HIST_CAP) * (h - top);
         ctx.fillRect(i * binW, h - bh, Math.ceil(binW), bh);
       }
       ctx.fillStyle = mark;
-      for (const m of tuneMarks(tuneHz)) {
+      for (const m of tuneMarks(tuneRef.current)) {
         const x = Math.round(((hzToLevel(m.hz) + 0.5) / HIST_BINS) * w);
         const len = m.kind === 'sync' ? h * 0.45 : h;
         ctx.fillRect(x - Math.max(1, dpr), 0, Math.max(2, 2 * dpr), len);
       }
     };
-    draw();
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(draw);
+    // un solo disegno per fotogramma, anche se gli eventi arrivano piu' fitti
+    let frame = 0;
+    const schedule = () => {
+      if (typeof requestAnimationFrame === 'undefined') {
+        paint();
+        return;
+      }
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        paint();
+      });
+    };
+    redraw.current = schedule;
+    schedule();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
     observer?.observe(c);
-    return () => observer?.disconnect();
-  }, [hist, tuneHz]);
+    return () => {
+      observer?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+      redraw.current = () => undefined;
+    };
+  }, []);
+
+  // la correzione sposta le tre lineette
+  useEffect(() => {
+    redraw.current();
+  }, [tuneHz]);
 
   // la stima dell'AFC (o la correzione a mano) dice di quanto spostare il VFO; in USB alzare il VFO abbassa il segnale nell'audio
   const shift = steps !== 0 ? tuneHz : rx.receiving || rx.rows > 0 ? offset : null;

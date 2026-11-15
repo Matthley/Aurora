@@ -263,7 +263,6 @@ impl Inner {
             level_db: Some(st.level_db),
             offset_hz: Some(st.offset_hz),
             tune_hz: Some(st.tune_hz),
-            hist: Some(st.hist),
             ..SstvEvent::default()
         });
     }
@@ -653,6 +652,8 @@ struct RxMemory {
 
 /// Ogni quanto lo stato (con l'istogramma dei livelli) va all'interfaccia mentre si ascolta.
 const STATUS_EVERY: Duration = Duration::from_millis(400);
+/// L'istogramma della sintonia parte da solo, piu' spesso dello stato (e' leggero: 256 byte), e solo se e' cambiato.
+const HIST_EVERY: Duration = Duration::from_millis(100);
 
 fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
     let mut decoder = Decoder::new(cfg);
@@ -661,6 +662,8 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
     let mut audio = Vec::new();
     let mut last_status = Instant::now();
     let mut last_users = Instant::now();
+    let mut last_hist = Instant::now();
+    let mut last_hist_sent: Vec<u8> = Vec::new();
     loop {
         let msg = match queue.recv_timeout(Duration::from_millis(500)) {
             Ok(m) => Some(m),
@@ -718,12 +721,20 @@ fn rx_loop(inner: &Arc<Inner>, queue: Receiver<Msg>, cfg: DecoderConfig) {
                 st.receiving = decoder.is_receiving();
                 st.sync = decoder.sync_quality();
                 st.tune_hz = decoder.tune_hz();
-                st.hist = decoder.histogram();
                 if let Some(off) = decoder.offset_hz() {
                     st.offset_hz = off;
                 }
             }
             inner.rx_status_event();
+        }
+        if last_hist.elapsed() >= HIST_EVERY && inner.listening.load(Ordering::Relaxed) {
+            last_hist = Instant::now();
+            let hist = decoder.histogram();
+            if hist != last_hist_sent {
+                lock(&inner.rx).hist.clone_from(&hist);
+                inner.emit(SstvEvent { kind: "rx_hist".into(), hist: Some(hist.clone()), ..SstvEvent::default() });
+                last_hist_sent = hist;
+            }
         }
     }
 }

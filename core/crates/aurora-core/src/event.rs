@@ -356,7 +356,7 @@ pub struct WsprSpot {
 
 /// Un avvenimento dell'SSTV. `kind`: `rx_start` (modo, larghezza, altezza), `rx_rows` (righe nuove da `first_row`, `rows` righe, `rgb`
 /// in base64, 3 byte per pixel), `rx_done` (immagine salvata `image_id`), `rx_lost`, `rx_fskid` (nominativo `call` dall'FSK ID, messo
-/// all'immagine `image_id`), `rx_status` (livello, sincronismo, ascolto),
+/// all'immagine `image_id`), `rx_status` (livello, sincronismo, ascolto), `rx_hist` (solo l'istogramma, ogni 0,1 s se cambia),
 /// `tx` (stato e avanzamento della trasmissione), `band` (i segnali di tutta la banda in `signals`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SstvEvent {
@@ -395,7 +395,7 @@ pub struct SstvEvent {
     /// La correzione di sintonia a mano in Hz (`rx_status`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tune_hz: Option<f32>,
-    /// L'istogramma dei livelli degli ultimi secondi (`rx_status`): 256 cassetti da 6,25 Hz, 1900 Hz = 128, valori 0-40.
+    /// L'istogramma dei livelli degli ultimi secondi (`rx_hist`): 256 cassetti da 6,25 Hz, 1900 Hz = 128, valori 0-40.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hist: Option<Vec<u8>>,
 }
