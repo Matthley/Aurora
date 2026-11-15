@@ -113,6 +113,9 @@ export const controlStrings = {
     'Descodifica só ±60 Hz em torno da frequência Rx (±290 Hz em Hound): os outros sinais da cascata são ignorados.',
   ],
   'ctl.stop_rx': ['Ferma', 'Stop', 'Stopp', 'Arrêt', 'Parar', 'Parar'],
+  'ctl.cat': ['CAT', 'CAT', 'CAT', 'CAT', 'CAT', 'CAT'],
+  'ctl.cat.tipOn': ['Radio collegata via CAT. Clic: scollega (per lasciare la radio a un altro programma).', 'Radio connected via CAT. Click: disconnect (to leave the radio to another program).', 'Funkgerät über CAT verbunden. Klick: trennen (um das Gerät einem anderen Programm zu überlassen).', 'Radio connectée en CAT. Clic : déconnecter (pour laisser la radio à un autre programme).', 'Radio conectada por CAT. Clic: desconectar (para dejar la radio a otro programa).', 'Rádio ligado por CAT. Clique: desligar (para deixar o rádio a outro programa).'],
+  'ctl.cat.tipOff': ['CAT scollegato. Clic: collega la radio.', 'CAT disconnected. Click: connect the radio.', 'CAT getrennt. Klick: Funkgerät verbinden.', 'CAT déconnecté. Clic : connecter la radio.', 'CAT desconectado. Clic: conectar la radio.', 'CAT desligado. Clique: ligar o rádio.'],
   'tip.ctl.stop_rx': [
     'Ferma la ricezione e la decodifica in corso. Non è STOP TX: per fermare la trasmissione usa STOP TX o Esc.',
     'Stops the reception and decoding in progress. It is not STOP TX: to stop transmitting use STOP TX or Esc.',

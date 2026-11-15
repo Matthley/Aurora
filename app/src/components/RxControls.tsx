@@ -5,6 +5,7 @@ import { useT, type Key } from '../i18n';
 import { replyErrorMessage } from '../lib/replyError';
 import { useStation } from '../state/station';
 import { AutoSwitch } from './AutoSwitch';
+import { CatSwitch } from './CatSwitch';
 
 /** Interruttori di ricezione del motore, nell'ordine della sua finestra. */
 // «Sinc» (syncButton di JTDX) non e' collegato al motore proprio: non si mostra finche' non fa davvero qualcosa
@@ -62,7 +63,7 @@ export function RxControls({ mode, trailing }: { mode: string; /** Non serve piu
           return button;
         })}
         </div>
-        {/* Ferma, Decodifica e, per ultimo, Auto: una barra a parte, sempre insieme (se non c'e' spazio vanno a capo insieme) */}
+        {/* Ferma, Decodifica, Auto e CAT: una barra a parte, sempre insieme (se non c'e' spazio vanno a capo insieme) */}
         <div className="rx-seg rx-seg--btns" role="group">
           {RX_BUTTONS.map((id) => (
             <button key={id} type="button" className="rx-seg-item" disabled={!reachable} title={t(`tip.ctl.${id}` as Key)} onClick={() => void run(id)}>
@@ -70,6 +71,8 @@ export function RxControls({ mode, trailing }: { mode: string; /** Non serve piu
             </button>
           ))}
           <AutoSwitch />
+          {/* collega e scollega il CAT senza aprire le Impostazioni (richiesta di un utente) */}
+          <CatSwitch />
         </div>
       </div>
       {note ? <span className="live-note" role="status">{note}</span> : null}
