@@ -69,6 +69,9 @@ pub struct ContestTesto {
     pub dupe_no_band: bool,
     pub dupe_no_mode: bool,
     pub log_bar_mode: i32,
+    /// I QTC del WAE (`m_iQtc`, `docs/contest-qtc.md`): 0 nessuno, 1 dalle stazioni non europee alle europee (CW, SSB), 2 in entrambe
+    /// le direzioni fra continenti diversi (RTTY).
+    pub qtc: i32,
 }
 
 impl Default for ContestTesto {
@@ -108,6 +111,7 @@ impl Default for ContestTesto {
             dupe_no_band: false,
             dupe_no_mode: false,
             log_bar_mode: 0,
+            qtc: 0,
         }
     }
 }
@@ -164,10 +168,23 @@ pub fn data_ms(d: &str) -> Option<i64> {
     Some(((giorni * 24 + n(8, 10)?) * 60 + n(10, 12)?) * 60_000 + n(12, 14)? * 1000)
 }
 
+/// I QTC di un file senza `m_iQtc`: un contest WAE ha i QTC, in entrambe le direzioni se e' RTTY.
+fn qtc_dal_nome(nome: &str, note: &str) -> i32 {
+    let n = format!("{nome} {note}").to_ascii_uppercase();
+    if !n.contains("WAE") {
+        0
+    } else if n.contains("RTTY") {
+        2
+    } else {
+        1
+    }
+}
+
 impl ContestTesto {
     /// Legge un file `.contest` (sezione `[Contest]`). Le chiavi sconosciute si ignorano.
     pub fn da_testo(id: &str, testo: &str) -> ContestTesto {
         let mut c = ContestTesto { id: id.to_string(), ..ContestTesto::default() };
+        let mut qtc_letto = false;
         for (k, v) in coppie(testo, "Contest") {
             let b = || bool_di(&v);
             let i = || int_di(&v);
@@ -204,6 +221,10 @@ impl ContestTesto {
                 "m_bDupeNoBand" => c.dupe_no_band = b(),
                 "m_bDupeNoMode" => c.dupe_no_mode = b(),
                 "m_iLogBarDispMode" => c.log_bar_mode = i(),
+                "m_iQtc" => {
+                    c.qtc = i().clamp(0, 2);
+                    qtc_letto = true;
+                }
                 _ => {
                     // m_bBand160Mult / m_iBand160Mult ...
                     for (pos, banda) in BANDE.iter().enumerate() {
@@ -215,6 +236,9 @@ impl ContestTesto {
                     }
                 }
             }
+        }
+        if !qtc_letto {
+            c.qtc = qtc_dal_nome(&c.name, &c.notes);
         }
         c
     }
@@ -262,6 +286,7 @@ impl ContestTesto {
         s("m_bDupeNoBand", b(self.dupe_no_band).into());
         s("m_bDupeNoMode", b(self.dupe_no_mode).into());
         s("m_iLogBarDispMode", self.log_bar_mode.to_string());
+        s("m_iQtc", self.qtc.clamp(0, 2).to_string());
         let mut t = r.join("\r\n");
         t.push_str("\r\n");
         t
@@ -680,6 +705,16 @@ mod tests {
         assert_eq!(back, conv.contest);
         assert!(back.dupe_no_band && !back.auto_inc && back.nrs == "14");
         assert_eq!(back.bands[2], MoltBanda { band: "40".into(), on: true, weight: 2 });
+    }
+
+    #[test]
+    fn qtc_dal_file_o_dal_nome() {
+        assert_eq!(ContestTesto::da_testo("x", "[Contest]\r\nm_sName=WAEDC\r\nm_sNotes=RTTY\r\n").qtc, 2);
+        assert_eq!(ContestTesto::da_testo("x", "[Contest]\r\nm_sName=WAEDC\r\nm_sNotes=CW\r\n").qtc, 1);
+        assert_eq!(ContestTesto::da_testo("x", "[Contest]\r\nm_sName=WAEDC RTTY\r\nm_iQtc=0\r\n").qtc, 0);
+        assert_eq!(ContestTesto::da_testo("x", "[Contest]\r\nm_sName=Prova\r\n").qtc, 0);
+        let c = ContestTesto { name: "Prova".into(), qtc: 2, ..ContestTesto::default() };
+        assert_eq!(ContestTesto::da_testo("x", &c.in_testo()).qtc, 2);
     }
 
     #[test]

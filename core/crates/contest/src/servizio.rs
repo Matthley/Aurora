@@ -241,6 +241,8 @@ pub struct ContestService {
     da_contest: std::sync::atomic::AtomicBool,
     /// I contest dei modi testuali (file `.contest` nella stessa cartella).
     elenco: crate::elenco::ElencoContest,
+    /// Un solo salvataggio dei QTC alla volta.
+    qtc: Mutex<()>,
 }
 
 fn ora_ms() -> i64 {
@@ -269,6 +271,7 @@ impl ContestService {
             paese: Mutex::new(None),
             continente: Mutex::new(None),
             da_contest: std::sync::atomic::AtomicBool::new(false),
+            qtc: Mutex::new(()),
             dentro: Mutex::new(Dentro { regole, errori_regole, stato, log: Vec::new(), log_di: None, recenti: Vec::new(), non_contest: Vec::new(), sentiti: Vec::new(), radio: (String::new(), String::new()), consiglio: None }),
         });
         if let Ok(mut d) = s.dentro.lock() {
@@ -290,6 +293,27 @@ impl ContestService {
     /// I contest dei modi testuali (elenco, contest attivo, macro e domini).
     pub fn elenco(&self) -> &crate::elenco::ElencoContest {
         &self.elenco
+    }
+
+    fn file_qtc(&self, id: &str) -> PathBuf {
+        let pulito: String = id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+        self.dir.join(format!("qtc-{pulito}.json"))
+    }
+
+    /// I QTC salvati per un contest dei modi testuali (`contest/qtc-<id>.json`; vuoto se il file manca o non si legge).
+    pub fn qtc(&self, id: &str) -> Vec<crate::qtc::Qtc> {
+        std::fs::read_to_string(self.file_qtc(id)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    /// Aggiunge una serie di QTC mandati o ricevuti, dopo il controllo dei limiti. Restituisce tutti i QTC del contest.
+    pub fn aggiungi_qtc(&self, id: &str, nuovi: &[crate::qtc::Qtc], finestra: Option<(Option<i64>, Option<i64>)>) -> Result<Vec<crate::qtc::Qtc>, String> {
+        let _g = self.qtc.lock().unwrap_or_else(|e| e.into_inner());
+        let mut tutti = self.qtc(id);
+        crate::qtc::controlla(nuovi, &crate::qtc::nella_finestra(&tutti, finestra))?;
+        tutti.extend(nuovi.iter().cloned());
+        let t = serde_json::to_string_pretty(&tutti).map_err(|e| e.to_string())?;
+        std::fs::write(self.file_qtc(id), t).map_err(|e| format!("QTC non salvati: {e}"))?;
+        Ok(tutti)
     }
 
     /// Da usare per i moltiplicatori DXCC: il paese di un nominativo (prefisso principale di cty.dat).

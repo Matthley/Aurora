@@ -185,6 +185,8 @@ pub struct Punteggio {
     /// I moltiplicatori (somma dei pesi con i moltiplicatori per banda).
     pub molt: i64,
     pub punteggio: i64,
+    /// I QTC mandati e ricevuti (contest WAE): contano come i punti.
+    pub qtc: u32,
     /// I tipi di moltiplicatore usati.
     pub tipi: Vec<TipoMolt>,
     pub bande: Vec<RigaBanda>,
@@ -279,6 +281,13 @@ pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paes
     (out, tot)
 }
 
+/// Aggiunge i QTC (mandati e ricevuti) al punteggio: (punti + QTC) x moltiplicatori, come nel WAE.
+pub fn aggiungi_qtc(tot: &mut Punteggio, qtc: u32) {
+    tot.qtc = qtc;
+    let base = tot.punti + i64::from(qtc);
+    tot.punteggio = if tot.tipi.is_empty() { base } else { base * tot.molt };
+}
+
 /// Le bande in ordine di frequenza (le sconosciute in fondo).
 fn ordine_banda(b: &str) -> u32 {
     const ORDINE: [&str; 13] = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
@@ -325,7 +334,8 @@ fn nome_cabrillo(nome: &str) -> String {
 }
 
 /// Il file Cabrillo 3.0 del contest dei modi testuali. I doppi restano nel file (li toglie chi controlla i log).
-pub fn cabrillo(c: &ContestTesto, call: &str, log: &[Valutato], tot: &Punteggio, versione: &str) -> String {
+/// Con i QTC (contest WAE) le righe `QTC:` seguono quelle `QSO:`.
+pub fn cabrillo(c: &ContestTesto, call: &str, log: &[Valutato], tot: &Punteggio, versione: &str, qtc: &[crate::qtc::Qtc]) -> String {
     let mut out = String::new();
     let mut riga = |k: &str, v: &str| {
         if !v.trim().is_empty() {
@@ -356,6 +366,7 @@ pub fn cabrillo(c: &ContestTesto, call: &str, log: &[Valutato], tot: &Punteggio,
             scambio(&v.qso.rst_rcvd, &v.qso.exch_rcvd)
         ));
     }
+    out.push_str(&crate::qtc::righe_cabrillo(qtc, &call));
     out.push_str("END-OF-LOG:\r\n");
     out
 }
@@ -413,6 +424,15 @@ mod tests {
         let c2 = ContestTesto { dupe_no_band: true, ..c };
         let (_, t2) = valuta(&c2, &log, Some(&mio()), &paese, None);
         assert_eq!(t2.doppi, 2);
+    }
+
+    #[test]
+    fn qtc_nel_punteggio() {
+        let c = ContestTesto { multipliers: 1, ..ContestTesto::default() };
+        let log = [q("DL1ABC", "20m", "RTTY", 0, ""), q("W1AW", "20m", "RTTY", 1, "")];
+        let (_, mut t) = valuta(&c, &log, None, &paese, None);
+        aggiungi_qtc(&mut t, 3);
+        assert_eq!((t.qtc, t.punteggio), (3, (2 + 3) * 2));
     }
 
     #[test]
@@ -485,7 +505,7 @@ mod tests {
         let c = ContestTesto { name: "Test Contest RTTY".into(), ..ContestTesto::default() };
         let log = [q("DL1ABC", "20m", "RTTY", 0, "599 015"), q("W1AW", "40m", "CW", 1, "")];
         let (v, t) = valuta(&c, &log, None, &paese, None);
-        let f = cabrillo(&c, "iu3abc", &v, &t, "0.11.0");
+        let f = cabrillo(&c, "iu3abc", &v, &t, "0.11.0", &[]);
         assert!(f.starts_with("START-OF-LOG: 3.0\r\n"));
         assert!(f.contains("CONTEST: TEST-CONTEST-RTTY\r\n"));
         assert!(f.contains("CATEGORY-MODE: MIXED\r\n"));
@@ -494,6 +514,9 @@ mod tests {
         assert!(f.contains("QSO:  7040 CW 2026-11-14 1201 IU3ABC        599 002    W1AW          599\r\n"), "{f}");
         assert!(f.ends_with("END-OF-LOG:\r\n"));
         assert_eq!(modo_cabrillo("PSK31"), "DG");
+        let q = crate::qtc::Qtc { inviato: true, corrispondente: "K1ABC".into(), serie: 1, quanti: 1, time_ms: log[1].time_ms, band: "40m".into(), mode: "RTTY".into(), ora: "1200".into(), call: "DL1ABC".into(), nr: "015".into(), ..Default::default() };
+        let f = cabrillo(&c, "iu3abc", &v, &t, "0.11.0", &[q]);
+        assert!(f.ends_with("QTC:  7000 RY 2026-11-14 1201 K1ABC         1/1   IU3ABC        1200 DL1ABC        015\r\nEND-OF-LOG:\r\n"), "{f}");
         assert_eq!(modo_cabrillo("USB"), "PH");
     }
 }
