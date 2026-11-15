@@ -615,8 +615,16 @@ fn bigscan_catena(caso: &Caso, tutti: bool) -> Esito {
             let add = aggiunto(old, &ch.text).to_string();
             *old = ch.text.clone();
             if tutti || (f64::from(ch.freq_hz) - TONO).abs() <= 25.0 {
+                if std::env::var_os("CW_DEBUG").is_some() && !add.is_empty() {
+                    println!("  {t:.1}s canale {} {:.0} Hz: {add:?}", ch.id, ch.freq_hz);
+                }
                 raw.extend(add.bytes().map(|c| (c, t)));
             }
+        }
+    }
+    if std::env::var_os("CW_DEBUG").is_some() {
+        for ch in dec.channels() {
+            println!("  canale {} {:.0} Hz: {}", ch.id, ch.freq_hz, ch.text);
         }
     }
     valuta(caso, &raw, cpu)

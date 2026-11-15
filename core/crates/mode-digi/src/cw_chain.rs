@@ -88,6 +88,16 @@ pub struct ChainParams {
     pub side_k: f32,
     /// Ibrido: S/N del tono dall'inviluppo superiore corto invece che dalla media lunga.
     pub a2_short: bool,
+    /// Ibrido coerente (`emit_mode` 2): taglio della finestra della banda base, unita' di un pezzo sommato in fase, S/N massimo creduto
+    /// per passo, pezzi al massimo in un tono.
+    pub iq_fc: f64,
+    pub coh_piece_units: f64,
+    pub coh_snr_cap: f64,
+    pub coh_max_pieces: usize,
+    /// Ibrido coerente: ampiezza al quadrato minima creduta per passo.
+    pub coh_min: f64,
+    /// Ibrido coerente: penalita' per aprire un tono a cancello chiuso (logaritmo; molto grande = mai).
+    pub coh_closed: f64,
     /// Peso delle emissioni nella decodifica di sequenza.
     pub emit_weight: f64,
     /// Pesi delle cinque classi di durata.
@@ -118,6 +128,9 @@ pub struct ChainParams {
     /// BigScan: soglia del contrasto locale integrato e passi di silenzio prima di chiudere un canale inattivo.
     pub band_peak: f32,
     pub band_idle_steps: u32,
+    /// BigScan: righe mascherate attorno ai canali forti e potenza (riferita al rumore) oltre la quale un canale e' forte.
+    pub band_mask_strong: usize,
+    pub band_strong: f32,
 }
 
 impl Default for ChainParams {
@@ -142,6 +155,12 @@ impl Default for ChainParams {
             rice_min: 6.0,
             side_k: 3.0,
             a2_short: true,
+            iq_fc: 60.0,
+            coh_piece_units: 2.0,
+            coh_snr_cap: 20.0,
+            coh_max_pieces: 16,
+            coh_min: 2.0,
+            coh_closed: 12.0,
             emit_weight: 1.0,
             class_w: [0.58, 0.42, 0.65, 0.23, 0.12],
             tail3: 0.0001,
@@ -158,6 +177,8 @@ impl Default for ChainParams {
             recheck_margin: 10.0,
             band_peak: 7.5,
             band_idle_steps: 200,
+            band_mask_strong: 5,
+            band_strong: 100.0,
         }
     }
 }
@@ -184,6 +205,12 @@ impl ChainParams {
             "p_closed" => self.p_closed = f,
             "emit_weight" => self.emit_weight = v,
             "emit_mode" => self.emit_mode = u as u8,
+            "iq_fc" => self.iq_fc = v,
+            "coh_piece_units" => self.coh_piece_units = v,
+            "coh_snr_cap" => self.coh_snr_cap = v,
+            "coh_max_pieces" => self.coh_max_pieces = u.max(1),
+            "coh_min" => self.coh_min = v.max(0.01),
+            "coh_closed" => self.coh_closed = v.max(0.0),
             "rice_weight" => self.rice_weight = v,
             "rice_min" => self.rice_min = v,
             "side_k" => self.side_k = f.max(0.1),
@@ -207,6 +234,8 @@ impl ChainParams {
             "recheck_margin" => self.recheck_margin = v,
             "band_peak" => self.band_peak = f,
             "band_idle_steps" => self.band_idle_steps = u as u32,
+            "band_mask_strong" => self.band_mask_strong = u,
+            "band_strong" => self.band_strong = f,
             _ => return false,
         }
         true
@@ -264,10 +293,15 @@ struct Spectrum {
     /// Spostamento di frequenza in ingresso (passo di fase per campione) e fase.
     shift: f64,
     phase: f64,
+    /// Ibrido coerente: seconda finestra (passa-basso piu' largo), righe complesse e rumore per riga di quella finestra.
+    iq_window: Vec<f32>,
+    iq_buf: Vec<Complex32>,
+    iq: Vec<Complex32>,
+    iq_noise: f32,
 }
 
 impl Spectrum {
-    fn new(fc: f64, shift_hz: f64, noise_lo_hz: f64, noise_hi_hz: f64) -> Self {
+    fn new(fc: f64, fc_iq: f64, shift_hz: f64, noise_lo_hz: f64, noise_hi_hz: f64) -> Self {
         let fft = FftPlanner::new().plan_fft_forward(NFFT);
         let scratch = vec![Complex32::new(0.0, 0.0); fft.get_inplace_scratch_len()];
         let noise_lo = ((noise_lo_hz / BIN_HZ) as usize).max(1);
@@ -289,7 +323,17 @@ impl Spectrum {
             count: 0,
             shift: 2.0 * PI * shift_hz / RATE,
             phase: 0.0,
+            iq_window: if fc_iq > 0.0 { chain_window(fc_iq) } else { Vec::new() },
+            iq_buf: vec![Complex32::new(0.0, 0.0); NFFT],
+            iq: if fc_iq > 0.0 { vec![Complex32::new(0.0, 0.0); NFFT / 2] } else { Vec::new() },
+            iq_noise: 0.0,
         }
+    }
+
+    /// La riga `k` della finestra coerente riportata in fase fra uno spettro e l'altro (una riga ruota di 2 pi k / 8 a ogni passo) e
+    /// riferita al rumore: un campione di banda base a 93,75 Hz con varianza del rumore circa 1.
+    fn baseband(&self, k: usize) -> Option<Complex32> {
+        baseband_of(&self.iq, k, self.count, self.iq_noise)
     }
 
     /// Un campione; `true` quando c'e' uno spettro nuovo in `power` (e `noise` aggiornato).
@@ -329,8 +373,29 @@ impl Spectrum {
         self.count += 1;
         let a = if self.count < 32 { 1.0 / self.count as f32 } else { 0.03 };
         self.noise += a * (est - self.noise);
+        if !self.iq_window.is_empty() {
+            for i in 0..NFFT {
+                self.iq_buf[i] = self.ring[(self.pos + i) % NFFT] * self.iq_window[i];
+            }
+            self.fft.process_with_scratch(&mut self.iq_buf, &mut self.scratch);
+            self.iq.copy_from_slice(&self.iq_buf[..NFFT / 2]);
+            self.sel.clear();
+            self.sel.extend(self.iq[self.noise_lo..self.noise_hi].iter().map(|c| c.norm_sqr()));
+            let k = self.sel.len() / 2;
+            let med = if self.sel.is_empty() { 0.0 } else { *self.sel.select_nth_unstable_by(k, f32::total_cmp).1 };
+            let est = med / std::f32::consts::LN_2;
+            self.iq_noise += a * (est - self.iq_noise);
+        }
         true
     }
+}
+
+/// La riga `k` delle righe complesse `iq` dello spettro numero `count`, in fase e riferita al rumore `noise`.
+fn baseband_of(iq: &[Complex32], k: usize, count: u64, noise: f32) -> Option<Complex32> {
+    let z = *iq.get(k)?;
+    let turn = ((k as u64 * count) % 8) as f64 * 2.0 * PI / 8.0;
+    let r = Complex32::new(turn.cos() as f32, -turn.sin() as f32);
+    Some(z * r / noise.max(1e-30).sqrt())
 }
 
 /// Esito del confronto di forma attorno al tono (grandezze d'ampiezza riferite al rumore).
@@ -829,6 +894,83 @@ struct Sequence {
     on_end: Vec<f64>,
     off_stay: Vec<f64>,
     off_end: Vec<f64>,
+    /// Ibrido coerente: punteggio d'ingresso di ogni eta' del tono (prima del giudizio del tono), stato della coda (ingresso, primo
+    /// passo, passi oltre l'ultima eta'), somme progressive della banda base e passi visti.
+    base: [f64; ON_AGES],
+    tail: (f64, u64, u32),
+    cum: Vec<Complex64>,
+    t: u64,
+}
+
+/// Complesso in doppia precisione per le somme progressive.
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Complex64 {
+    pub re: f64,
+    pub im: f64,
+}
+
+/// Passi tenuti nelle somme progressive della banda base (un tono non dura di piu').
+const CUM_LEN: usize = 1024;
+
+/// Come si giudica un tono nell'ibrido coerente.
+#[derive(Clone, Copy, Debug)]
+pub struct CohJudge<'a> {
+    /// Ampiezza del tono al quadrato, per passo, riferita al rumore.
+    pub amp2: f64,
+    /// Rumore (varianza per passo) da credere: almeno 1, di piu' quando il tono e' oltre lo S/N massimo creduto.
+    pub nu: f64,
+    /// Passi di un pezzo sommato in fase e pezzi al massimo.
+    pub piece: usize,
+    pub max_pieces: usize,
+    /// Penalita' (logaritmo) per aprire un tono a cancello chiuso.
+    pub closed_penalty: f64,
+    /// Varianza del rumore di una somma di `n` passi (correlati dalla finestra), indice `n`.
+    pub var_sum: &'a [f64],
+}
+
+/// Fattori dell'ampiezza (sulla potenza) e pesi della miscela, e peso dell'ampiezza che spiega meglio il tono stesso.
+const COH_AMP: [f64; 4] = [0.3, 0.6, 1.0, 1.6];
+const COH_W: [f64; 4] = [0.1, 0.1, 0.65, 0.15];
+const COH_ML: f64 = 0.03;
+
+/// Varianza del rumore di una somma di `n` passi consecutivi della banda base, dalla finestra (passi sovrapposti, quindi correlati).
+pub fn coherent_var_sum(window: &[f32], max: usize) -> Vec<f64> {
+    let r = |m: usize| -> f64 { window.iter().zip(window.iter().skip(m)).map(|(a, b)| f64::from(*a) * f64::from(*b)).sum() };
+    let r0 = r(0).max(1e-30);
+    let rho: Vec<f64> = (0..).map(|k| k * HOP).take_while(|&m| m < window.len()).map(|m| r(m) / r0).collect();
+    (0..=max)
+        .map(|n| {
+            let nf = n as f64;
+            nf + 2.0 * rho.iter().enumerate().skip(1).filter(|(k, _)| *k < n).map(|(k, p)| (nf - k as f64) * p).sum::<f64>()
+        })
+        .collect()
+}
+
+/// Logaritmo del rapporto di verosimiglianza di un tono (Rice contro Rayleigh) con le somme in fase dei suoi pezzi: `pieces` sono
+/// (passi, modulo della somma). Miscela su quattro ampiezze attorno alla stima e su quella che spiega meglio il tono.
+pub fn coherent_llr(pieces: &[(usize, f64)], j: &CohJudge) -> f64 {
+    let var_of = |n: usize| j.var_sum.get(n).copied().unwrap_or(n as f64) * j.nu;
+    let total_n: usize = pieces.iter().map(|p| p.0).sum();
+    if total_n == 0 {
+        return 0.0;
+    }
+    let coherent: f64 = pieces.iter().map(|p| p.1).sum();
+    let ml = (coherent / total_n as f64).powi(2);
+    let mut acc = [0.0f64; COH_AMP.len() + 1];
+    let amps: [f64; COH_AMP.len() + 1] = std::array::from_fn(|i| if i < COH_AMP.len() { (j.amp2 * COH_AMP[i]).sqrt() } else { ml.sqrt() });
+    for &(n, mag) in pieces {
+        if n == 0 {
+            continue;
+        }
+        let var = var_of(n);
+        for (a, x) in amps.iter().zip(acc.iter_mut()) {
+            let mu = n as f64 * a;
+            *x += ln_i0(2.0 * mu * mag / var) - mu * mu / var;
+        }
+    }
+    let best = acc.iter().copied().fold(f64::MIN, f64::max);
+    let weights = COH_W.iter().map(|w| w * (1.0 - COH_ML)).chain(std::iter::once(COH_ML));
+    best + acc.iter().zip(weights).map(|(l, w)| w * (l - best).exp()).sum::<f64>().ln()
 }
 
 impl Sequence {
@@ -841,6 +983,10 @@ impl Sequence {
             on_end: Vec::new(),
             off_stay: Vec::new(),
             off_end: Vec::new(),
+            base: [NEG; ON_AGES],
+            tail: (NEG, 0, 0),
+            cum: vec![Complex64::default(); CUM_LEN],
+            t: 0,
         };
         s.off[OFF_AGES - 1] = 0.0;
         s.retable(model);
@@ -854,6 +1000,8 @@ impl Sequence {
 
     /// Riparte in silenzio lungo.
     fn reset(&mut self) {
+        self.base = [NEG; ON_AGES];
+        self.tail = (NEG, 0, 0);
         self.on = [NEG; ON_AGES];
         self.off = [NEG; OFF_AGES];
         self.off[OFF_AGES - 1] = 0.0;
@@ -902,6 +1050,95 @@ impl Sequence {
         for x in on.iter_mut().chain(off.iter_mut()) {
             *x = (*x - top).max(NEG);
         }
+        self.on = on;
+        self.off = off;
+        self.back.push_back(b);
+    }
+
+    /// Il giudizio coerente dei passi da `a` (compreso) all'ultimo, a pezzi.
+    fn segment_llr(&self, a: u64, j: &CohJudge) -> f64 {
+        let b = self.t;
+        let n = b.saturating_sub(a) as usize;
+        if n == 0 || n >= CUM_LEN {
+            return 0.0;
+        }
+        let k = n.div_ceil(j.piece.max(1)).clamp(1, j.max_pieces.max(1));
+        let at = |i: u64| self.cum[(i as usize) % CUM_LEN];
+        let mut pieces = [(0usize, 0.0f64); 64];
+        let k = k.min(pieces.len());
+        for (q, pc) in pieces.iter_mut().enumerate().take(k) {
+            let pa = a + (q * n / k) as u64;
+            let pb = a + ((q + 1) * n / k) as u64;
+            let (x, y) = (at(pb), at(pa));
+            let (re, im) = (x.re - y.re, x.im - y.im);
+            *pc = ((pb - pa) as usize, (re * re + im * im).sqrt());
+        }
+        coherent_llr(&pieces[..k], j)
+    }
+
+    /// Un passo dell'ibrido coerente: `y` e' il campione di banda base (gia' in fase e riferito al rumore); un tono si giudica con la
+    /// somma in fase dei suoi passi, le pause valgono zero. A cancello chiuso non si aprono toni.
+    fn step_coherent(&mut self, y: Complex32, gate: bool, j: &CohJudge) {
+        let last = self.cum[(self.t as usize) % CUM_LEN];
+        self.t += 1;
+        self.cum[(self.t as usize) % CUM_LEN] = Complex64 { re: last.re + f64::from(y.re), im: last.im + f64::from(y.im) };
+        let mut b = Back::default();
+        let (mut best_off_end, mut arg_off) = (f64::NEG_INFINITY, 0usize);
+        for (d, (&s, &h)) in self.off.iter().zip(&self.off_end).enumerate() {
+            if s + h > best_off_end {
+                best_off_end = s + h;
+                arg_off = d;
+            }
+        }
+        let (mut best_on_end, mut arg_on) = (f64::NEG_INFINITY, 0usize);
+        for (d, (&s, &h)) in self.on.iter().zip(&self.on_end).enumerate() {
+            if s + h > best_on_end {
+                best_on_end = s + h;
+                arg_on = d;
+            }
+        }
+        // somma progressiva della permanenza: il tono di eta' i (i+1 passi) e' rimasto i volte
+        let mut stay_cum = [0.0f64; ON_AGES];
+        for i in 1..ON_AGES {
+            stay_cum[i] = stay_cum[i - 1] + self.on_stay[i - 1];
+        }
+        let now = self.t;
+        let mut base = [NEG; ON_AGES];
+        base[0] = if gate { best_off_end } else { best_off_end + j.closed_penalty };
+        base[1..(ON_AGES - 1)].copy_from_slice(&self.base[..(ON_AGES - 2)]);
+        let mut on = [NEG; ON_AGES];
+        for i in 0..ON_AGES - 1 {
+            if base[i] > NEG / 2.0 {
+                on[i] = base[i] + stay_cum[i] + self.segment_llr(now - 1 - i as u64, j);
+            }
+        }
+        // la coda: o arriva dall'ultima eta' o continua quella di prima
+        let tail_stay = self.on_stay[ON_AGES - 1];
+        let enter = self.base[ON_AGES - 2];
+        let from_prev = if enter > NEG / 2.0 { enter + stay_cum[ON_AGES - 1] + self.segment_llr(now - ON_AGES as u64, j) } else { NEG };
+        let (tb, ts, te) = self.tail;
+        let from_self = if tb > NEG / 2.0 { tb + stay_cum[ON_AGES - 1] + f64::from(te + 1) * tail_stay + self.segment_llr(ts, j) } else { NEG };
+        b.on_tail_self = from_self > from_prev;
+        let (mut tail, tail_score) = if b.on_tail_self { ((tb, ts, te + 1), from_self) } else { ((enter, now - ON_AGES as u64, 0), from_prev) };
+        on[ON_AGES - 1] = tail_score;
+        let mut off = [NEG; OFF_AGES];
+        off[0] = best_on_end;
+        for (d, x) in off.iter_mut().enumerate().take(OFF_AGES - 1).skip(1) {
+            *x = self.off[d - 1] + self.off_stay[d - 1];
+        }
+        let fp = self.off[OFF_AGES - 2] + self.off_stay[OFF_AGES - 2];
+        let fs = self.off[OFF_AGES - 1] + self.off_stay[OFF_AGES - 1];
+        b.off_tail_self = fs > fp;
+        off[OFF_AGES - 1] = fp.max(fs);
+        b.on0_from = arg_off as u8;
+        b.off0_from = arg_on as u8;
+        let top = on.iter().chain(off.iter()).fold(f64::NEG_INFINITY, |a, &x| a.max(x));
+        for x in on.iter_mut().chain(off.iter_mut()).chain(base.iter_mut()) {
+            *x = (*x - top).max(NEG);
+        }
+        tail.0 = (tail.0 - top).max(NEG);
+        self.base = base;
+        self.tail = tail;
         self.on = on;
         self.off = off;
         self.back.push_back(b);
@@ -1438,6 +1675,19 @@ pub struct ChannelChain {
     word_buf: Vec<u8>,
     recent: VecDeque<(bool, usize)>,
     since_check: usize,
+    /// Ibrido coerente: ampiezza al quadrato del tono e rumore per passo (riferiti al rumore della banda), velocita' di rotazione della
+    /// fase (prodotto dei passi consecutivi mediato), fase accumulata, passo precedente, varianze delle somme.
+    coh_amp2: f64,
+    coh_noise: f64,
+    coh_rot: (f64, f64),
+    coh_phase: f64,
+    coh_prev: Option<Complex32>,
+    coh_var: Vec<f64>,
+    /// Potenza di ogni passo ancora da decidere (allineata alla storia della sequenza), quantile alto della potenza (dB) e passi
+    /// accesi imparati dal percorso deciso.
+    coh_pw: VecDeque<f64>,
+    coh_q_hi: f64,
+    coh_learned: u32,
     /// Elementi riconosciuti dall'ultimo controllo (per il ciclo di vita dei canali).
     pub elements: u32,
 }
@@ -1463,6 +1713,15 @@ impl ChannelChain {
             word_buf: Vec::new(),
             recent: VecDeque::with_capacity(STARTUP_ELEMENTS + 1),
             since_check: 0,
+            coh_amp2: 0.0,
+            coh_noise: 1.0,
+            coh_rot: (0.0, 0.0),
+            coh_phase: 0.0,
+            coh_prev: None,
+            coh_pw: VecDeque::new(),
+            coh_q_hi: 0.0,
+            coh_learned: 0,
+            coh_var: if pr.emit_mode == 2 { coherent_var_sum(&chain_window(pr.iq_fc), CUM_LEN) } else { Vec::new() },
             elements: 0,
             pr: pr.clone(),
         }
@@ -1486,10 +1745,13 @@ impl ChannelChain {
         &self.tally
     }
 
-    /// Un passo: il confronto di forma del tono; i caratteri nuovi in `out`.
-    pub fn step(&mut self, shape: Shape, out: &mut Vec<u8>) -> KeyProb {
+    /// Un passo: il confronto di forma del tono e (per l'ibrido coerente) il campione di banda base; i caratteri nuovi in `out`.
+    pub fn step(&mut self, shape: Shape, iq: Option<Complex32>, out: &mut Vec<u8>) -> KeyProb {
         let kp = self.tracker.step(shape, &self.pr);
-        self.seq.step(kp.p, self.pr.emit_weight);
+        match iq {
+            Some(y) if self.pr.emit_mode == 2 => self.step_coherent(y, kp),
+            _ => self.seq.step(kp.p, self.pr.emit_weight),
+        }
         self.since_decide += 1;
         self.closed_steps = if kp.gate { 0 } else { self.closed_steps + 1 };
         let start = out.len();
@@ -1497,6 +1759,7 @@ impl ChannelChain {
             let labels = self.seq.traceback();
             self.seq.reset();
             self.since_decide = 0;
+            self.learn_levels(&labels, labels.len());
             self.commit(&labels, out);
             self.finish(out);
         } else if self.since_decide >= DECIDE && self.seq.back.len() >= HISTORY {
@@ -1504,10 +1767,74 @@ impl ChannelChain {
             let labels = self.seq.traceback();
             let n = labels.len() - DECIDE;
             self.seq.back.drain(..n);
+            self.learn_levels(&labels, n);
             self.commit(&labels[..n], out);
         }
         self.note_words(start, out);
         kp
+    }
+
+    /// Il passo dell'ibrido coerente: in fase, rumore e ampiezza, poi la sequenza a durate esplicite con il giudizio coerente dei toni.
+    fn step_coherent(&mut self, y: Complex32, kp: KeyProb) {
+        // la velocita' di rotazione residua (tono non al centro della riga) dai passi consecutivi a tasto sicuramente abbassato
+        if let Some(prev) = self.coh_prev
+            && kp.p > 0.8
+        {
+            let (re, im) = (f64::from(y.re * prev.re + y.im * prev.im), f64::from(y.im * prev.re - y.re * prev.im));
+            self.coh_rot.0 += 0.05 * (re - self.coh_rot.0);
+            self.coh_rot.1 += 0.05 * (im - self.coh_rot.1);
+        }
+        self.coh_prev = Some(y);
+        let rate = if self.coh_rot.0 != 0.0 || self.coh_rot.1 != 0.0 { self.coh_rot.1.atan2(self.coh_rot.0) } else { 0.0 };
+        self.coh_phase = (self.coh_phase + rate) % (2.0 * PI);
+        let (sn, cs) = self.coh_phase.sin_cos();
+        let (yr, yi) = (f64::from(y.re), f64::from(y.im));
+        let z = Complex32::new((yr * cs + yi * sn) as f32, (yi * cs - yr * sn) as f32);
+        let pw = f64::from(z.norm_sqr());
+        self.coh_pw.push_back(pw);
+        if !kp.gate {
+            self.coh_noise += 0.02 * (pw - self.coh_noise);
+        }
+        // finche' il percorso deciso non ha insegnato l'ampiezza: quantile 90% della potenza
+        let l = 10.0 * pw.max(1e-9).log10();
+        self.coh_q_hi += 0.05 * (0.9 - if l < self.coh_q_hi { 1.0 } else { 0.0 });
+        if l > self.coh_q_hi + 3.0 {
+            self.coh_q_hi += 0.2 * (l - self.coh_q_hi);
+        }
+        if self.coh_learned < 20 {
+            self.coh_amp2 = (10f64.powf(self.coh_q_hi / 10.0) - self.coh_noise).max(0.0);
+        }
+        let noise = self.coh_noise.max(0.3);
+        let amp2 = (self.coh_amp2 / noise).max(self.pr.coh_min);
+        let nu = (amp2 / self.pr.coh_snr_cap).max(1.0);
+        let piece = ((self.pr.coh_piece_units * self.model.mu[0].exp()).round() as usize).max(1);
+        let scale = (1.0 / noise.sqrt()) as f32;
+        let judge = CohJudge { amp2, nu, piece, max_pieces: self.pr.coh_max_pieces, closed_penalty: -self.pr.coh_closed, var_sum: &self.coh_var };
+        self.seq.step_coherent(z * scale, kp.gate, &judge);
+    }
+
+    /// Ibrido coerente: il percorso deciso insegna ampiezza (passi accesi lontani dai fronti) e rumore (pause); si tolgono le potenze
+    /// dei primi `n` passi.
+    fn learn_levels(&mut self, labels: &[bool], n: usize) {
+        if self.pr.emit_mode != 2 {
+            return;
+        }
+        let k = n.min(self.coh_pw.len());
+        for i in 0..k {
+            let inner = i > 0 && i + 1 < labels.len() && labels[i - 1] == labels[i] && labels[i + 1] == labels[i];
+            let pw = self.coh_pw[i];
+            if inner && labels[i] {
+                let a = if self.coh_learned < 20 { 0.2 } else { 0.03 };
+                self.coh_amp2 += a * ((pw - self.coh_noise).max(0.0) - self.coh_amp2);
+                self.coh_learned = self.coh_learned.saturating_add(1);
+            } else if inner && self.tracker.gate {
+                self.coh_noise += 0.01 * (pw - self.coh_noise);
+            }
+        }
+        self.coh_pw.drain(..k);
+        if labels.len() == n {
+            self.coh_pw.clear();
+        }
     }
 
     fn note_words(&mut self, start: usize, out: &[u8]) {
@@ -1691,7 +2018,7 @@ impl CwChain {
         // il tono si porta al centro di una riga
         let center = (f64::from(tone_hz) / BIN_HZ).round().max(SHAPE_HALF as f64 + 1.0) as usize;
         let shift = center as f64 * BIN_HZ - f64::from(tone_hz);
-        CwChain { spec: Spectrum::new(pr.window_fc, shift, 200.0, 3_500.0), center, ch: ChannelChain::new(f64::from(wpm_hint), pr) }
+        CwChain { spec: Spectrum::new(pr.window_fc, if pr.emit_mode == 2 { pr.iq_fc } else { 0.0 }, shift, 200.0, 3_500.0), center, ch: ChannelChain::new(f64::from(wpm_hint), pr) }
     }
 
     /// Altro audio a 12 kHz; restituisce i caratteri nuovi.
@@ -1700,7 +2027,8 @@ impl CwChain {
         for &x in audio {
             if self.spec.push(x) {
                 let s = match_shape(&self.spec.power, self.center, self.spec.noise);
-                self.ch.step(s, &mut out);
+                let iq = self.spec.baseband(self.center);
+                self.ch.step(s, iq, &mut out);
             }
         }
         out
@@ -1732,6 +2060,7 @@ pub enum ChannelState {
 struct BandChannel {
     id: u32,
     bin: usize,
+    home: usize,
     frac: f32,
     rx: ChannelChain,
     text: String,
@@ -1758,12 +2087,21 @@ pub struct CwChainBand {
     contrast: Vec<f32>,
     lo: usize,
     hi: usize,
-    history: VecDeque<(Vec<f32>, f32)>,
+    history: VecDeque<Backlog>,
     channels: Vec<BandChannel>,
     max_channels: usize,
     next_id: u32,
     steps: u64,
     out: Vec<u8>,
+}
+
+/// Uno spettro tenuto per i canali nuovi.
+struct Backlog {
+    power: Vec<f32>,
+    noise: f32,
+    iq: Vec<Complex32>,
+    count: u64,
+    iq_noise: f32,
 }
 
 /// Spettri tenuti per i canali nuovi.
@@ -1780,7 +2118,7 @@ impl CwChainBand {
         let lo = ((f64::from(lo_hz) / BIN_HZ) as usize).max(SHAPE_HALF + 1);
         let hi = ((f64::from(hi_hz) / BIN_HZ) as usize).min(NFFT / 2 - SHAPE_HALF - 1).max(lo + 1);
         CwChainBand {
-            spec: Spectrum::new(pr.window_fc, 0.0, f64::from(lo_hz), f64::from(hi_hz)),
+            spec: Spectrum::new(pr.window_fc, if pr.emit_mode == 2 { pr.iq_fc } else { 0.0 }, 0.0, f64::from(lo_hz), f64::from(hi_hz)),
             acc: vec![0.0; NFFT / 2],
             contrast: vec![0.0; NFFT / 2],
             lo,
@@ -1814,7 +2152,7 @@ impl CwChainBand {
             let side = self.acc[i - 4] + self.acc[i + 4];
             self.contrast[i] = 0.8 * self.contrast[i] + self.acc[i] / side.max(1e-12);
         }
-        self.history.push_back((power.clone(), noise));
+        self.history.push_back(Backlog { power: power.clone(), noise, iq: self.spec.iq.clone(), count: self.spec.count, iq_noise: self.spec.iq_noise });
         if self.history.len() > BACKLOG {
             self.history.pop_front();
         }
@@ -1832,12 +2170,16 @@ impl CwChainBand {
             ch.frac = 0.97 * ch.frac + 0.03 * off as f32;
             if ch.frac.abs() >= 1.0 {
                 let s = ch.frac.trunc();
-                ch.bin = (ch.bin as i32 + s as i32).clamp(self.lo as i32, self.hi as i32 - 1) as usize;
+                // il centro si sposta al massimo di due righe da dove il canale e' nato: non scivola verso una stazione vicina piu' forte
+                let lo = (ch.home as i32 - 2).max(self.lo as i32);
+                let hi = (ch.home as i32 + 2).min(self.hi as i32 - 1);
+                ch.bin = (ch.bin as i32 + s as i32).clamp(lo, hi) as usize;
                 ch.frac -= s;
             }
             let shape = match_shape(power, ch.bin, noise);
+            let iq = baseband_of(&self.spec.iq, ch.bin, self.spec.count, self.spec.iq_noise);
             self.out.clear();
-            let kp = ch.rx.step(shape, &mut self.out);
+            let kp = ch.rx.step(shape, iq, &mut self.out);
             ch.text.push_str(&String::from_utf8_lossy(&self.out));
             if ch.text.len() > 500 {
                 let cut = ch.text.len() - 375;
@@ -1856,7 +2198,9 @@ impl CwChainBand {
             if c <= self.pr.band_peak || c <= self.contrast[i - 1] || c <= self.contrast[i + 1] {
                 continue;
             }
-            if self.channels.iter().any(|ch| ch.bin.abs_diff(i) <= MASK) {
+            // maschera attorno ai canali aperti, piu' larga attorno a quelli forti (la loro dispersione non apre canali falsi)
+            let (wide, strong) = (self.pr.band_mask_strong, f64::from(self.pr.band_strong));
+            if self.channels.iter().any(|ch| ch.bin.abs_diff(i) <= MASK || (ch.rx.tracker.msq > strong && ch.bin.abs_diff(i) <= wide)) {
                 continue;
             }
             self.open(i);
@@ -1871,12 +2215,13 @@ impl CwChainBand {
         let mut rx = ChannelChain::new(25.0, &self.pr);
         let mut text = Vec::new();
         // i canali nuovi partono dagli spettri tenuti
-        for (p, n) in &self.history {
-            rx.step(match_shape(p, bin, *n), &mut text);
+        for h in &self.history {
+            rx.step(match_shape(&h.power, bin, h.noise), baseband_of(&h.iq, bin, h.count, h.iq_noise), &mut text);
         }
         self.channels.push(BandChannel {
             id: self.next_id,
             bin,
+            home: bin,
             frac: 0.0,
             rx,
             text: String::from_utf8_lossy(&text).into_owned(),
@@ -1976,7 +2321,7 @@ mod tests {
 
     #[test]
     fn spettro_a_cadenza_fissa() {
-        let mut s = Spectrum::new(25.0, 0.0, 200.0, 3_500.0);
+        let mut s = Spectrum::new(25.0, 0.0, 0.0, 200.0, 3_500.0);
         let n = (0..12_000).filter(|i| s.push((2.0 * PI * 703.125 * *i as f64 / RATE).sin() as f32)).count();
         assert_eq!(n, 12_000 / HOP);
         let peak = s.power.iter().enumerate().fold((0, 0.0f32), |a, (i, &p)| if p > a.1 { (i, p) } else { a }).0;
@@ -2181,6 +2526,59 @@ mod tests {
         let out: Vec<u8> = audio.chunks(1200).flat_map(|b| rx.process(b)).collect();
         let s = String::from_utf8_lossy(&out);
         assert!(s.contains("IU3ABC"), "{s:?}");
+    }
+
+    #[test]
+    fn banda_base_coerente_calibrata() {
+        // sul solo rumore la varianza di una somma di n passi in fase e' quella prevista dalla finestra
+        for fc in [60.0, 100.0] {
+            let mut audio = vec![0.0f32; 12_000 * 60];
+            noise(&mut audio, 0.05, 9);
+            let mut sp = Spectrum::new(25.0, fc, 3.125, 200.0, 3_500.0);
+            let mut ys = Vec::new();
+            for &x in &audio {
+                if sp.push(x) && sp.count > 40 {
+                    ys.extend(sp.baseband(60));
+                }
+            }
+            let var = coherent_var_sum(&chain_window(fc), 16);
+            for n in [1usize, 4, 10] {
+                let sums: Vec<f64> = ys
+                    .chunks_exact(n)
+                    .map(|c| {
+                        let (re, im) = c.iter().fold((0.0f64, 0.0f64), |a, z| (a.0 + f64::from(z.re), a.1 + f64::from(z.im)));
+                        re * re + im * im
+                    })
+                    .collect();
+                let got = sums.iter().sum::<f64>() / sums.len() as f64;
+                assert!((got / var[n] - 1.0).abs() < 0.15, "fc {fc} n {n}: misurata {got:.2} prevista {:.2}", var[n]);
+            }
+        }
+    }
+
+    #[test]
+    fn ibrido_coerente_legge_e_tace_sul_rumore() {
+        let pr = ChainParams { emit_mode: 2, ..ChainParams::default() };
+        let mut audio = tone_audio(b"CQ TEST IU3ABC IU3ABC K", 700.0, 25.0, 0.1);
+        noise(&mut audio, 0.05, 4);
+        let mut rx = CwChain::with_params(700.0, 20.0, &pr);
+        let out: Vec<u8> = audio.chunks(1200).flat_map(|b| rx.process(b)).collect();
+        let s = String::from_utf8_lossy(&out);
+        assert!(s.contains("IU3ABC"), "{s:?}");
+        let mut quiet = vec![0.0f32; 12_000 * 15];
+        noise(&mut quiet, 0.05, 3);
+        let mut rx = CwChain::with_params(700.0, 20.0, &pr);
+        let n: usize = quiet.chunks(1200).map(|b| rx.process(b).iter().filter(|c| **c != b' ').count()).sum();
+        assert!(n <= 3, "{n}");
+    }
+
+    #[test]
+    fn verosimiglianza_coerente_premia_il_tono() {
+        let var: Vec<f64> = (0..=32).map(|n| n as f64).collect();
+        let j = CohJudge { amp2: 4.0, nu: 1.0, piece: 8, max_pieces: 16, closed_penalty: 0.0, var_sum: &var };
+        // 8 passi di tono d'ampiezza 2 sommati in fase contro 8 passi di solo rumore (modulo della somma circa la radice di 8)
+        assert!(coherent_llr(&[(8, 16.0)], &j) > 5.0);
+        assert!(coherent_llr(&[(8, 8f64.sqrt())], &j) < 0.0);
     }
 
     #[test]
