@@ -1436,6 +1436,10 @@ impl EngineSettingsStore {
                 if value.chars().count() > 100 || value.chars().any(char::is_control) {
                     return Err(SettingsError::BadValue(format!("{key}: valore non valido")));
                 }
+                // le voci segrete con una forma propria (il token di Club Log) si controllano anche qui
+                if let Some(result) = validate_upload(key, value) {
+                    result?;
+                }
                 continue;
             }
             validate(key, value)?;
