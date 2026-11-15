@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Firma ad hoc con hardened runtime: senza l'entitlement di ingresso audio macOS apre il
+     dispositivo ma consegna solo silenzio (decoder che finiscono in 0-2 ms, nessun prompt).
+     Con l'entitlement il microfono torna a funzionare tenendo l'hardened runtime attivo.
+     Verificato su macOS Intel dalla 0.11.256 alla 0.11.259. -->
+<dict>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+</dict>
+</plist>
