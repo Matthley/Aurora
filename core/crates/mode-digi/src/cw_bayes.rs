@@ -972,11 +972,39 @@ impl CwBayes {
         ln
     }
 
+    /// Il confine (in unità) fra due classi di pausa vicine `a` < `b`: la durata dove le due log-normali, pesate con le loro probabilità
+    /// a priori, valgono uguale. Con larghezze uguali e' la media geometrica spostata verso la classe meno probabile.
+    fn gap_boundary(&self, a: usize, b: usize) -> f64 {
+        let (ma, mb) = (self.fist_mean[a].ln(), self.fist_mean[b].ln());
+        let (sa, sb) = (self.fist_sigma[a], self.fist_sigma[b]);
+        let geo = 0.5 * (ma + mb);
+        // ln(p/sigma) di ognuna; nel logaritmo della durata: -(x-m)^2/(2 s^2) + k
+        let (ka, kb) = ((GAP_PRIOR[a] / sa).ln(), (GAP_PRIOR[b] / sb).ln());
+        // a x^2 + b x + c = 0 dalla differenza dei due esponenti
+        let qa = 1.0 / (2.0 * sb * sb) - 1.0 / (2.0 * sa * sa);
+        let qb = ma / (sa * sa) - mb / (sb * sb);
+        let qc = mb * mb / (2.0 * sb * sb) - ma * ma / (2.0 * sa * sa) + ka - kb;
+        let x = if qa.abs() < 1e-9 {
+            if qb.abs() < 1e-12 { geo } else { -qc / qb }
+        } else {
+            let disc = qb * qb - 4.0 * qa * qc;
+            if disc < 0.0 {
+                geo
+            } else {
+                // la radice fra le due medie (o la piu' vicina alla media geometrica)
+                let r = disc.sqrt();
+                let (x1, x2) = ((-qb + r) / (2.0 * qa), (-qb - r) / (2.0 * qa));
+                if (x1 - geo).abs() < (x2 - geo).abs() { x1 } else { x2 }
+            }
+        };
+        x.clamp(ma, mb).exp()
+    }
+
     /// Le soglie (campioni) oltre le quali una pausa aperta e' gia' fine del carattere e fine della parola.
     fn gap_thresholds(&self, s: usize) -> (u32, u32) {
         let u = self.units[s];
-        let t1 = (self.fist_mean[INTRA] * self.fist_mean[CHARGAP]).sqrt() * u;
-        let t2 = (self.fist_mean[CHARGAP] * self.fist_mean[WORDGAP]).sqrt() * u;
+        let t1 = self.gap_boundary(INTRA, CHARGAP) * u;
+        let t2 = self.gap_boundary(CHARGAP, WORDGAP) * u;
         (t1.round() as u32, t2.round() as u32)
     }
 
@@ -1290,6 +1318,20 @@ impl CwBayes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_gap_boundary_leans_towards_the_rarer_class() {
+        let mut b = CwBayes::new(500.0, &[1.0], 1, 20.0);
+        // pause fra i caratteri piu' probabili di quelle fra le parole: il confine sta oltre la media geometrica (4,58 unità)
+        let t2 = b.gap_boundary(CHARGAP, WORDGAP);
+        assert!(t2 > 4.7 && t2 < 5.5, "confine {t2}");
+        let t1 = b.gap_boundary(INTRA, CHARGAP);
+        assert!(t1 > 1.73 && t1 < 2.3, "confine {t1}");
+        // con le pause fra i caratteri allungate (tasto a mano) il confine le segue
+        b.fist_mean[CHARGAP] = 4.0;
+        b.fist_mean[WORDGAP] = 9.0;
+        assert!(b.gap_boundary(CHARGAP, WORDGAP) > 6.0);
+    }
 
     #[test]
     fn the_morse_tree_has_every_character() {
