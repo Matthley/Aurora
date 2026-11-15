@@ -376,6 +376,8 @@ fn new_demod(centre_hz: f32, shift_hz: f32, baud: f32, reverse: bool) -> RttyDem
     let mut demod = RttyDemodulator::new(RttyParams { centre_hz, shift_hz, baud, reverse });
     demod.set_squelch_prob(Some((SQUELCH_OPEN, SQUELCH_CLOSE)));
     demod.set_fine_tuning(Some(FINE_TUNING_HZ));
+    // in BigScan la decodifica di sequenza costava una stazione sulla registrazione di prova (17 -> 16 su 26): resta al ricevitore singolo
+    demod.set_sequence_decoder(false);
     demod
 }
 
