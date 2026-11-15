@@ -2,6 +2,17 @@
 
 ## Non rilasciato
 
+## 0.11.265 - 2026-11-15
+
+- Aggiornamenti: l'installazione non parte piu' da sola e la locandina non si apre da sola (prima, a pacchetto pronto, dopo 5 secondi Aurora si chiudeva per installare anche durante un QSO): avvisano la cartolina del tray e la barretta in testata, si installa solo premendo «Installa».
+- Browser o telefono collegati ad Aurora: non riscrivono piu' le impostazioni e i filtri del PC all'apertura e non accendono da soli la ricezione SSTV o dei modi testuali (tasto «Ascolta»); il PC principale si riconosce da com'e' collegato, non dalla larghezza della finestra.
+- `POST /commands/band` con `mode` cambia davvero il modo del motore (prima la radio andava sulla frequenza FT8 ma il motore restava in FT4).
+- CW: «TX = RX» e' ora un interruttore: acceso, la velocita' di trasmissione segue quella della stazione ricevuta; - e + lo spengono.
+- SSTV: pagina «Componi e trasmetti» con anteprima a sinistra e quattro schede a destra (Foto, Ritocchi, Livelli, Modelli), senza scorrere la pagina.
+- CW veloce: corretto un errore all'inizio della sequenza.
+- Intestazione «by IU3WJQ».
+- README e Guida allineati al programma: Impostazioni ad albero in 5 famiglie piu' Informazioni, Filtro ±60 Hz (±290 in Hound, in FT8), QSO a log quando parte RR73 o 73, AutoTX e doppio clic, 23 contest FT8/FT4 piu' il personalizzato e 135 contest dei modi testuali, Impostazioni apribili solo dal PC.
+
 ## 0.11.264 - 2026-11-15
 
 - CW: «Ricevitore CW: preciso / veloce» nella pagina del modo, veloce di base: le lettere compaiono in grigio dopo circa mezzo secondo (prima 1,25 s) e il ricevitore preciso le conferma o corregge; testo finale invariato.
