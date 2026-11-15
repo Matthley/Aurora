@@ -43,7 +43,12 @@ export function alertText(a: TxAlert, t: ReturnType<typeof useT>): string {
   if (a.kind === 'high_swr') return t('tx.alert.highSwr', { swr: (a.value ?? 0).toFixed(1), limit: (a.limit ?? 0).toFixed(1) });
   if (a.kind === 'fox_detected') return t('tx.alert.foxDetected', { call: a.detail || '—', hz: Math.round(a.value ?? 0) });
   if (a.kind === 'hound_off') return t('tx.alert.houndOff', { call: a.detail || '—' });
-  if (a.kind === 'hound_on') return t(a.detail === 'split' ? 'tx.alert.houndSplit' : 'tx.alert.hound', { hz: Math.round(a.value ?? 0) });
+  if (a.kind === 'hound_on') {
+    const parts = (a.detail ?? '').split(',');
+    const head = t(parts.includes('split') ? 'tx.alert.houndSplit' : 'tx.alert.hound', { hz: Math.round(a.value ?? 0) });
+    // #69: senza lo split della radio sotto 1500 Hz la radio non sposta la frequenza di trasmissione (avviso di WSJT-X)
+    return parts.includes('no_radio_split') ? `${head}. ${t('tx.alert.houndNoRadioSplit')}` : head;
+  }
   if (a.kind === 'inhibited') return t('tx.alert.inhibited', { holder: a.detail || '—' });
   return t('tx.alert.unrepresentable', { text: a.detail ?? '' });
 }

@@ -323,6 +323,14 @@ export const stationStrings = {
     'Modo Hound activado: Tx en {hz} Hz, Split activado',
     'Modo Hound ligado: Tx em {hz} Hz, Split ligado',
   ],
+  'tx.alert.houndNoRadioSplit': [
+    'Per Hound serve lo split della radio: Impostazioni › Radio (CAT e PTT) › Split, modo e lettura › Split «Radio (split vero)» o «Simulato», altrimenti sotto 1500 Hz la radio non sposta la frequenza di trasmissione',
+    'Hound needs the radio split: Settings › Radio (CAT and PTT) › Split, mode and polling › Split “Radio (real split)” or “Emulated”, otherwise below 1500 Hz the radio does not move the transmit frequency',
+    'Hound braucht den Split des Geräts: Einstellungen › Funkgerät (CAT und PTT) › Split, Modus und Abfrage › Split „Gerät (echter Split)“ oder „Simuliert“, sonst verschiebt das Gerät unter 1500 Hz die Sendefrequenz nicht',
+    'Hound demande le split de la radio : Réglages › Radio (CAT et PTT) › Split, mode et lecture › Split « Radio (vrai split) » ou « Simulé », sinon sous 1500 Hz la radio ne déplace pas la fréquence d’émission',
+    'Hound necesita el split de la radio: Ajustes › Radio (CAT y PTT) › Split, modo y lectura › Split «Radio (split real)» o «Simulado»; si no, por debajo de 1500 Hz la radio no mueve la frecuencia de transmisión',
+    'Hound precisa do split do rádio: Definições › Rádio (CAT e PTT) › Split, modo e leitura › Split «Rádio (split real)» ou «Simulado»; caso contrário, abaixo de 1500 Hz o rádio não muda a frequência de transmissão',
+  ],
   'tx.alert.foxDetected': [
     '{call} lavora in Fox/Hound: Hound acceso (Tx a {hz} Hz)',
     '{call} is working Fox/Hound: Hound on (Tx at {hz} Hz)',

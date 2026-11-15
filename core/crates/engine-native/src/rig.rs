@@ -493,6 +493,21 @@ impl NativeControls {
         (tx, split_turned_on)
     }
 
+    /// Il dettaglio dell'avviso di Hound acceso: `split` se si e' acceso lo Split (Tx diversa da Rx), `no_radio_split` se manca lo split della
+    /// radio. WSJT-X 3.3 (`mainwindow.cpp`, «Operation in FT8 DXpedition mode normally requires *Split* rig control (either *Rig* or *Fake It*
+    /// on the *Settings | Radio* tab)») avvisa per lo split del CAT: senza, sotto 1500 Hz l'audio esce cosi' com'e' e la radio non sposta la
+    /// frequenza di trasmissione (#69). L'interruttore Split della finestra non sposta la radio.
+    pub fn hound_alert_detail(&self, split_turned_on: bool) -> String {
+        let mut parts = Vec::new();
+        if split_turned_on {
+            parts.push("split");
+        }
+        if !self.radio_split_active() {
+            parts.push("no_radio_split");
+        }
+        parts.join(",")
+    }
+
     pub fn set_decoder_start(&self, start: crate::features::DecoderStart) {
         self.decoder_start.store(start.code(), Ordering::Relaxed);
     }
@@ -1132,7 +1147,7 @@ impl NativeRig {
     /// Accensione di Hound a mano (vedi `NativeControls::hound_setup`), con l'avviso di cio' che e' stato fatto.
     fn hound_setup(&self) {
         let (tx, split_turned_on) = self.controls.hound_setup();
-        let alert = aurora_core::TxAlert { kind: aurora_core::TxAlertKind::HoundOn, detail: if split_turned_on { "split".into() } else { String::new() }, value: Some(tx as f32), limit: None };
+        let alert = aurora_core::TxAlert { kind: aurora_core::TxAlertKind::HoundOn, detail: self.controls.hound_alert_detail(split_turned_on), value: Some(tx as f32), limit: None };
         self.controls.raise_alert(alert, Some(std::time::Duration::from_secs(20)));
     }
 }
@@ -1561,12 +1576,28 @@ mod tests {
         assert!(controls.switch_on("split"));
         let alerts = controls.tx_alerts();
         let a = alerts.iter().find(|a| a.kind == aurora_core::TxAlertKind::HoundOn).expect("avviso Hound");
-        assert_eq!((a.value, a.detail.as_str()), (Some(tx as f32), "split"));
+        assert_eq!((a.value, a.detail.as_str()), (Some(tx as f32), "split,no_radio_split"));
         let (rig2, controls) = super::tests::rig();
         controls.tx_df.store(1800, Ordering::Relaxed);
+        controls.set_split_probe(std::sync::Arc::new(|| true));
         rig2.set_control("hound", Some(true)).expect("hound");
         assert_eq!(controls.tx_df.load(Ordering::Relaxed), 1800);
-        assert!(controls.tx_alerts().iter().any(|a| a.kind == aurora_core::TxAlertKind::HoundOn && a.detail.is_empty()), "Split era gia' acceso");
+        assert!(controls.tx_alerts().iter().any(|a| a.kind == aurora_core::TxAlertKind::HoundOn && a.detail.is_empty()), "Split e split della radio gia' accesi");
+    }
+
+    /// #69: Hound con lo split della radio «Nessuno» lo dice, come WSJT-X; con «Radio» o «Simulato» no. Con lo split della radio il tono sotto
+    /// 1500 Hz sale fra 1500 e 2000 Hz (la radio sposta il VFO di trasmissione dello stesso XIT), senza resta dov'e'.
+    #[test]
+    fn hound_without_radio_split_warns_and_the_tone_moves_only_with_it() {
+        let (_, controls) = rig();
+        assert_eq!(controls.hound_alert_detail(false), "no_radio_split");
+        assert_eq!(controls.tx_audio_hz(1200), 1200);
+        controls.set_split_probe(std::sync::Arc::new(|| true));
+        assert_eq!(controls.hound_alert_detail(false), "");
+        assert_eq!(controls.hound_alert_detail(true), "split");
+        assert_eq!(controls.tx_audio_hz(1200), 1700);
+        assert_eq!(controls.tx_audio_hz(1000), 1500);
+        assert_eq!(controls.tx_audio_hz(1499), 1999);
     }
 
     #[test]

@@ -1500,6 +1500,11 @@ impl<P: TxPort + ?Sized> TxDriver<P> {
         self.controls.clear_alert(aurora_core::TxAlertKind::HoundOn);
         self.controls.clear_alert(if on { aurora_core::TxAlertKind::HoundOff } else { aurora_core::TxAlertKind::FoxDetected });
         self.controls.raise_alert(aurora_core::TxAlert { kind, detail: call.to_string(), value, limit: None }, Some(std::time::Duration::from_secs(60)));
+        // senza lo split della radio sotto 1500 Hz la radio non sposta la trasmissione: lo si dice come all'accensione a mano (#69)
+        if on && !self.controls.radio_split_active() {
+            let detail = self.controls.hound_alert_detail(false);
+            self.controls.raise_alert(aurora_core::TxAlert { kind: aurora_core::TxAlertKind::HoundOn, detail, value, limit: None }, Some(std::time::Duration::from_secs(60)));
+        }
         log.push(if on { format!("Hound automatico: {call} lavora in Fox/Hound, Hound acceso") } else { format!("Hound spento: {call} non lavora in Fox/Hound") });
     }
 
