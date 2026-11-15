@@ -118,3 +118,45 @@ Misure su 8 semi, canale singolo (CER medio per scenario e caratteri giusti su t
 | velocita' che cambia meno fra i caratteri | peggio |
 | ampiezza libera pezzo per pezzo (evanescenza veloce) mescolata al 15% | peggio, anche sull'evanescenza veloce |
 | BigScan: soglia di apertura dei canali 8 dB invece di 10 | peggio |
+
+## Seconda taratura: pezzi sommati in fase di due unita'
+
+Nel giudizio di un tono (`mark_llr`) i campioni si sommano in fase a pezzi; i pezzi erano lunghi un'unita' della velocita' migliore,
+ora due (`PIECE_UNITS`). Con la fase del tono gia' corretta, sommare in fase su tratti piu' lunghi tira fuori i segnali deboli. 8 semi,
+«prima» = la tabella qui sopra (colonne «dopo»), CER in %:
+
+| scenario | canale prima | canale dopo | BigScan prima | BigScan dopo |
+|---|---|---|---|---|
+| 25 WPM 0 | 2,1 | 1,5 | 1,8 | 1,6 |
+| 25 WPM -3 | 23,8 | 20,5 | 24,3 | 22,2 |
+| 25 WPM -6 | 83,8 | 82,4 | 89,9 | 86,1 |
+| 40 WPM 0 | 11,6 | 9,3 | 11,9 | 12,1 |
+| salto 18-35 | 1,1 | 1,1 | 0,9 | 0,6 |
+| manuale +10 | 8,6 | 9,0 | 8,8 | 9,2 |
+| manuale +3 | 10,5 | 10,1 | 10,9 | 11,3 |
+| qsb lento | 5,3 | 6,0 | 5,3 | 5,6 |
+| qsb lento 0 | 24,0 | 21,5 | 25,4 | 22,1 |
+| qsb veloce | 55,4 | 52,2 | 56,2 | 51,7 |
+| vicina +20 | 1,3 | 1,1 | 1,0 | 1,1 |
+| silenzi 0 | 2,1 | 0,9 | 1,6 | 0,9 |
+| altre righe | 0,0 | 0,0 / 0,1 | 0,0 | 0,0 / 0,1 |
+
+| totali | canale prima | canale dopo | BigScan prima | BigScan dopo |
+|---|---|---|---|---|
+| caratteri giusti | 16571 | 16719 | 16499 | 16616 |
+| sbagliati / mancanti / inseriti | 952 / 759 / 323 | 923 / 640 / 340 | 899 / 884 / 328 | 840 / 826 / 330 |
+| nominativi esatti (su 938) | 716 | 737 | 715 | 733 |
+| nominativi falsi | 157 | 136 | 161 | 138 |
+| falsi sul rumore (8 min per riga) | 1 carattere | 0 | 0 | 0 |
+| latenza mediana / 95° | 1,25 / 2,13 s | 1,25 / 2,12 s | 1,25 / 2,13 s | 1,25 / 2,13 s |
+| calcolo | 10,7 ms/s | 10,5 ms/s | 5,4 ms/s | 5,3 ms/s |
+
+### Provati e lasciati (dopo i pezzi di due unita', solo canale)
+
+| prova | esito |
+|---|---|
+| pezzi di 1,5 e 3 unita' | giusti 16630 e 16685, nominativi 714 e 726: peggio di 2 |
+| apprendimento dell'ampiezza pesato con il rapporto S/N del tono (prima dei pezzi lunghi) | giusti 16571 -> 16546 |
+| probabilita' a priori 56/44 fra punto e linea quando l'albero ammette entrambi | giusti +15, nominativi +4, ma torna 1 carattere falso sul rumore |
+| peso dell'ampiezza «che spiega meglio il tono» 0,06 | giusti +11, nominativi -1, 1 carattere falso sul rumore |
+| apprendimento del pugno dopo 14 elementi invece di 20 | giusti 16719 -> 16701 |
