@@ -2,6 +2,11 @@
 
 Questo file dice a chi riprende il lavoro, in una sessione nuova, **a che punto e' Aurora** e **cosa fare per primo**. Va aggiornato a ogni passaggio di sessione.
 
+## Stato al 2026-11-15 (0.11.265 pubblicata 2026-11-15T14:00:59Z)
+
+- Aggiornamenti solo con «Installa» (tolto il conto alla rovescia di `UpdatePoster.tsx`; la locandina si apre solo a richiesta). Client remoti (`REMOTE_HOST` in `lib/phone.ts`): niente scritture delle impostazioni del PC, ascolto SSTV/testo solo con «Ascolta» (`ListenGate.tsx`). `POST /commands/band` con `mode` cambia il modo (`apply_mode_change`). «TX = RX» interruttore (`cw_wpm_follow_rx`). SSTV a schede. Intestazione «by IU3WJQ». README e Guida allineati al codice.
+- Aperti, da decidere col proprietario: Gen.Msgs (citato solo nei README, pulsante assente); varchi delle Impostazioni da remoto (`#/finestra/impostazioni` non bloccata, `PUT /engine-settings` accettato dalla rete di casa); consiglio del README inglese di aprire Aurora dall'IP.
+
 ## Stato al 2026-11-15 sera (0.11.264 pubblicata 2026-11-15T13:23:16Z)
 
 - CW ibrido «preciso / veloce» (`cw_hybrid.rs`, evento `rx_prov`, veloce di base: testo provvisorio dalla catena in 0,57 s, definitivo dell'attuale); BIGScan RTTY con stazioni nascoste confermate per testo proprio e trattenuto, primo carattere incerto tolto davanti a parole fisse; riquadro unico `PwrSplitBox` in tutti gli stili; istogramma SSTV veloce (`rx_hist` ogni 100 ms) senza spettro; +/- sui WPM; maniglia BigScan indipendente; Informazioni in tre colonne da 44rem.

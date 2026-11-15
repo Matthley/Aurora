@@ -1,6 +1,6 @@
 # Memoria di progetto
 
-Stato al 2026-11-14, versione 0.11.265 pubblicata (Club Log col token personale dell'API REST v1, HRDLog e registro delle decisioni tradotti, VFO B delle Yaesu da `get_split_freq`, impostazioni allineate a sinistra, ADIF solo in File ADIF). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
+Stato al 2026-11-15, versione 0.11.265 pubblicata (aggiornamenti installati solo a richiesta, client remoti che non toccano le impostazioni del PC, SSTV a schede, CW ibrido «preciso / veloce», BIGScan RTTY con stazioni deboli, WinKeyer, QTC del WAE). Per riprendere il lavoro leggi anche `docs/ripresa.md`, `docs/mancante.md` (cosa manca) e `CHANGELOG.md`.
 
 
 ## Decisioni del 2026-11-13/14

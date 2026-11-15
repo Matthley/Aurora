@@ -23,7 +23,7 @@ export const NOVITA_MAX = 40;
 export const NOVITA: readonly Novita[] = [
   {
     version: '0.11.265',
-    released: '2026-11-15T21:00:00Z',
+    released: '2026-11-15T14:00:59Z',
     kind: 'fixed',
     featured: true,
     title: [
@@ -45,7 +45,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.265',
-    released: '2026-11-15T21:00:00Z',
+    released: '2026-11-15T14:00:59Z',
     kind: 'changed',
     title: [
       'SSTV a schede e «TX = RX» come interruttore',
@@ -66,7 +66,7 @@ export const NOVITA: readonly Novita[] = [
   },
   {
     version: '0.11.265',
-    released: '2026-11-15T21:00:00Z',
+    released: '2026-11-15T14:00:59Z',
     kind: 'fixed',
     title: [
       'Browser e telefono non toccano più le impostazioni del PC',
