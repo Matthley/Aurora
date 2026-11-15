@@ -3,7 +3,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use serde::Deserialize;
@@ -91,8 +91,10 @@ fn info_paese(state: &AppState, call: &str) -> Option<contest::punti_testo::Info
     Some(contest::punti_testo::InfoPaese { dxcc: s("prefix"), continente: s("continent"), cq: n("cq_zone"), itu: n("itu_zone") })
 }
 
-/// Il contest attivo valutato sui QSO del log: contest, QSO valutati, totali e nominativo della stazione.
-async fn valuta_attivo(state: &AppState) -> Result<(ContestTesto, Vec<contest::punti_testo::Valutato>, contest::punti_testo::Punteggio, String), ApiError> {
+/// Il contest attivo valutato sui QSO del log: contest, QSO valutati, totali (con i QTC), nominativo della stazione e QTC dell'edizione.
+type Valutazione = (ContestTesto, Vec<contest::punti_testo::Valutato>, contest::punti_testo::Punteggio, String, Vec<contest::qtc::Qtc>);
+
+async fn valuta_attivo(state: &AppState) -> Result<Valutazione, ApiError> {
     use contest::punti_testo::{QsoTesto, qso_del_contest, scambi_da_commento, valuta};
     let s = service(state)?;
     let attivo = s.elenco().attivo().ok_or_else(|| ApiError::new(StatusCode::CONFLICT, "contest_off"))?;
@@ -117,23 +119,92 @@ async fn valuta_attivo(state: &AppState) -> Result<(ContestTesto, Vec<contest::p
     let (call, _) = s.stazione();
     let mio = info_paese(state, &call);
     let paese = |c: &str| info_paese(state, c);
-    let (valutati, tot) = valuta(&attivo.contest, &del_contest, mio.as_ref(), &paese, attivo.domain.as_ref());
-    Ok((attivo.contest, valutati, tot, call))
+    let (valutati, mut tot) = valuta(&attivo.contest, &del_contest, mio.as_ref(), &paese, attivo.domain.as_ref());
+    let qtc = if attivo.contest.qtc > 0 { contest::qtc::nella_finestra(&s.qtc(&attivo.contest.id), contest::punti_testo::finestra(&attivo.contest, ora)) } else { Vec::new() };
+    if attivo.contest.qtc > 0 {
+        contest::punti_testo::aggiungi_qtc(&mut tot, qtc.len() as u32);
+    }
+    Ok((attivo.contest, valutati, tot, call, qtc))
 }
 
 /// Il punteggio del contest attivo dei modi testuali: QSO, doppi, punti, moltiplicatori, punteggio e righe per banda.
 #[utoipa::path(get, path = "/api/v1/contest-testo/punteggio", responses((status = 200, description = "Punteggio del contest attivo"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
 pub(crate) async fn punteggio(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
-    let (_, _, tot, _) = valuta_attivo(&state).await?;
+    let (_, _, tot, _, _) = valuta_attivo(&state).await?;
     Ok(Json(json!(tot)))
 }
 
 /// Il file Cabrillo 3.0 del contest attivo dei modi testuali, con il nome proposto.
 #[utoipa::path(get, path = "/api/v1/contest-testo/cabrillo", responses((status = 200, description = "`{testo, nome, qso}`"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
 pub(crate) async fn cabrillo(State(state): State<AppState>, _: Authed) -> Result<Json<Value>, ApiError> {
-    let (c, valutati, tot, call) = valuta_attivo(&state).await?;
+    let (c, valutati, tot, call, qtc) = valuta_attivo(&state).await?;
     let s = service(&state)?;
-    let testo = contest::punti_testo::cabrillo(&c, &call, &valutati, &tot, s.versione());
+    let testo = contest::punti_testo::cabrillo(&c, &call, &valutati, &tot, s.versione(), &qtc);
     let nome = format!("{}-{}.log", call.trim().to_ascii_uppercase().replace('/', "_"), c.id.replace(' ', "_"));
     Ok(Json(json!({ "testo": testo, "nome": nome, "qso": valutati.len() })))
+}
+
+#[derive(Deserialize)]
+pub(crate) struct QtcQuery {
+    #[serde(default)]
+    call: String,
+}
+
+fn divieto(d: Result<(), contest::qtc::Divieto>) -> Value {
+    match d {
+        Ok(()) => Value::Null,
+        Err(e) => json!(e),
+    }
+}
+
+/// I QTC del contest attivo e, per il nominativo chiesto, cosa si puo' fare: QTC gia' scambiati, quanti ne restano, prossima serie,
+/// se si possono mandare o ricevere (o perche' no) e i QSO del log proposti da mandare.
+#[utoipa::path(get, path = "/api/v1/contest-testo/qtc", responses((status = 200, description = "`{regola, qtc, stazione}`"), (status = 409, description = "Nessun contest attivo (contest_off)")))]
+pub(crate) async fn qtc(State(state): State<AppState>, _: Authed, Query(q): Query<QtcQuery>) -> Result<Json<Value>, ApiError> {
+    use contest::qtc::{Divieto, RegolaQtc, ammesso, prossima_serie, proposte, residuo, scambiati};
+    let (c, valutati, _, call, tutti) = valuta_attivo(&state).await?;
+    let Some(regola) = RegolaQtc::da_codice(c.qtc) else {
+        return Ok(Json(json!({ "regola": Value::Null, "qtc": [], "stazione": Value::Null })));
+    };
+    let dest = q.call.trim().to_ascii_uppercase();
+    let stazione = if dest.is_empty() {
+        Value::Null
+    } else {
+        let validi: Vec<contest::punti_testo::QsoTesto> = valutati.iter().filter(|v| !v.doppio).map(|v| v.qso.clone()).collect();
+        let mio = info_paese(&state, &call).map(|i| i.continente).unwrap_or_default();
+        let suo = info_paese(&state, &dest).map(|i| i.continente).unwrap_or_default();
+        let resta = residuo(&tutti, &dest);
+        let esauriti = |r: Result<(), Divieto>| if r.is_ok() && resta == 0 { Err(Divieto::Esauriti) } else { r };
+        json!({
+            "call": dest,
+            "continente": suo,
+            "mio_continente": mio,
+            "scambiati": scambiati(&tutti, &dest),
+            "residuo": resta,
+            "serie": prossima_serie(&tutti),
+            "invio": divieto(esauriti(ammesso(regola, true, &mio, &suo))),
+            "ricezione": divieto(esauriti(ammesso(regola, false, &mio, &suo))),
+            "proposte": proposte(&validi, &tutti, &dest),
+        })
+    };
+    Ok(Json(json!({ "regola": regola, "qtc": tutti, "stazione": stazione })))
+}
+
+#[derive(Deserialize)]
+pub(crate) struct QtcBody {
+    qtc: Vec<contest::qtc::Qtc>,
+}
+
+/// Salva una serie di QTC mandati o ricevuti nel contest attivo (al massimo 10 con ogni stazione).
+#[utoipa::path(post, path = "/api/v1/contest-testo/qtc", responses((status = 200, description = "Salvati, con il totale"), (status = 400, description = "Serie non valida (bad_qtc)"), (status = 409, description = "Nessun contest attivo o senza QTC (contest_off)")))]
+pub(crate) async fn qtc_salva(State(state): State<AppState>, _: Authed, Json(body): Json<QtcBody>) -> Result<Json<Value>, ApiError> {
+    let s = service(&state)?;
+    let attivo = s.elenco().attivo().ok_or_else(|| ApiError::new(StatusCode::CONFLICT, "contest_off"))?;
+    if attivo.contest.qtc <= 0 {
+        return Err(ApiError::new(StatusCode::CONFLICT, "contest_off"));
+    }
+    let ora = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+    let finestra = contest::punti_testo::finestra(&attivo.contest, ora);
+    let tutti = s.aggiungi_qtc(&attivo.contest.id, &body.qtc, finestra).map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, "bad_qtc").with_message(e))?;
+    Ok(Json(json!({ "ok": true, "totale": contest::qtc::nella_finestra(&tutti, finestra).len() })))
 }
