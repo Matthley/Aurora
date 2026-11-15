@@ -1,0 +1,203 @@
+//! Il punteggio dei contest del primo gruppo con i file `.contest` distribuiti (`desktop/src-tauri/contest`) e le regole di
+//! `docs/contest-regole.md`. Ogni prova ha un piccolo log con nominativi finti e il punteggio calcolato a mano dal regolamento.
+//! La stazione e' IU3ABC (Italia, EU, zona CQ 15).
+
+use contest::elenco::{ContestTesto, Dominio, data_ms, leggi_dominio};
+use contest::punti_testo::{InfoPaese, Punteggio, QsoTesto, aggiungi_qtc, valuta};
+use std::path::PathBuf;
+
+fn cartella() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../desktop/src-tauri/contest")
+}
+
+fn contest(nome: &str) -> ContestTesto {
+    let testo = std::fs::read_to_string(cartella().join(format!("{nome}.contest"))).unwrap_or_default();
+    let c = ContestTesto::da_testo(nome, &testo);
+    assert!(!c.score.is_empty(), "{nome}: manca la sezione [Score]");
+    assert_eq!(c.controlla(), Ok(()), "{nome}");
+    c
+}
+
+fn dominio(file: &str) -> Dominio {
+    leggi_dominio(&std::fs::read_to_string(cartella().join(file)).unwrap_or_default())
+}
+
+/// Un piccolo database DXCC finto: (prefisso del nominativo, paese, continente, zona CQ, zona ITU), il primo che combacia.
+fn paese(call: &str) -> Option<InfoPaese> {
+    const T: [(&str, &str, &str, u8, u8); 11] = [
+        ("UA9", "UA9", "AS", 17, 30),
+        ("UR", "UR", "EU", 16, 29),
+        ("UA", "UA", "EU", 16, 29),
+        ("VE", "VE", "NA", 4, 9),
+        ("VK", "VK", "OC", 30, 59),
+        ("JA", "JA", "AS", 25, 45),
+        ("DL", "DL", "EU", 14, 28),
+        ("I", "I", "EU", 15, 28),
+        ("W", "K", "NA", 5, 8),
+        ("K", "K", "NA", 5, 8),
+        ("N", "K", "NA", 5, 8),
+    ];
+    T.iter().find(|t| call.starts_with(t.0)).map(|t| InfoPaese { dxcc: t.1.into(), continente: t.2.into(), cq: t.3, itu: t.4 })
+}
+
+fn mio() -> InfoPaese {
+    paese("IU3ABC").unwrap_or_default()
+}
+
+fn q(call: &str, band: &str, mode: &str, min: i64, sent: &str, rcvd: &str) -> QsoTesto {
+    QsoTesto {
+        call: call.into(),
+        band: band.into(),
+        mode: mode.into(),
+        freq_hz: 0,
+        time_ms: data_ms("20261114120000").unwrap_or(0) + min * 60_000,
+        rst_sent: "599".into(),
+        rst_rcvd: "599".into(),
+        exch_sent: sent.into(),
+        exch_rcvd: rcvd.into(),
+    }
+}
+
+fn r(call: &str, band: &str, min: i64, rcvd: &str) -> QsoTesto {
+    q(call, band, "RTTY", min, &format!("{:03}", min + 1), rcvd)
+}
+
+fn punteggio(nome: &str, log: &[QsoTesto], dom: Option<&Dominio>) -> Punteggio {
+    valuta(&contest(nome), log, Some(&mio()), &paese, dom).1
+}
+
+#[test]
+fn cq_ww_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "15"),       // stesso paese: 1 punto; zona 15, I
+        r("DL1ABC", "20m", 1, "14"),       // stesso continente: 2; zona 14, DL
+        r("W1AW", "20m", 2, "05 CT"),      // altro continente: 3; zona 5, K, stato CT
+        r("DL1ABC", "20m", 3, "14"),       // doppio
+        r("DL1ABC", "40m", 4, "14"),       // 2; zona 14 e DL su 40 m
+        r("JA1ABC", "160m", 5, "25"),      // 160 m non e' del contest: non ammesso
+    ];
+    let t = punteggio("CQ WW RTTY DX", &log, None);
+    // punti 1+2+3+2 = 8; moltiplicatori 20 m: 15, I, 14, DL, 5, K, CT = 7; 40 m: 14, DL = 2; totale 9; 8 x 9 = 72
+    assert_eq!((t.qso, t.doppi, t.esclusi, t.punti, t.molt, t.punteggio), (4, 1, 1, 8, 9, 72));
+}
+
+#[test]
+fn cq_wpx_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001"), // stesso paese 1; IK2
+        r("DL1ABC", "40m", 1, "001"), // stesso continente 2, x2 su 40 m = 4; DL1
+        r("W1AW", "80m", 2, "001"),   // altro continente 3, x2 su 80 m = 6; W1
+        r("DL1ABC", "20m", 3, "002"), // 2; DL1 gia' preso (una volta sola)
+        r("IK2ABC", "20m", 4, "001"), // 1; IK2 gia' preso
+    ];
+    let t = punteggio("CQ WPX RTTY Contest", &log, None);
+    // punti 1+4+6+2+1 = 14; prefissi IK2, DL1, W1 = 3; 14 x 3 = 42
+    assert_eq!((t.punti, t.molt, t.punteggio), (14, 3, 42));
+}
+
+#[test]
+fn wae_rtty_con_qtc() {
+    let log = [
+        r("DL1ABC", "80m", 0, "001"), // 1 punto; DL su 80 m, peso 4
+        r("W1AW", "80m", 1, "001"),   // 1; area K1 su 80 m, peso 4 (W conta per aree)
+        r("W2XYZ", "80m", 2, "001"),  // 1; area K2 su 80 m, peso 4
+        r("DL1ABC", "20m", 3, "002"), // 1; DL su 20 m, peso 2
+        r("JA1ABC", "40m", 4, "001"), // 1; area JA1 su 40 m, peso 3
+    ];
+    let mut t = punteggio("WAEDC RTTY Contest", &log, None);
+    aggiungi_qtc(&mut t, 3);
+    // QSO 5 + QTC 3 = 8; moltiplicatori 4+4+4+2+3 = 17; 8 x 17 = 136
+    assert_eq!((t.punti, t.molt, t.punteggio), (5, 17, 136));
+    assert_eq!(contest("WAEDC RTTY Contest").qtc, 2);
+}
+
+#[test]
+fn bartg_hf_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001"), // I su 20 m; continente EU
+        r("W1AW", "20m", 1, "001"),   // K e area K1 su 20 m; NA
+        r("W1ABC", "20m", 2, "001"),  // niente di nuovo
+        r("W2ABC", "40m", 3, "001"),  // K e K2 su 40 m
+        r("JA1ABC", "15m", 4, "001"), // JA e JA1 su 15 m; AS
+    ];
+    let t = punteggio("BARTG HF RTTY", &log, None);
+    // 5 QSO x 1 punto; paesi e aree 7; continenti EU, NA, AS = 3 (una volta sola); 5 x 7 x 3 = 105
+    assert_eq!((t.punti, t.molt, t.punteggio), (5, 21, 105));
+}
+
+#[test]
+fn arrl_rtty_roundup() {
+    let log = [
+        r("W1AW", "20m", 0, "CT"),      // 1 punto; stato CT
+        r("W1AW", "40m", 1, "CT"),      // altra banda: 1 punto, CT gia' preso (una volta sola)
+        r("VE3ABC", "20m", 2, "ON"),    // 1; provincia ON
+        r("DL1ABC", "20m", 3, "001"),   // 1; DXCC DL
+        r("IK2XYZ", "40m", 4, "002"),   // 1; DXCC I
+        r("W1AW", "20m", 5, "CT"),      // doppio
+    ];
+    let t = punteggio("ARRL RTTY ROUNDUP", &log, None);
+    // 5 punti; CT, ON, DL, I = 4; 5 x 4 = 20 (W e VE non contano come DXCC)
+    assert_eq!((t.doppi, t.punti, t.molt, t.punteggio), (1, 5, 4, 20));
+}
+
+#[test]
+fn raem() {
+    let log = [
+        q("UA3ABC", "20m", "CW", 0, "001 45N12E", "015 55N37E"),  // 50 + 10 lat + 25 lon = 85
+        q("RAEM", "20m", "CW", 1, "002 45N12E", "100 67N33E"),    // 50 + 22 + 21 + polare 100 + RAEM 300 = 493
+        q("UA9ABC", "40m", "CW", 2, "003 45N12E", "020 55N83E"),  // 50 + 10 + 71 = 131
+    ];
+    let t = punteggio("RAEM contest", &log, None);
+    // nessun moltiplicatore, stazione non polare: 85 + 493 + 131 = 709
+    assert_eq!((t.punti, t.punteggio), (709, 709));
+    // da dentro il circolo polare il totale vale x1,1
+    let polare: Vec<QsoTesto> = log.iter().map(|x| QsoTesto { exch_sent: x.exch_sent.replace("45N", "67N"), ..x.clone() }).collect();
+    let t = punteggio("RAEM contest", &polare, None);
+    // 50+12+25 = 87; 50+0+21+100+300 = 471; 50+12+71 = 133; totale 691 x 1,1 = 760,1 -> 760
+    assert_eq!((t.punti, t.punteggio), (691, 760));
+}
+
+#[test]
+fn sartg_ww_rtty() {
+    let log = [
+        r("IK2XYZ", "20m", 0, "001"), // stesso paese 5; I su 20 m
+        r("DL1ABC", "20m", 1, "001"), // stesso continente 10; DL
+        r("W1AW", "20m", 2, "001"),   // altro continente 15; K e K1
+        r("W1ABC", "20m", 3, "001"),  // 15; niente di nuovo
+        r("JA1ABC", "40m", 4, "001"), // 15; JA e JA1 su 40 m
+    ];
+    let t = punteggio("SARTG WW RTTY Contest", &log, None);
+    // punti 5+10+15+15+15 = 60; moltiplicatori 6; 60 x 6 = 360
+    assert_eq!((t.punti, t.molt, t.punteggio), (60, 6, 360));
+}
+
+#[test]
+fn russian_ww_digital() {
+    let dom = dominio("dom/russian.dom");
+    let log = [
+        q("UA3ABC", "20m", "RTTY", 0, "001", "MA"),   // stesso continente 3; UA e MA (RTTY, 20 m)
+        q("UA3ABC", "20m", "BPSK63", 1, "002", "MA"), // altro modo: 3; UA e MA di nuovo (per modo)
+        q("UA3ABC", "40m", "RTTY", 2, "003", "MA"),   // 3 x2 su 40 m = 6; UA e MA su 40 m
+        q("W1AW", "20m", "RTTY", 3, "004", "001"),    // altro continente 5; K
+        q("IK2XYZ", "80m", "RTTY", 4, "005", "002"),  // stesso paese 1 x2 = 2; I
+        q("DL1ABC", "20m", "RTTY", 5, "006", "XX"),   // 3; DL (lo scambio di un non russo non e' un oblast)
+    ];
+    let t = punteggio("Russian WW Digital Contest", &log, Some(&dom));
+    // punti 3+3+6+5+2+3 = 22; moltiplicatori 2+2+2+1+1+1 = 9; 22 x 9 = 198
+    assert_eq!((t.punti, t.molt, t.punteggio), (22, 9, 198));
+}
+
+#[test]
+fn ukrainian_dx_digi() {
+    let log = [
+        q("UR5ABC", "20m", "RTTY", 0, "001", "KO"),  // con l'Ucraina 5; UR e KO
+        q("UR5ABC", "80m", "RTTY", 1, "002", "KO"),  // 5 x2 su 80 m = 10; UR e KO su 80 m
+        q("UR5ABC", "80m", "PSK31", 2, "003", "KO"), // altro modo: 10; UR e KO in PSK31
+        q("DL1ABC", "20m", "RTTY", 3, "004", "001"), // stesso continente 1; DL
+        q("W1AW", "40m", "PSK31", 4, "005", "001"),  // altro continente 3; K
+        q("JA1ABC", "160m", "RTTY", 5, "006", "001"), // 160 m: non ammesso
+    ];
+    let t = punteggio("Ukrainian DX DIGI Contest", &log, None);
+    // punti 5+10+10+1+3 = 29; moltiplicatori 2+2+2+1+1 = 8; 29 x 8 = 232
+    assert_eq!((t.esclusi, t.punti, t.molt, t.punteggio), (1, 29, 8, 232));
+}
