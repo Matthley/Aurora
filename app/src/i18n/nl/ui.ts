@@ -140,6 +140,7 @@ export const NL_UI: Record<string, string> = {
   "app.moved": "Aurora heeft een ander adres: scan de QR-code opnieuw vanaf de pc (Instellingen › Toegang en ondersteuning › Smartphone), of probeer hier:",
   "app.noCore": "Ik kan Aurora niet bereiken. Controleer of het op de pc draait en of het netwerk bereikbaar is.",
   "app.retry": "Opnieuw proberen",
+  "app.settingsPcOnly": "Instellingen openen alleen op de pc waarop Aurora draait",
   "app.verifying": "Apparaat controleren…",
   "aud.apply": "Toepassen",
   "aud.ch.both": "Beide",

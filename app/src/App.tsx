@@ -20,7 +20,8 @@ import { lastPageToRestore, rememberRoute } from './lib/lastPage';
 import { addressFromName, findOtherAddress, rememberAddresses } from './lib/knownAddresses';
 import { REMOTE_HOST } from './lib/phone';
 import { followNavigateRequests } from './lib/sdr';
-import { useRoute } from './lib/route';
+import { isSettingsRoute, remoteFallback, useRoute } from './lib/route';
+import { toast } from './lib/toast';
 import { browserStorage } from './lib/theme';
 import { emitSpectrum } from './lib/spectrumFeed';
 import { FoxPage } from './pages/FoxPage';
@@ -72,7 +73,15 @@ export function App() {
   useEngineOsSync();
   const t = useT();
   const showQmap = usePrefs((p) => p.prefs.showQmap);
-  const route = useRoute();
+  const asked = useRoute();
+  // le Impostazioni si aprono solo dal PC dove gira Aurora: da un client remoto ogni loro rotta torna alla pagina principale
+  const route = remoteFallback(asked, REMOTE);
+  const blockedSettings = REMOTE && isSettingsRoute(asked);
+  useEffect(() => {
+    if (!blockedSettings) return;
+    window.history.replaceState(null, '', '#/');
+    toast(t('app.settingsPcOnly'), 'info');
+  }, [blockedSettings, t]);
   useEscapeStop();
   const queryClient = useQueryClient();
   useEffect(() => {

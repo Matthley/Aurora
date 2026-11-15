@@ -42,6 +42,16 @@ export function parseRoute(hash: string): Route {
   return { name: 'live' };
 }
 
+/** Le rotte delle Impostazioni (`#/impostazioni`, le sue sottopagine, `#/automazioni` e la finestra staccata `#/finestra/impostazioni`). */
+export function isSettingsRoute(route: Route): boolean {
+  return route.name === 'settings' || (route.name === 'window' && route.id === 'impostazioni');
+}
+
+/** Su un client remoto (telefono, tablet, altro PC) le Impostazioni non si aprono: la rotta ricade sulla pagina principale. */
+export function remoteFallback(route: Route, remote: boolean): Route {
+  return remote && isSettingsRoute(route) ? { name: 'live' } : route;
+}
+
 export function useRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
   useEffect(() => {

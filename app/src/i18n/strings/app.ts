@@ -14,6 +14,14 @@ export const appStrings = {
   'nav.stats': ['Statistiche', 'Statistics', 'Statistik', 'Statistiques', 'Estadísticas', 'Estatísticas'],
   'nav.settings': ['Impostazioni', 'Settings', 'Einstellungen', 'Réglages', 'Ajustes', 'Definições'],
   'nav.wiki': ['Guida', 'Guide', 'Anleitung', 'Guide', 'Guía', 'Guia'],
+  'app.settingsPcOnly': [
+    'Le Impostazioni si aprono solo dal PC dove gira Aurora',
+    'Settings can only be opened on the PC where Aurora runs',
+    'Die Einstellungen lassen sich nur auf dem PC öffnen, auf dem Aurora läuft',
+    "Les Réglages ne s'ouvrent que sur le PC où tourne Aurora",
+    'Los Ajustes solo se abren en el PC donde funciona Aurora',
+    'As Definições só se abrem no PC onde a Aurora está a funcionar',
+  ],
   'app.verifying': ['Verifica del dispositivo…', 'Checking the device…', 'Gerät wird geprüft …', "Vérification de l'appareil…", 'Comprobando el dispositivo…', 'A verificar o dispositivo…'],
   'app.noCore': [
     'Non riesco a contattare Aurora. Controlla che sia acceso sul PC e che la rete sia raggiungibile.',
