@@ -98,6 +98,8 @@ pub struct ChainParams {
     pub coh_min: f64,
     /// Ibrido coerente: penalita' per aprire un tono a cancello chiuso (logaritmo; molto grande = mai).
     pub coh_closed: f64,
+    /// Ibrido misto: peso del giudizio passo per passo dalla potenza sommato a quello coerente (0 = solo coerente).
+    pub coh_mix: f64,
     /// Peso delle emissioni nella decodifica di sequenza.
     pub emit_weight: f64,
     /// Pesi delle cinque classi di durata.
@@ -123,6 +125,12 @@ pub struct ChainParams {
     pub flush_steps: usize,
     /// Elementi oltre i quali un carattere fa rifare l'avvio.
     pub restart_len: usize,
+    /// Ipotesi di velocita' in parallelo (1 = solo il modello adattato), penalita' (logaritmo) del cambio di velocita', distanza
+    /// (logaritmo dell'unita') e decisioni di fila oltre cui il modello si riaggancia all'ipotesi migliore.
+    pub speeds: usize,
+    pub speed_drop: f64,
+    pub relock_ln: f64,
+    pub relock_runs: u32,
     /// Margine (logaritmo) oltre il quale il controllo periodico rifa' l'avvio; 0 = spento.
     pub recheck_margin: f64,
     /// BigScan: soglia del contrasto locale integrato e passi di silenzio prima di chiudere un canale inattivo.
@@ -150,7 +158,7 @@ impl Default for ChainParams {
             tanh_floor: 0.3,
             tanh_gain: 1.0,
             p_closed: 0.003,
-            emit_mode: 1,
+            emit_mode: 2,
             rice_weight: 0.8,
             rice_min: 6.0,
             side_k: 3.0,
@@ -161,6 +169,7 @@ impl Default for ChainParams {
             coh_max_pieces: 16,
             coh_min: 2.0,
             coh_closed: 12.0,
+            coh_mix: 0.3,
             emit_weight: 1.0,
             class_w: [0.58, 0.42, 0.65, 0.23, 0.12],
             tail3: 0.0001,
@@ -174,6 +183,10 @@ impl Default for ChainParams {
             lex_weight: 1.0,
             flush_steps: 40,
             restart_len: 7,
+            speeds: 8,
+            speed_drop: 40.0,
+            relock_ln: 0.4,
+            relock_runs: 2,
             recheck_margin: 10.0,
             band_peak: 7.5,
             band_idle_steps: 200,
@@ -211,6 +224,7 @@ impl ChainParams {
             "coh_max_pieces" => self.coh_max_pieces = u.max(1),
             "coh_min" => self.coh_min = v.max(0.01),
             "coh_closed" => self.coh_closed = v.max(0.0),
+            "coh_mix" => self.coh_mix = v.max(0.0),
             "rice_weight" => self.rice_weight = v,
             "rice_min" => self.rice_min = v,
             "side_k" => self.side_k = f.max(0.1),
@@ -231,6 +245,10 @@ impl ChainParams {
             "lex_weight" => self.lex_weight = v,
             "flush_steps" => self.flush_steps = u.max(1),
             "restart_len" => self.restart_len = u.max(1),
+            "speeds" => self.speeds = u.clamp(1, 32),
+            "speed_drop" => self.speed_drop = v.max(0.0),
+            "relock_ln" => self.relock_ln = v.max(0.0),
+            "relock_runs" => self.relock_runs = (u as u32).max(1),
             "recheck_margin" => self.recheck_margin = v,
             "band_peak" => self.band_peak = f,
             "band_idle_steps" => self.band_idle_steps = u as u32,
@@ -568,7 +586,7 @@ impl Tracker {
             self.msq_n = (self.msq_n + 1).min(4096);
             self.msq += (f64::from(a * a) - self.msq) / f64::from(self.msq_n);
         }
-        let p = if pr.emit_mode == 1 && self.gate {
+        let p = if (pr.emit_mode == 1 || pr.coh_mix > 0.0) && self.gate {
             // verosimiglianza di Rice contro Rayleigh sulla potenza della riga riferita al rumore locale delle spalle
             // le spalle contano solo quando salgono molto (scariche, disturbi larghi): da sole sono una stima rumorosa
             // e solo se arrivano vicino al centro: la dispersione di un tono fortissimo non e' un disturbo largo
@@ -769,6 +787,16 @@ impl DurationModel {
             .sum()
     }
 
+    /// Lo stesso modello portato all'unita' `unit` (logaritmo della durata del punto): le classi restano legate all'unita'.
+    fn at_unit(&self, unit: f64) -> DurationModel {
+        let mut m = self.clone();
+        let shift = unit - self.mu[0];
+        for x in &mut m.mu {
+            *x += shift;
+        }
+        m
+    }
+
     /// Riparte dalle medie `mu` con la covarianza e le varianze di partenza.
     fn restart(&mut self, mu: [f64; 5], pr: &ChainParams) {
         self.mu = mu;
@@ -899,6 +927,8 @@ struct Sequence {
     base: [f64; ON_AGES],
     tail: (f64, u64, u32),
     cum: Vec<Complex64>,
+    /// Somme progressive del giudizio passo per passo (logaritmo del rapporto dalla potenza), per l'ibrido misto.
+    cl: Vec<f64>,
     t: u64,
 }
 
@@ -924,6 +954,9 @@ pub struct CohJudge<'a> {
     pub max_pieces: usize,
     /// Penalita' (logaritmo) per aprire un tono a cancello chiuso.
     pub closed_penalty: f64,
+    /// Ibrido misto: giudizio di questo passo dalla potenza (logaritmo del rapporto) e suo peso.
+    pub hop_llr: f64,
+    pub mix: f64,
     /// Varianza del rumore di una somma di `n` passi (correlati dalla finestra), indice `n`.
     pub var_sum: &'a [f64],
 }
@@ -986,6 +1019,7 @@ impl Sequence {
             base: [NEG; ON_AGES],
             tail: (NEG, 0, 0),
             cum: vec![Complex64::default(); CUM_LEN],
+            cl: vec![0.0; CUM_LEN],
             t: 0,
         };
         s.off[OFF_AGES - 1] = 0.0;
@@ -998,6 +1032,18 @@ impl Sequence {
         (self.off_stay, self.off_end) = m.hazards(false, OFF_AGES);
     }
 
+    /// Prende lo stato (punteggi, storia, somme) da `o`, tenendo le proprie tabelle delle durate.
+    fn copy_state(&mut self, o: &Sequence) {
+        self.on = o.on;
+        self.off = o.off;
+        self.back.clone_from(&o.back);
+        self.base = o.base;
+        self.tail = o.tail;
+        self.cum.clone_from(&o.cum);
+        self.cl.clone_from(&o.cl);
+        self.t = o.t;
+    }
+
     /// Riparte in silenzio lungo.
     fn reset(&mut self) {
         self.base = [NEG; ON_AGES];
@@ -1008,7 +1054,7 @@ impl Sequence {
         self.back.clear();
     }
 
-    fn step(&mut self, p: f32, weight: f64) {
+    fn step(&mut self, p: f32, weight: f64) -> f64 {
         let p = f64::from(p).clamp(1e-4, 1.0 - 1e-4);
         let (e_on, e_off) = (weight * p.ln(), weight * (1.0 - p).ln());
         let mut b = Back::default();
@@ -1053,6 +1099,7 @@ impl Sequence {
         self.on = on;
         self.off = off;
         self.back.push_back(b);
+        top
     }
 
     /// Il giudizio coerente dei passi da `a` (compreso) all'ultimo, a pezzi.
@@ -1062,6 +1109,7 @@ impl Sequence {
         if n == 0 || n >= CUM_LEN {
             return 0.0;
         }
+        let mixed = if j.mix > 0.0 { j.mix * (self.cl[(b as usize) % CUM_LEN] - self.cl[(a as usize) % CUM_LEN]) } else { 0.0 };
         let k = n.div_ceil(j.piece.max(1)).clamp(1, j.max_pieces.max(1));
         let at = |i: u64| self.cum[(i as usize) % CUM_LEN];
         let mut pieces = [(0usize, 0.0f64); 64];
@@ -1073,14 +1121,16 @@ impl Sequence {
             let (re, im) = (x.re - y.re, x.im - y.im);
             *pc = ((pb - pa) as usize, (re * re + im * im).sqrt());
         }
-        coherent_llr(&pieces[..k], j)
+        coherent_llr(&pieces[..k], j) + mixed
     }
 
     /// Un passo dell'ibrido coerente: `y` e' il campione di banda base (gia' in fase e riferito al rumore); un tono si giudica con la
     /// somma in fase dei suoi passi, le pause valgono zero. A cancello chiuso non si aprono toni.
-    fn step_coherent(&mut self, y: Complex32, gate: bool, j: &CohJudge) {
+    fn step_coherent(&mut self, y: Complex32, gate: bool, j: &CohJudge) -> f64 {
         let last = self.cum[(self.t as usize) % CUM_LEN];
+        let last_cl = self.cl[(self.t as usize) % CUM_LEN];
         self.t += 1;
+        self.cl[(self.t as usize) % CUM_LEN] = last_cl + j.hop_llr;
         self.cum[(self.t as usize) % CUM_LEN] = Complex64 { re: last.re + f64::from(y.re), im: last.im + f64::from(y.im) };
         let mut b = Back::default();
         let (mut best_off_end, mut arg_off) = (f64::NEG_INFINITY, 0usize);
@@ -1142,6 +1192,7 @@ impl Sequence {
         self.on = on;
         self.off = off;
         self.back.push_back(b);
+        top
     }
 
     /// Le etichette (acceso/spento) di tutti i passi in storia, dal piu' vecchio, lungo il percorso migliore.
@@ -1658,7 +1709,13 @@ pub struct ChannelChain {
     pr: ChainParams,
     tracker: Tracker,
     model: DurationModel,
-    seq: Sequence,
+    /// Ipotesi di velocita' in parallelo: la prima segue il modello adattato, le altre stanno su una griglia di unita' (logaritmo della
+    /// durata del punto); punteggio accumulato di ognuna e la migliore.
+    seqs: Vec<Sequence>,
+    seq_units: Vec<Option<f64>>,
+    totals: Vec<f64>,
+    best: usize,
+    best_run: u32,
     since_decide: usize,
     /// Run in corso: acceso/spento e passi.
     run_on: bool,
@@ -1696,7 +1753,11 @@ impl ChannelChain {
     pub fn new(wpm_hint: f64, pr: &ChainParams) -> Self {
         let model = DurationModel::new(wpm_hint, pr);
         ChannelChain {
-            seq: Sequence::new(&model),
+            seqs: speed_units(pr).iter().map(|u| Sequence::new(&u.map_or_else(|| model.clone(), |u| model.at_unit(u)))).collect(),
+            seq_units: speed_units(pr),
+            totals: vec![0.0; speed_units(pr).len()],
+            best: 0,
+            best_run: 0,
             tracker: Tracker::new(pr),
             model,
             since_decide: 0,
@@ -1750,23 +1811,36 @@ impl ChannelChain {
         let kp = self.tracker.step(shape, &self.pr);
         match iq {
             Some(y) if self.pr.emit_mode == 2 => self.step_coherent(y, kp),
-            _ => self.seq.step(kp.p, self.pr.emit_weight),
+            _ => {
+                for (sq, t) in self.seqs.iter_mut().zip(self.totals.iter_mut()) {
+                    *t += sq.step(kp.p, self.pr.emit_weight);
+                }
+            }
         }
+        self.pick_best();
         self.since_decide += 1;
         self.closed_steps = if kp.gate { 0 } else { self.closed_steps + 1 };
         let start = out.len();
         if self.closed_steps == self.pr.flush_steps {
-            let labels = self.seq.traceback();
-            self.seq.reset();
+            let labels = self.seqs[self.best].traceback();
+            for sq in &mut self.seqs {
+                sq.reset();
+            }
+            self.totals.iter_mut().for_each(|t| *t = 0.0);
             self.since_decide = 0;
             self.learn_levels(&labels, labels.len());
             self.commit(&labels, out);
             self.finish(out);
-        } else if self.since_decide >= DECIDE && self.seq.back.len() >= HISTORY {
+        } else if self.since_decide >= DECIDE && self.seqs[self.best].back.len() >= HISTORY {
             self.since_decide = 0;
-            let labels = self.seq.traceback();
+            let labels = self.seqs[self.best].traceback();
             let n = labels.len() - DECIDE;
-            self.seq.back.drain(..n);
+            for sq in &mut self.seqs {
+                let k = n.min(sq.back.len());
+                sq.back.drain(..k);
+            }
+            let marks = labels[..n].windows(2).filter(|w| w[1] && !w[0]).count();
+            self.relock(marks);
             self.learn_levels(&labels, n);
             self.commit(&labels[..n], out);
         }
@@ -1807,10 +1881,15 @@ impl ChannelChain {
         let noise = self.coh_noise.max(0.3);
         let amp2 = (self.coh_amp2 / noise).max(self.pr.coh_min);
         let nu = (amp2 / self.pr.coh_snr_cap).max(1.0);
-        let piece = ((self.pr.coh_piece_units * self.model.mu[0].exp()).round() as usize).max(1);
         let scale = (1.0 / noise.sqrt()) as f32;
-        let judge = CohJudge { amp2, nu, piece, max_pieces: self.pr.coh_max_pieces, closed_penalty: -self.pr.coh_closed, var_sum: &self.coh_var };
-        self.seq.step_coherent(z * scale, kp.gate, &judge);
+        for h in 0..self.seqs.len() {
+            let unit = self.seq_units[h].unwrap_or(self.model.mu[0]);
+            let piece = ((self.pr.coh_piece_units * unit.exp()).round() as usize).max(1);
+            let pp = f64::from(kp.p).clamp(1e-4, 1.0 - 1e-4);
+            let hop_llr = (pp / (1.0 - pp)).ln();
+            let judge = CohJudge { amp2, nu, piece, max_pieces: self.pr.coh_max_pieces, closed_penalty: -self.pr.coh_closed, hop_llr, mix: self.pr.coh_mix, var_sum: &self.coh_var };
+            self.totals[h] += self.seqs[h].step_coherent(z * scale, kp.gate, &judge);
+        }
     }
 
     /// Ibrido coerente: il percorso deciso insegna ampiezza (passi accesi lontani dai fronti) e rumore (pause); si tolgono le potenze
@@ -1834,6 +1913,59 @@ impl ChannelChain {
         self.coh_pw.drain(..k);
         if labels.len() == n {
             self.coh_pw.clear();
+        }
+    }
+
+    /// La migliore ipotesi di velocita' e punteggi riportati vicino a zero.
+    fn pick_best(&mut self) {
+        let (b, top) = self.totals.iter().enumerate().fold((0, f64::NEG_INFINITY), |a, (i, &t)| if t > a.1 { (i, t) } else { a });
+        for t in &mut self.totals {
+            *t -= top;
+        }
+        self.best = b;
+    }
+
+    /// Ad ogni decisione: le ipotesi rimaste troppo indietro ripartono dallo stato della migliore (cambio di velocita' con una
+    /// penalita'); se la migliore e' su un'unita' della griglia lontana da quella del modello per piu' decisioni di fila, il modello si
+    /// riaggancia a quella unita' (le classi restano legate all'unita').
+    fn relock(&mut self, marks: usize) {
+        let b = self.best;
+        let drop = self.pr.speed_drop;
+        for h in 0..self.seqs.len() {
+            if h != b && self.totals[h] < -drop {
+                let (src, dst) = if h < b {
+                    let (a, c) = self.seqs.split_at_mut(b);
+                    (&c[0], &mut a[h])
+                } else {
+                    let (a, c) = self.seqs.split_at_mut(h);
+                    (&a[b], &mut c[0])
+                };
+                dst.copy_state(src);
+                self.totals[h] = -drop;
+            }
+        }
+        match self.seq_units[b] {
+            // solo se nel tratto deciso ci sono toni: nel silenzio tutte le ipotesi valgono uguale
+            Some(u) if marks >= 2 && (u - self.model.mu[0]).abs() > self.pr.relock_ln => {
+                self.best_run += 1;
+                if self.best_run >= self.pr.relock_runs {
+                    let mu = self.model.at_unit(u).mu;
+                    self.model.restart(mu, &self.pr);
+                    self.retable_all();
+                    self.best_run = 0;
+                }
+            }
+            _ => self.best_run = 0,
+        }
+    }
+
+    /// Le tabelle delle durate di tutte le ipotesi dal modello (ognuna alla sua unita').
+    fn retable_all(&mut self) {
+        for (sq, u) in self.seqs.iter_mut().zip(&self.seq_units) {
+            match u {
+                Some(u) => sq.retable(&self.model.at_unit(*u)),
+                None => sq.retable(&self.model),
+            }
         }
     }
 
@@ -1984,7 +2116,7 @@ impl ChannelChain {
             self.char_closed = true;
             self.word_closed = true;
         }
-        self.seq.retable(&self.model);
+        self.retable_all();
     }
 
     fn close_char(&mut self, out: &mut Vec<u8>) {
@@ -2102,6 +2234,18 @@ struct Backlog {
     iq: Vec<Complex32>,
     count: u64,
     iq_noise: f32,
+}
+
+/// Le unita' delle ipotesi di velocita': la prima segue il modello, le altre su una griglia geometrica fra 10 e 55 WPM.
+fn speed_units(pr: &ChainParams) -> Vec<Option<f64>> {
+    let k = pr.speeds.max(1);
+    let mut v = vec![None];
+    for i in 0..k - 1 {
+        let f = if k > 2 { i as f64 / (k - 2) as f64 } else { 0.5 };
+        let wpm = 10.0 * (55.0f64 / 10.0).powf(f);
+        v.push(Some((112.5 / wpm).ln()));
+    }
+    v
 }
 
 /// Spettri tenuti per i canali nuovi.
@@ -2575,7 +2719,7 @@ mod tests {
     #[test]
     fn verosimiglianza_coerente_premia_il_tono() {
         let var: Vec<f64> = (0..=32).map(|n| n as f64).collect();
-        let j = CohJudge { amp2: 4.0, nu: 1.0, piece: 8, max_pieces: 16, closed_penalty: 0.0, var_sum: &var };
+        let j = CohJudge { amp2: 4.0, nu: 1.0, piece: 8, max_pieces: 16, closed_penalty: 0.0, hop_llr: 0.0, mix: 0.0, var_sum: &var };
         // 8 passi di tono d'ampiezza 2 sommati in fase contro 8 passi di solo rumore (modulo della somma circa la radice di 8)
         assert!(coherent_llr(&[(8, 16.0)], &j) > 5.0);
         assert!(coherent_llr(&[(8, 8f64.sqrt())], &j) < 0.0);
