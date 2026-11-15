@@ -124,6 +124,7 @@ async fn valuta_attivo(state: &AppState) -> Result<Valutazione, ApiError> {
     if attivo.contest.qtc > 0 {
         contest::punti_testo::aggiungi_qtc(&mut tot, qtc.len() as u32);
     }
+    contest::punti_testo::ritmo(&mut tot, &valutati, ora);
     Ok((attivo.contest, valutati, tot, call, qtc))
 }
 

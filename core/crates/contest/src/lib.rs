@@ -8,6 +8,7 @@
 //! - [`export`]: Cabrillo 3.0, EDI e ADIF, con il controllo prima dell'invio;
 //! - [`elenco`]: i contest dei modi testuali (file `.contest`, macro e domini), uno attivo alla volta;
 //! - [`punti_testo`]: punteggio, statistica per banda e Cabrillo del contest attivo dei modi testuali;
+//! - [`regole_punti`]: le regole del punteggio dei contest dei modi testuali (sezione `[Score]`), a pezzi riusabili;
 //! - [`qtc`]: i QTC del WAE (chi li scambia, cosa mandare, righe del Cabrillo);
 //! - [`servizio`]: contest attivo, impostazioni per contest, log del contest e ascolto del bus.
 //!
@@ -22,6 +23,7 @@ pub mod punteggio;
 pub mod punti_testo;
 pub mod qtc;
 pub mod regole;
+pub mod regole_punti;
 pub mod servizio;
 
 pub use regole::Regole;

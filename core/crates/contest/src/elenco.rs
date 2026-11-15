@@ -72,6 +72,9 @@ pub struct ContestTesto {
     /// I QTC del WAE (`m_iQtc`, `docs/contest-qtc.md`): 0 nessuno, 1 dalle stazioni non europee alle europee (CW, SSB), 2 in entrambe
     /// le direzioni fra continenti diversi (RTTY).
     pub qtc: i32,
+    /// Le regole del punteggio, righe `chiave=valore` della sezione `[Score]` (`regole_punti`, `docs/contest-file.md`); vuoto = le
+    /// vecchie chiavi dei punti e dei moltiplicatori.
+    pub score: String,
 }
 
 impl Default for ContestTesto {
@@ -112,6 +115,7 @@ impl Default for ContestTesto {
             dupe_no_mode: false,
             log_bar_mode: 0,
             qtc: 0,
+            score: String::new(),
         }
     }
 }
@@ -240,6 +244,8 @@ impl ContestTesto {
         if !qtc_letto {
             c.qtc = qtc_dal_nome(&c.name, &c.notes);
         }
+        c.score = coppie(testo, "Score").into_iter().map(|(k, v)| format!("{k}={v}
+")).collect();
         c
     }
 
@@ -287,6 +293,12 @@ impl ContestTesto {
         s("m_bDupeNoMode", b(self.dupe_no_mode).into());
         s("m_iLogBarDispMode", self.log_bar_mode.to_string());
         s("m_iQtc", self.qtc.clamp(0, 2).to_string());
+        let regole: Vec<String> = self.score.lines().map(str::trim).filter(|x| x.contains('=') && !x.starts_with('[')).map(String::from).collect();
+        if !regole.is_empty() {
+            r.push(String::new());
+            r.push("[Score]".into());
+            r.extend(regole);
+        }
         let mut t = r.join("\r\n");
         t.push_str("\r\n");
         t
@@ -304,6 +316,9 @@ impl ContestTesto {
             && b < a
         {
             return Err("la fine viene prima dell'inizio".into());
+        }
+        if !self.score.trim().is_empty() {
+            crate::regole_punti::RegoleScore::da_testo(&self.score).map_err(|e| format!("regole del punteggio: {e}"))?;
         }
         for f in [&self.macros, &self.domain_file] {
             if !percorso_relativo_ok(f) {

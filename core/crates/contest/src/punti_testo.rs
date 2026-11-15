@@ -15,7 +15,7 @@ use crate::calendario::{civil_from_days, data, days_from_civil, hhmm};
 use crate::elenco::{ContestTesto, Dominio, data_ms};
 use crate::geo;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// Un QSO del log per il contest dei modi testuali.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -124,6 +124,10 @@ pub enum TipoMolt {
     Cq,
     Itu,
     Dominio,
+    /// Continente (solo dalle regole `[Score]`).
+    Cont,
+    /// Area numerica (solo dalle regole `[Score]`).
+    Area,
 }
 
 impl TipoMolt {
@@ -160,6 +164,8 @@ pub struct Valutato {
     pub punti: i64,
     /// I moltiplicatori nuovi portati da questo QSO (`dxcc:I`, `cq:15`...).
     pub nuovi: Vec<String>,
+    /// Non ammesso dalle regole: `band` o `valid` (zero punti, nessun moltiplicatore, non e' un doppio).
+    pub escluso: Option<String>,
 }
 
 /// Una riga della statistica per banda.
@@ -176,7 +182,7 @@ pub struct RigaBanda {
 }
 
 /// Il punteggio del contest.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Punteggio {
     /// QSO validi (senza i doppi) e doppi.
     pub qso: u32,
@@ -190,102 +196,168 @@ pub struct Punteggio {
     /// I tipi di moltiplicatore usati.
     pub tipi: Vec<TipoMolt>,
     pub bande: Vec<RigaBanda>,
+    /// QSO non ammessi (banda o paese fuori dal contest).
+    pub esclusi: u32,
+    /// Fattore finale in millesimi (1000 = 1; RAEM polare 1100).
+    pub fattore_mille: i64,
+    /// I moltiplicatori lavorati, con le bande.
+    pub griglia: Vec<CellaMolt>,
+    /// I moltiplicatori che mancano dei tipi con elenco chiuso.
+    pub mancanti: Vec<Mancanti>,
+    /// Ritmo: QSO all'ora sugli ultimi 10 minuti, QSO nell'ultima ora, media all'ora.
+    pub rate10: u32,
+    pub rate60: u32,
+    pub media_ora: f64,
 }
 
-/// Il valore di un moltiplicatore per un QSO (`None` se non si sa).
-fn valore_molt(t: TipoMolt, q: &QsoTesto, info: Option<&InfoPaese>, dominio: Option<&Dominio>) -> Option<String> {
-    let v = match t {
-        TipoMolt::Dxcc => info.map(|i| i.dxcc.clone()).unwrap_or_default(),
-        TipoMolt::Wpx => geo::prefisso_wpx(&q.call),
-        TipoMolt::Cq => info.filter(|i| i.cq > 0).map(|i| i.cq.to_string()).unwrap_or_default(),
-        TipoMolt::Itu => info.filter(|i| i.itu > 0).map(|i| i.itu.to_string()).unwrap_or_default(),
-        TipoMolt::Dominio => {
-            let parole: Vec<&str> = q.exch_rcvd.split_whitespace().collect();
-            match dominio {
-                Some(d) => parole.iter().find_map(|p| d.cerca(p, &q.call)).unwrap_or_default(),
-                // senza elenco: l'ultima parola che non e' un numero (provincia, stato), altrimenti l'ultima
-                None => parole.iter().rev().find(|p| !p.bytes().all(|b| b.is_ascii_digit())).or(parole.last()).map(|p| p.to_ascii_uppercase()).unwrap_or_default(),
-            }
-        }
-    };
-    let v = v.trim().to_ascii_uppercase();
-    (!v.is_empty()).then_some(v)
-}
-
-fn nome_tipo(t: TipoMolt) -> &'static str {
-    match t {
-        TipoMolt::Dxcc => "dxcc",
-        TipoMolt::Wpx => "wpx",
-        TipoMolt::Cq => "cq",
-        TipoMolt::Itu => "itu",
-        TipoMolt::Dominio => "dom",
+impl Default for Punteggio {
+    fn default() -> Self {
+        Punteggio { qso: 0, doppi: 0, punti: 0, molt: 0, punteggio: 0, qtc: 0, tipi: Vec::new(), bande: Vec::new(), esclusi: 0, fattore_mille: 1000, griglia: Vec::new(), mancanti: Vec::new(), rate10: 0, rate60: 0, media_ora: 0.0 }
     }
 }
 
-/// Valuta i QSO del contest (gia' filtrati da [`qso_del_contest`], dal piu' vecchio): doppi, punti, moltiplicatori, punteggio e
-/// statistica per banda. `mio` = paese della stazione, `paese` = la ricerca nel cty.dat.
+/// Un moltiplicatore lavorato: tipo, valore e bande dove e' stato preso (vuoto se conta una volta sola).
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct CellaMolt {
+    pub tipo: String,
+    pub valore: String,
+    pub bande: Vec<String>,
+}
+
+/// I valori che mancano di un tipo con un elenco chiuso (zone, continenti, aree, domini).
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct Mancanti {
+    pub tipo: String,
+    pub per_banda: bool,
+    pub totali: u32,
+    /// I valori mai presi (su nessuna banda).
+    pub valori: Vec<String>,
+}
+
+/// Valuta i QSO del contest (gia' filtrati da [`qso_del_contest`], dal piu' vecchio) con le regole del file
+/// ([`crate::regole_punti`]): ammessi, doppi, punti, moltiplicatori, punteggio, statistica per banda e griglia dei moltiplicatori.
+/// `mio` = paese della stazione, `paese` = la ricerca nel database DXCC.
 pub fn valuta(c: &ContestTesto, qsos: &[QsoTesto], mio: Option<&InfoPaese>, paese: &dyn Fn(&str) -> Option<InfoPaese>, dominio: Option<&Dominio>) -> (Vec<Valutato>, Punteggio) {
-    let tipi = tipi_molt(c);
-    let tutti_zero = c.points_my_dxcc == 0 && c.points_my_cont == 0 && c.points_dx == 0;
+    use crate::regole_punti::{Ctx, RegoleScore, ammesso, fattore_finale, peso, punti, valore_molt, valori_possibili};
+    let r = match RegoleScore::del_contest(c) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("regole del punteggio di {} non valide: {e}", c.id);
+            RegoleScore::dalle_chiavi(c)
+        }
+    };
+    let mut tipi: Vec<TipoMolt> = r.molt.iter().map(|d| d.tipo.tipo()).collect();
+    tipi.dedup();
     let mut visti: HashSet<(String, String, String)> = HashSet::new();
     let mut molt: HashSet<String> = HashSet::new();
+    let mut griglia: BTreeMap<(usize, String), BTreeSet<String>> = BTreeMap::new();
+    let (mut somma, mut prodotto) = (0i64, 0i64);
     let mut bande: BTreeMap<String, RigaBanda> = BTreeMap::new();
     let mut out = Vec::with_capacity(qsos.len());
     let mut tot = Punteggio { tipi: tipi.clone(), ..Punteggio::default() };
     for q in qsos {
         let call = q.call.trim().to_ascii_uppercase();
-        let chiave = (call.clone(), if c.dupe_no_band { String::new() } else { q.band.to_ascii_lowercase() }, if c.dupe_no_mode { String::new() } else { q.mode.to_ascii_uppercase() });
-        let doppio = !visti.insert(chiave);
-        let riga = bande.entry(q.band.to_ascii_lowercase()).or_insert_with(|| RigaBanda { band: q.band.to_ascii_lowercase(), ..RigaBanda::default() });
-        if doppio {
-            tot.doppi += 1;
-            riga.doppi += 1;
-            out.push(Valutato { qso: q.clone(), doppio: true, punti: 0, nuovi: Vec::new() });
+        let banda = q.band.to_ascii_lowercase();
+        let info = paese(&call);
+        let x = Ctx { q, call: &call, info: info.as_ref(), mio };
+        if let Err(m) = ammesso(&r, &x) {
+            tot.esclusi += 1;
+            out.push(Valutato { qso: q.clone(), doppio: false, punti: 0, nuovi: Vec::new(), escluso: Some(m.to_string()) });
             continue;
         }
-        let info = paese(&call);
-        let punti = if tutti_zero {
-            1
-        } else {
-            match (mio, info.as_ref()) {
-                (Some(m), Some(i)) if !m.dxcc.is_empty() && m.dxcc == i.dxcc => i64::from(c.points_my_dxcc),
-                (Some(m), Some(i)) if !m.continente.is_empty() && m.continente == i.continente => i64::from(c.points_my_cont),
-                _ => i64::from(c.points_dx),
-            }
-        };
+        let riga = bande.entry(banda.clone()).or_insert_with(|| RigaBanda { band: banda.clone(), ..RigaBanda::default() });
+        let chiave = (call.clone(), if c.dupe_no_band { String::new() } else { banda.clone() }, if c.dupe_no_mode { String::new() } else { q.mode.to_ascii_uppercase() });
+        if !visti.insert(chiave) {
+            tot.doppi += 1;
+            riga.doppi += 1;
+            out.push(Valutato { qso: q.clone(), doppio: true, punti: 0, nuovi: Vec::new(), escluso: None });
+            continue;
+        }
+        let p = punti(&r, &x);
         let mut nuovi = Vec::new();
-        for t in &tipi {
-            if let Some(v) = valore_molt(*t, q, info.as_ref(), dominio) {
-                let k = if c.band_mult { format!("{}:{v}@{}", nome_tipo(*t), q.band.to_ascii_lowercase()) } else { format!("{}:{v}", nome_tipo(*t)) };
-                if molt.insert(k) {
-                    nuovi.push(format!("{}:{v}", nome_tipo(*t)));
-                    riga.molt += 1;
-                    tot.molt += if c.band_mult { peso_banda(c, &q.band) } else { 1 };
+        for (i, d) in r.molt.iter().enumerate() {
+            let Some(v) = valore_molt(d, &x, dominio) else { continue };
+            let mut k = format!("{i}:{v}");
+            if d.per_banda {
+                k.push_str(&format!("@{banda}"));
+            }
+            if d.per_modo {
+                k.push_str(&format!("#{}", q.mode.to_ascii_uppercase()));
+            }
+            if molt.insert(k) {
+                nuovi.push(format!("{}:{v}", d.tipo.nome()));
+                riga.molt += 1;
+                let w = if d.per_banda { peso(&r, &banda) } else { 1 };
+                if d.prodotto {
+                    prodotto += w;
+                } else {
+                    somma += w;
+                }
+                let cella = griglia.entry((i, v)).or_default();
+                if d.per_banda {
+                    cella.insert(banda.clone());
                 }
             }
         }
         tot.qso += 1;
-        tot.punti += punti;
+        tot.punti += p;
         riga.qso += 1;
-        riga.punti += punti;
+        riga.punti += p;
         match categoria(&q.mode) {
             Categoria::Cw => riga.cw += 1,
             Categoria::Phone => riga.phone += 1,
             Categoria::Digital => riga.digital += 1,
         }
-        out.push(Valutato { qso: q.clone(), doppio: false, punti, nuovi });
+        out.push(Valutato { qso: q.clone(), doppio: false, punti: p, nuovi, escluso: None });
     }
-    tot.punteggio = if tipi.is_empty() { tot.punti } else { tot.punti * tot.molt };
+    let ha_somma = r.molt.iter().any(|d| !d.prodotto);
+    let ha_prodotto = r.molt.iter().any(|d| d.prodotto);
+    tot.molt = if r.molt.is_empty() { 0 } else { (if ha_somma { somma } else { 1 }) * if ha_prodotto { prodotto } else { 1 } };
+    tot.fattore_mille = fattore_finale(&r, qsos);
+    tot.griglia = griglia.into_iter().map(|((i, valore), b)| CellaMolt { tipo: r.molt[i].tipo.nome().to_string(), valore, bande: ordina_bande(b.into_iter().collect()) }).collect();
+    for d in &r.molt {
+        let tutti = valori_possibili(&d.tipo, dominio);
+        if tutti.is_empty() || tot.mancanti.iter().any(|m| m.tipo == d.tipo.nome()) {
+            continue;
+        }
+        let presi: HashSet<&str> = tot.griglia.iter().filter(|g| g.tipo == d.tipo.nome()).map(|g| g.valore.as_str()).collect();
+        tot.mancanti.push(Mancanti { tipo: d.tipo.nome().to_string(), per_banda: d.per_banda, totali: tutti.len() as u32, valori: tutti.iter().filter(|v| !presi.contains(v.as_str())).cloned().collect() });
+    }
+    calcola(&mut tot);
     tot.bande = bande.into_values().collect();
     tot.bande.sort_by_key(|r| ordine_banda(&r.band));
     (out, tot)
 }
 
+fn ordina_bande(mut v: Vec<String>) -> Vec<String> {
+    v.sort_by_key(|b| ordine_banda(b));
+    v
+}
+
+/// Punteggio = (punti + QTC) x moltiplicatori x fattore finale (senza moltiplicatori: i punti).
+fn calcola(tot: &mut Punteggio) {
+    let base = tot.punti + i64::from(tot.qtc);
+    let lordo = if tot.tipi.is_empty() { base } else { base * tot.molt };
+    tot.punteggio = (lordo * tot.fattore_mille + 500) / 1000;
+}
+
 /// Aggiunge i QTC (mandati e ricevuti) al punteggio: (punti + QTC) x moltiplicatori, come nel WAE.
 pub fn aggiungi_qtc(tot: &mut Punteggio, qtc: u32) {
     tot.qtc = qtc;
-    let base = tot.punti + i64::from(qtc);
-    tot.punteggio = if tot.tipi.is_empty() { base } else { base * tot.molt };
+    calcola(tot);
+}
+
+/// Il ritmo: QSO validi negli ultimi 10 minuti (riportati all'ora), nell'ultima ora e media all'ora dal primo all'ultimo QSO.
+pub fn ritmo(tot: &mut Punteggio, valutati: &[Valutato], ora_ms: i64) {
+    let validi: Vec<i64> = valutati.iter().filter(|v| !v.doppio && v.escluso.is_none()).map(|v| v.qso.time_ms).collect();
+    let negli = |min: i64| validi.iter().filter(|t| **t > ora_ms - min * 60_000 && **t <= ora_ms).count() as u32;
+    let media = match (validi.first(), validi.last()) {
+        (Some(a), Some(b)) if b > a => validi.len() as f64 * 3_600_000.0 / (b - a) as f64,
+        _ => validi.len() as f64,
+    };
+    tot.rate10 = negli(10) * 6;
+    tot.rate60 = negli(60);
+    tot.media_ora = (media * 10.0).round() / 10.0;
 }
 
 /// Le bande in ordine di frequenza (le sconosciute in fondo).
