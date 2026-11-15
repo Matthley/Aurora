@@ -194,7 +194,7 @@ describe('RadioDisplayHeader', () => {
     expect(rem('height')).toBeGreaterThan(0);
     expect(rem('height')).toBeLessThanOrEqual(5.625);
     expect(rem('width')).toBeGreaterThan(0);
-    expect(rem('width')).toBeLessThanOrEqual(3.6);
+    expect(rem('width')).toBeLessThanOrEqual(4.4);
     expect(rule).not.toContain('min-height');
   });
 });

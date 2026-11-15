@@ -1023,18 +1023,19 @@ html[data-theme='light'] .rd-zoom {
   border-color: #c4cdda;
 }
 
-/* Riquadro PWR + SPLIT (PwrSplitBox), uguale in ogni stile, accanto al display: PWR, valore, - e + affiancati, SPLIT largo come il riquadro
-   (verde pieno acceso, scuro spento). Compatto: alto 4,1rem, meno dei 5,625rem del display piu' basso, largo 3,4rem */
-.rd-pwrsplit { flex: none; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 0.1rem; width: 3.4rem; height: 4.1rem; padding: 0.2rem; border-radius: 0.4rem; background: #05080a; border: 1px solid #1f3a46; color: #5ce8ff; text-align: center; align-self: center; }
-.rd-pwrsplit-lbl { font-size: 0.5rem; line-height: 1; letter-spacing: 0.1em; color: #ffb428; }
-.rd-pwrsplit-val { font-size: 0.75rem; font-weight: 700; line-height: 1; }
-.rd-pwrsplit-btns { display: flex; gap: 0.15rem; }
-.rd-pwrsplit-btn { flex: 1 1 0; min-width: 0; height: 0.9rem; padding: 0; border-radius: 0.2rem; border: 1px solid #2a6a80; background: #0d1d24; color: #d8f4ff; font: 700 0.7rem/1 var(--font-data); cursor: pointer; }
+/* Riquadro PWR + SPLIT (PwrSplitBox), uguale in ogni stile, accanto al display e allineato in alto (stesso bordo superiore): PWR, valore,
+   - e + affiancati, SPLIT largo come il riquadro (verde pieno acceso, scuro spento). Largo 4,2rem e alto 4,95rem, dentro i 5,625rem
+   del display piu' basso */
+.rd-pwrsplit { flex: none; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 0.15rem; width: 4.2rem; height: 4.95rem; padding: 0.25rem; border-radius: 0.45rem; background: #05080a; border: 1px solid #1f3a46; color: #5ce8ff; text-align: center; align-self: flex-start; }
+.rd-pwrsplit-lbl { font-size: 0.7rem; line-height: 1; letter-spacing: 0.1em; color: #ffb428; }
+.rd-pwrsplit-val { font-size: 0.95rem; font-weight: 700; line-height: 1; }
+.rd-pwrsplit-btns { display: flex; gap: 0.2rem; }
+.rd-pwrsplit-btn { flex: 1 1 0; min-width: 0; height: 1rem; padding: 0; border-radius: 0.2rem; border: 1px solid #2a6a80; background: #0d1d24; color: #d8f4ff; font: 700 0.8rem/1 var(--font-data); cursor: pointer; }
 .rd-pwrsplit-btn:hover:not(:disabled) { background: #1a3a48; }
 .rd-pwrsplit-btn:disabled { opacity: 0.4; cursor: default; }
-.rd-pwrsplit .rd-split-btn { width: 100%; height: 1.1rem; padding: 0; border-radius: 0.2rem; font-size: 0.5rem; letter-spacing: 0.04em; }
-/* il ⧉ di stacco sta sul display, mai nel riquadro; nei quasi quadrati il riquadro sta a sinistra del display, fuori dal suo angolo */
-.rd-square-slot > .rd-pwrsplit, .rd-square-preview > .rd-pwrsplit { position: absolute; top: 50%; right: calc(100% + 0.35rem); transform: translateY(-50%); }
+.rd-pwrsplit .rd-split-btn { width: 100%; height: 1.2rem; padding: 0; border-radius: 0.2rem; font-size: 0.6rem; letter-spacing: 0.04em; }
+/* il ⧉ di stacco sta sul display, mai nel riquadro; nei quasi quadrati il riquadro sta a sinistra del display, in alto come lui */
+.rd-square-slot > .rd-pwrsplit, .rd-square-preview > .rd-pwrsplit { position: absolute; top: 0; right: calc(100% + 0.35rem); }
 .rd-split-btn { flex: none; width: 100%; padding: 0 0.3rem; border-radius: 0.25rem; border: 1px solid #2a3a44; background: #0b1216; color: #3b5560; font: 700 0.62rem/1 var(--font-data); letter-spacing: 0.08em; cursor: default; }
 .rd-split-btn--on { background: #3fe07a; border-color: #3fe07a; color: #02140a; cursor: pointer; box-shadow: 0 0 6px rgb(63 224 122 / 0.45); }
 .rd-split-btn--on:hover:not(:disabled) { filter: brightness(1.15); }
