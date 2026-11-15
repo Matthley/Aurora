@@ -225,3 +225,41 @@ trovate, uno spettro fine (Hann di 4 bit sull'ultimo secondo) per i picchi e l'a
    Con la conferma le stazioni e la presenza tornano quelle della base, ma i canali in piu' restano: i canali aperti accanto alle forti
    leggono caratteri sicuri (probabilmente il testo della forte stessa, dalle sue bande laterali), quindi la conferma non li chiude.
    Da provare: confermare solo se il testo letto differisce da quello del canale forte accanto. Non tenuta.
+
+## 2026-11-15 (notte, seguito): stazioni nascoste accese di base, primo carattere incerto davanti a una parola fissa
+
+1. **Stazione debole accanto alla forte: tenuta, di base** (`rtty_multi`, senza variabile d'ambiente). Sul secondo passaggio delle
+   stazioni nascoste (spettro fine e anticorrelazione con filtri di due bit) la conferma ora e':
+   - il canale in prova trattiene i caratteri per 8 s (escono tutti insieme alla conferma, mai se respinto: prima i canali respinti
+     restavano nell'elenco di BigScan per 90 s perche' avevano consegnato testo, ed erano loro i canali in piu');
+   - almeno 4 caratteri sicuri (probabilita' 0,9);
+   - almeno una parola da QSO (nominativo, CQ, DE, TEST, QRZ, TU, 599, 5NN): il fruscio e le bande laterali lette come caratteri sicuri
+     danno sequenze senza parole («TVTVMVTTTV»);
+   - testo diverso da quello di ogni altro canale: meno del 30 % delle coppie di caratteri consecutivi presenti negli ultimi 80 caratteri
+     di un altro canale (l'eco della forte, anche lontana: su `tmp30515` un canale a 1195 Hz leggeva «WAELB1» di LB1R a 2170).
+   Su `tmp30515` 53 canali in prova, uno confermato (UT4LW a 2556 Hz, «CQ VDE UT4LW UT4LW»), 52 respinti.
+
+   | | vicina `multi` (giusti, nominativi) | `tmp30515` stazioni | presenza | canali in media |
+   |---|---|---|---|---|
+   | base (main) | 0, 0 | 17/26 | 56 % | 6,0 |
+   | conferma N 4, S 8 s (prova di prima) | 239, 10 | 17/26 | 56 % | 8,3 |
+   | + testo diverso dal vicino entro 300 Hz | 239, 10 | 17/26 | 56 % | 8,3 |
+   | + attesa di 8 s, confronto con tutti i canali, parola da QSO | 239, 10 | 17/26 | 56 % | 6,9 |
+   | + testo trattenuto durante la prova (tenuta) | 239, 10 | 17/26 | 56 % | 6,0 |
+
+   Le altre righe `multi` del banco restano identiche (AWGN, Rayleigh, selettivo, deriva, silenzi, solo rumore, seconda tabella); OH3FM
+   sale da 95 a 98 % di presenza (prima nell'elenco 07:35 invece di 07:55). Il ritardo massimo della vicina sale a 4,9 s (testo trattenuto).
+
+2. **Primo carattere incerto (UC0A): tenuta in forma ristretta** (`skim::calls`). La correzione del ramo `prova-bigscan-sequenza-incerti`
+   (il primo carattere sotto 0,6 non entra mai nella parola) senza la sequenza nei canali dava 17/26 e 56 % ma due stazioni solo della
+   banda: EA4GOY@2520 (vera) ed E6SR@1110, falsa: il canale a 1110 Hz sta sulle bande laterali di MM9I (1035 Hz) mescolate a una stazione
+   debole che chiama «CQ WAE ?O6SR»; da «CQQ NE6SR TEST» la N incerta cadeva e restava «E6SR» prima di TEST, cioe' chi chiama. Perdeva
+   anche un po' sul canale singolo (DL2OE verificato 75 -> 67 %, G0MTN chiamante 92 -> 83 %). Tenuta solo cosi': il primo carattere
+   incerto cade soltanto se il resto e' una parola fissa (CQ, TEST, QRZ, DE, TU...). «CQ TDE UC0A» -> «CQ DE UC0A», «CQ VDE UT4LW» ->
+   «CQ DE UT4LW»; «NE6SR» resta «NE6SR». Su `tmp30515` senza sequenza: identico al punto 1 (17/26, 56 %, 6,0, nessuna stazione solo della
+   banda in piu', nessuna perdita). Il ricevitore singolo non usa `CallTracker` (i caratteri non cambiano): sul banco a caratteri nulla
+   da perdere.
+
+   Sequenza anche nei canali con le due correzioni: 16/26, presenza 56 %, canali 6,0, solo banda 2. UC0A resta (la correzione funziona),
+   ma si perde UT4LW (la base lo contava per un nominativo letto a 1470 Hz, 47 minuti dopo) e RN4HAB scende da 88 a 66 %. Non accesa:
+   BigScan resta senza la sequenza.
